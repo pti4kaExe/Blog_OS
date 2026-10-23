@@ -1,0 +1,76 @@
+# BlogOS — Blueprint для Render (free web service).
+#
+# Схема развёртывания: Neon (PostgreSQL 16 + pgvector) → Render (API) →
+# Vercel (клиент). Пошаговая инструкция с проверками — docs/RUNBOOK.md.
+#
+# Особенности сервиса:
+#  - сборки нет: Node 22.18+ исполняет TypeScript напрямую (type stripping),
+#    поэтому запускается apps/api/src/server.ts, а buildCommand только ставит
+#    зависимости монорепо;
+#  - npm workspaces требуют установки из корня репозитория: rootDir = корень,
+#    а не apps/api;
+#  - миграции — отдельная команда. На free-плане preDeployCommand недоступен,
+#    поэтому применяйте их вручную до деплоя (docs/RUNBOOK.md, шаг 4).
+#    На платном плане достаточно раскомментировать preDeployCommand.
+
+services:
+  - type: web
+    name: blogos-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm ci --include=dev
+    startCommand: node apps/api/src/server.ts
+    healthCheckPath: /health
+    # autoDeployTrigger: commit — автодеплой на каждый коммит (значение по
+    # умолчанию для нового сервиса). Поле autoDeploy устарело.
+    autoDeployTrigger: commit
+
+    # Миграции на старте: отдельная команда. На free-плане Render поле
+    # preDeployCommand не поддерживается — оставлено закомментированным.
+    # preDeployCommand: npm run db:migrate
+
+    envVars:
+      # Нативный TypeScript в Node: версия ниже 22.18 не запустит src/server.ts.
+      - key: NODE_VERSION
+        value: 22.18.0
+      - key: NODE_ENV
+        value: production
+
+      # Строка подключения Neon (pooled-вариант, обязателен ?sslmode=require).
+      # Значение задаётся вручную в панели Render: sync: false.
+      - key: DATABASE_URL
+        sync: false
+
+      # Секрет подписи JWT. Render сгенерирует случайное значение сам.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Dev-вход по telegram_id + имя на проде выключен: только подпись Telegram.
+      - key: DEV_AUTH
+        value: "0"
+
+      # AI по умолчанию без сети и денег. Для DeepSeek/OpenAI: смените
+      # значение на deepseek/openai и задайте ключ в панели Render.
+      - key: LLM_PROVIDER
+        value: mock
+      - key: EMBEDDINGS_PROVIDER
+        value: mock
+
+      # Домен клиента на Vercel, например https://blogos.vercel.app.
+      # Несколько источников — через запятую, без слэша на конце.
+      - key: CORS_ORIGIN
+        sync: false
+
+      - key: LOG_LEVEL
+        value: info
+
+      # Необязательные секреты: задаются только при подключении провайдеров.
+      # - key: DEEPSEEK_API_KEY
+      #   sync: false
+      # - key: OPENAI_API_KEY
+      #   sync: false
+      # - key: TELEGRAM_BOT_TOKEN
+      #   sync: false
+      # - key: REDIS_URL
+      #   sync: false

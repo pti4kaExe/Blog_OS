@@ -1,0 +1,66 @@
+name: CI
+
+# Проверки на каждый push и pull request:
+#  - миграции схемы на PGlite (14 таблиц, без Docker и сети);
+#  - 49 тестов движков;
+#  - проверка типов и тесты API;
+#  - сборка статики клиента.
+#
+# Node 22.18 обязателен: сервер исполняет TypeScript напрямую (type stripping),
+# без tsx/esbuild. .npmrc проекта отключает postinstall-скрипты (ignore-scripts),
+# этого достаточно для зависимостей репозитория.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Отдельная база в памяти: тесты и миграции не трогают файлы репозитория.
+  DATABASE_URL: pglite://memory
+  JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+  DEV_AUTH: "1"
+  LLM_PROVIDER: mock
+  EMBEDDINGS_PROVIDER: mock
+  NODE_ENV: test
+
+jobs:
+  test:
+    name: Тесты и сборка (Node 22.18)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: Node.js 22.18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+
+      - name: Установка зависимостей монорепо
+        run: npm ci --ignore-scripts
+
+      - name: Миграции на PGlite (проверка схемы)
+        run: npm run db:migrate
+
+      - name: Тесты движков (49)
+        run: npm run test:engine
+
+      - name: Проверка типов API
+        run: npm run typecheck
+
+      - name: Тесты API
+        run: npm run test:api
+
+      - name: Сборка клиента
+        run: npm run build -w @blogos/web

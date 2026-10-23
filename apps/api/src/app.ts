@@ -13,6 +13,18 @@ import { AppError, fromPostgresError, fromZodError } from './errors.ts'
 import { registerRoutes } from './routes/index.ts'
 import { pingDb } from './db.ts'
 
+export interface RegisteredRoute {
+  method: string
+  url: string
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Все зарегистрированные маршруты (для проверки контракта 59 методов). */
+    routeList: RegisteredRoute[]
+  }
+}
+
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -23,6 +35,17 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
     bodyLimit: 1024 * 1024,
     trustProxy: true,
+  })
+
+  // Учёт маршрутов: контракт фиксирует ровно 59 доменных методов.
+  const routeList: RegisteredRoute[] = []
+  app.decorate('routeList', routeList)
+  app.addHook('onRoute', (route) => {
+    const methods = Array.isArray(route.method) ? route.method : [route.method]
+    for (const method of methods) {
+      if (method === 'HEAD') continue
+      routeList.push({ method, url: route.url })
+    }
   })
 
   await app.register(cors, {

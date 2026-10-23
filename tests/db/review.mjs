@@ -898,6 +898,32 @@ async function makeUserWithChannel(telegramId, label) {
   )
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+group('6. Идемпотентность DDL и служебные каталоги')
+// ═══════════════════════════════════════════════════════════════════════════════
+
+{
+  let reapplyError = null
+  try {
+    await db.exec(ddl) // повторное применение того же файла
+  } catch (error) {
+    reapplyError = String(error?.message ?? error)
+  }
+  const after = await one(
+    `SELECT (SELECT count(*)::int FROM pg_tables WHERE schemaname='public') AS tables,
+            (SELECT count(*)::int FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
+              JOIN pg_namespace n ON n.oid=t.relnamespace
+              WHERE c.contype='f' AND n.nspname='public') AS fks`,
+  )
+  record(
+    'Повторное применение db/sql/001_schema.sql (идемпотентность)',
+    'повторный запуск не падает; 14 таблиц и 18 FK остаются',
+    reapplyError ? `ошибка: ${reapplyError}` : `повторный запуск прошёл: ${JSON.stringify(after)}`,
+    !reapplyError && Number(after.tables) === 14 && Number(after.fks) === 18,
+    reapplyError ?? undefined,
+  )
+}
+
 // ─── Итог ─────────────────────────────────────────────────────────────────────
 await db.closeDb()
 

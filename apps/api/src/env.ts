@@ -83,6 +83,8 @@ const schema = z.object({
   OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   LLM_TIMEOUT_MS: int(45_000, 1_000, 600_000),
+  // 1 — mock-провайдер всегда «падает»: проверка отката на правила в тестах и демо.
+  LLM_MOCK_FAIL: bool(false),
 
   EMBEDDINGS_PROVIDER: z.enum(['mock', 'openai', 'none']).default('mock'),
   EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),

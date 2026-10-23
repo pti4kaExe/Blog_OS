@@ -1,0 +1,2705 @@
+openapi: 3.1.0
+info:
+  title: BlogOS API
+  version: 2.0.0
+  summary: Серверное API BlogOS — 11 групп, 59 методов
+  description: |
+    Машинночитаемое описание контракта [`docs/API.md`](./API.md) — единственного
+    источника истины для сервера, клиента и тестов. ТЗ v1.1, разделы 8 и 12.
+
+    Общие правила:
+    * JSON, UTF-8; ответы и тела — объекты, кроме `204 No Content`;
+    * аутентификация — `Authorization: Bearer <jwt>` (JWT, срок 30 дней);
+    * методы доступны в корне (`/auth/telegram`) и по алиасу `/api/v1/...`
+      для развёртывания за статическим хостом (алиас не дублирует операции,
+      а подставляется reverse-proxy);
+    * списки — `?limit=` (по умолчанию 50, максимум 200), `?cursor=<opaque>`,
+      сортировка `created_at DESC`, формат `{ "items": [...], "next_cursor": … }`;
+    * `bigint` в JSON — числом, если значение ≤ 2^53, иначе строкой; клиент
+      обязан принимать оба варианта;
+    * время — ISO 8601 с зоной, UTC (`2026-10-23T21:34:31.000Z`);
+    * идемпотентность — `POST …/posts/import` и `POST …/comments/scan`
+      дедуплицируют по `external_id`;
+    * валюта — `numeric(12,2)` в рублях, `cost` — `numeric(12,6)`.
+
+    Единый конверт ошибок: `{ "error": { "code", "message", "details" } }`.
+    Роли: `user` — только свои записи, чужие → `404`; `admin` — плюс
+    `golden-dataset` и `evals`. Роли через API не выдаются.
+  contact:
+    name: BlogOS
+  license:
+    name: Учебный проект
+servers:
+  - url: http://localhost:3000
+    description: Локальный сервер (Node.js 24, Fastify 5)
+  - url: https://blogos-api.onrender.com
+    description: Демо-развёртывание (Render free; первый запрос после простоя — 30–60 с)
+security:
+  - bearerAuth: []
+tags:
+  - name: Вход и пользователь
+    description: 4 метода — Telegram `initData` / dev-вход, профиль, удаление аккаунта
+  - name: Каналы
+    description: 6 методов — `author_profiles`, расходы AI по каналу
+  - name: Стиль
+    description: 3 метода — `tov_profiles`, 1:1 с каналом, минимум 180 символов
+  - name: Посты
+    description: 6 методов — архив постов, импорт с площадок
+  - name: Черновики
+    description: 7 методов — черновики, Narrative Engine, публикация в архив
+  - name: Проверка
+    description: 3 метода — AntiCringe, неизменяемая история отчётов
+  - name: Источники
+    description: 5 методов — отслеживаемые площадки CommentRadar
+  - name: Комментарии
+    description: 6 методов — комментарии, сканирование площадки
+  - name: Варианты ответа
+    description: 6 методов — ответы из четырёх частей, одобрение без выдуманных фактов
+  - name: База знаний
+    description: 6 методов — факты автора, RAG-поиск по HNSW
+  - name: Служебные
+    description: 7 методов — журнал расходов, golden-dataset и Evals (только admin)
+
+paths:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 1. Вход и пользователь — 4 метода
+  # ═══════════════════════════════════════════════════════════════════════════
+  /auth/telegram:
+    post:
+      tags: [Вход и пользователь]
+      operationId: authTelegram
+      summary: Вход через Telegram (или dev-вход при DEV_AUTH=1)
+      description: |
+        Создаёт учётную запись при первом входе, иначе возвращает существующую.
+        Боевой режим — HMAC-SHA256-подпись Telegram `initData`. В режиме
+        `DEV_AUTH=1` вместо подписи принимается пара `telegram_id` + `name`.
+        Отдельной регистрации нет.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthInput' }
+            examples:
+              dev:
+                summary: Dev-вход
+                value: { telegram_id: 100500, name: Демо-автор }
+              telegram:
+                summary: Боевой вход
+                value: { initData: 'query_id=AAH…&hash=…' }
+      responses:
+        '200':
+          description: Токен и пользователь
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+              example:
+                token: eyJhbGciOiJIUzI1NiJ9…
+                expires_at: '2026-11-22T21:34:31.000Z'
+                user:
+                  id: 1
+                  telegram_id: 100500
+                  name: Демо-автор
+                  role: user
+                  created_at: '2026-10-23T21:34:31.000Z'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/Internal' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /users/me:
+    get:
+      tags: [Вход и пользователь]
+      operationId: getMe
+      summary: Профиль текущего пользователя и число каналов
+      responses:
+        '200':
+          description: Профиль
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserMe' }
+              example:
+                id: 1
+                telegram_id: 100500
+                name: Демо-автор
+                role: user
+                created_at: '2026-10-23T21:34:31.000Z'
+                updated_at: '2026-10-23T21:34:31.000Z'
+                author_profiles_count: 2
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/Internal' }
+    patch:
+      tags: [Вход и пользователь]
+      operationId: updateMe
+      summary: Изменить имя. Смена роли невозможна — поле игнорируется
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+            example: { name: Новое имя }
+      responses:
+        '200':
+          description: Обновлённый пользователь
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/Internal' }
+    delete:
+      tags: [Вход и пользователь]
+      operationId: deleteMe
+      summary: Удалить аккаунт; каскад личных записей, журнал расходов остаётся
+      description: |
+        Каскадом уходят каналы, стили, посты, черновики, отчёты, источники,
+        комментарии, ответы, база знаний и векторы. Записи `generation_runs`
+        остаются с `author_id = null`. Повторный вызов → `401`.
+      responses:
+        '204': { description: 'Аккаунт удалён (No Content)' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/Internal' }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 2. Каналы — 6 методов
+  # ═══════════════════════════════════════════════════════════════════════════
+  /author-profiles:
+    get:
+      tags: [Каналы]
+      operationId: listAuthorProfiles
+      summary: Список каналов пользователя
+      parameters:
+        - $ref: '#/components/parameters/PlatformQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница каналов (`created_at DESC`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthorProfileList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/Internal' }
+    post:
+      tags: [Каналы]
+      operationId: createAuthorProfile
+      summary: Создать канал
+      description: 'Лимит каналов: 20 на пользователя → `422`. Имена не уникальны.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthorProfileInput' }
+            example:
+              name: Заметки разработчика
+              platform: telegram
+              description: О чём канал
+              content_settings:
+                topics: [код, учёба]
+                language: ru
+                target_length: { min: 800, max: 2500 }
+              monthly_cost_limit: 500
+      responses:
+        '201':
+          description: Созданный канал
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthorProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /author-profiles/{id}:
+    get:
+      tags: [Каналы]
+      operationId: getAuthorProfile
+      summary: Канал с количеством стилей, постов и черновиков
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Канал
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthorProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    patch:
+      tags: [Каналы]
+      operationId: updateAuthorProfile
+      summary: Частичное обновление канала
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthorProfilePatch' }
+      responses:
+        '200':
+          description: Обновлённый канал
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthorProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    delete:
+      tags: [Каналы]
+      operationId: deleteAuthorProfile
+      summary: Удалить канал; каскад, generation_runs.author_id → null
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: Канал удалён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /author-profiles/{id}/usage:
+    get:
+      tags: [Каналы]
+      operationId: getUsage
+      summary: Расходы AI по каналу за текущий месяц
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: '`warning` при ≥ 80% лимита, `blocked` при ≥ 100%'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usage' }
+              example:
+                author_profile_id: 7
+                period: '2026-10'
+                monthly_cost_limit: 500
+                spent: 123.45
+                limit_ratio: 0.2469
+                warning: false
+                blocked: false
+                runs: { total: 42, success: 40, failed: 2 }
+                by_task:
+                  - { task_type: lint, runs: 30, tokens: 120000, cost: 90.1 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  # PATHS-G3
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 3. Стиль — 3 метода
+  # ═══════════════════════════════════════════════════════════════════════════
+  /author-profiles/{id}/tov:
+    get:
+      tags: [Стиль]
+      operationId: getTov
+      summary: Профиль стиля канала или 404, если не построен
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Профиль стиля
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TovProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    put:
+      tags: [Стиль]
+      operationId: putTov
+      summary: Полная замена профиля стиля (идемпотентный upsert)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TovInput' }
+      responses:
+        '200':
+          description: Профиль стиля
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TovProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /author-profiles/{id}/tov/analyze:
+    post:
+      tags: [Стиль]
+      operationId: analyzeTov
+      summary: Собрать профиль стиля из текстов канала (≥ 180 символов)
+      description: |
+        `texts` (2—3 поста) **или** последние посты канала при `use_archive`.
+        Суммарно меньше 180 символов → `422 details.reason = "too_short"`,
+        `details.length`. Правиловый движок строит профиль всегда; LLM —
+        второй слой при доступности. Превышение лимита канала → `402`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TovAnalyzeInput' }
+            example:
+              texts: [первый пост…, второй пост…]
+              use_archive: false
+      responses:
+        '200':
+          description: Профиль, метаданные анализа и признак отката на правила
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TovAnalyzeResponse' }
+              example:
+                tov_profile: { id: 1, author_id: 1, tone: ты, slang: [], stop_words: [], favorite_phrases: [] }
+                analysis: { source: rules, chars: 1840, posts_used: 2 }
+                verified_without_ai: false
+                generation_run_id: 1001
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/BudgetExceeded' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 4. Посты — 6 методов
+  # ═══════════════════════════════════════════════════════════════════════════
+  /author-profiles/{id}/posts:
+    get:
+      tags: [Посты]
+      operationId: listPosts
+      summary: Архив постов канала
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/ContentTypeQuery'
+        - $ref: '#/components/parameters/FromQuery'
+        - $ref: '#/components/parameters/ToQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница постов (`created_at DESC`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PostList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    post:
+      tags: [Посты]
+      operationId: createPost
+      summary: Добавить пост в архив
+      description: |
+        Лимиты длины по площадке (ТЗ, раздел 7): telegram `post` ≤ 4096;
+        instagram `caption` ≤ 2200, `reels_script`; youtube `video_script`,
+        `video_description` ≤ 5000. Превышение → `422 details.limit`.
+        Побочно пересчитываются `embeddings` при `EMBEDDINGS_PROVIDER ≠ mock`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PostInput' }
+            example:
+              content_type: post
+              text: текст поста
+              external_id: '123'
+              external_url: 'https://t.me/example/123'
+              published_at: '2026-10-01T10:00:00Z'
+      responses:
+        '201':
+          description: Созданный пост
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Post' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /author-profiles/{id}/posts/import:
+    post:
+      tags: [Посты]
+      operationId: importPosts
+      summary: Импорт постов с площадки (Telegram, Instagram, YouTube)
+      description: |
+        Дедупликация по `(author_id, external_id)`. Ошибка площадки → одна
+        повторная попытка, затем `502 details.platform`; уже импортированное
+        не откатывается. Без ключей площадки — `503 not_configured`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ImportInput' }
+            example: { platform: telegram, source_url: 'https://t.me/s/channel', limit: 50 }
+      responses:
+        '200':
+          description: Итоги импорта (идемпотентно по `external_id`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportResult' }
+              example: { imported: 12, skipped_duplicates: 3, skipped_invalid: 0, errors: [], checked: 15 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /author-profiles/{id}/posts/{postId}:
+    get:
+      tags: [Посты]
+      operationId: getPost
+      summary: Пост по идентификатору
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/PostIdPath'
+      responses:
+        '200':
+          description: Пост
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Post' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    patch:
+      tags: [Посты]
+      operationId: updatePost
+      summary: Правка поста (правка текста пересчитывает векторы)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/PostIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PostPatch' }
+      responses:
+        '200':
+          description: Обновлённый пост
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Post' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+    delete:
+      tags: [Посты]
+      operationId: deletePost
+      summary: Удалить пост; drafts.published_post_id → null
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/PostIdPath'
+      responses:
+        '204': { description: Пост удалён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 5. Черновики — 7 методов
+  # ═══════════════════════════════════════════════════════════════════════════
+  /author-profiles/{id}/drafts:
+    get:
+      tags: [Черновики]
+      operationId: listDrafts
+      summary: Черновики канала
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/OriginQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница черновиков (`created_at DESC`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DraftList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    post:
+      tags: [Черновики]
+      operationId: createDraft
+      summary: Создать черновик вручную
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DraftInput' }
+            example:
+              title: Черновик
+              source_notes: "заметка 1\nзаметка 2"
+              text: ''
+              origin: author
+      responses:
+        '201':
+          description: Созданный черновик
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Draft' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /author-profiles/{id}/drafts/generate:
+    post:
+      tags: [Черновики]
+      operationId: generateDraft
+      summary: Сборка поста Narrative Engine из заметок
+      description: |
+        `mode: notes` — сборка по сюжетной арке; `mode: draft` — текст как есть.
+        Пустые заметки → `422 details.reason = "empty_notes"`. При доступной
+        LLM блоки собирает модель; при отказе — правила и
+        `verified_without_ai: true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DraftGenerateInput' }
+            example: { source_notes: "заметка 1\nзаметка 2", arc: null, mode: notes }
+      responses:
+        '201':
+          description: Черновик, блоки сборки и признак отката
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DraftGenerateResponse' }
+              example:
+                draft: { id: 5, author_id: 1, text: '…', origin: narrative_engine, status: draft, arc: story_case }
+                build:
+                  arc: story_case
+                  arc_auto: true
+                  blocks:
+                    - { role: hook, text: '…', fragment: 'заметка 1' }
+                  added_by_engine: ['…']
+                  notes_used: 4
+                  notes_dropped: 0
+                verified_without_ai: true
+                generation_run_id: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/BudgetExceeded' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /drafts/{id}:
+    get:
+      tags: [Черновики]
+      operationId: getDraft
+      summary: Черновик с последним отчётом проверки
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Черновик; `latest_lint_report` — последний отчёт или null
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Draft' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    patch:
+      tags: [Черновики]
+      operationId: updateDraft
+      summary: Изменить черновик; смена статуса по цепочке draft → on_check → ready → published
+      description: |
+        Обратные переходы разрешены, кроме ухода из `published` (нужен
+        `DELETE …/publish`, метода нет → `422`). `422` также при `approved`
+        без `approved_at` (для ответов) и пропусках `[дополните: …]`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DraftPatch' }
+            example: { text: '…', title: '…', status: on_check, source_notes: '…', arc: story_case }
+      responses:
+        '200':
+          description: Обновлённый черновик
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Draft' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+    delete:
+      tags: [Черновики]
+      operationId: deleteDraft
+      summary: Удалить черновик; lint_reports уходят каскадом
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: Черновик удалён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /drafts/{id}/publish:
+    post:
+      tags: [Черновики]
+      operationId: publishDraft
+      summary: Опубликовать черновик в архив (без отправки на площадку)
+      description: |
+        Создаёт запись в `posts`, ставит `status = published`, связывает
+        `published_post_id`. Блокировки: `422 details.reason` ∈ `not_ready`
+        (статус не `ready`), `unfilled_gaps` (в тексте остались
+        `[дополните: …]`), `empty_text`. На площадку ничего не отправляется —
+        границы проекта, ТЗ раздел 3.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PublishInput' }
+            example: { published_at: '2026-10-23T12:00:00Z' }
+      responses:
+        '200':
+          description: Черновик и созданный пост
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublishResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 6. Проверка — 3 метода
+  # ═══════════════════════════════════════════════════════════════════════════
+  /drafts/{id}/lint:
+    post:
+      tags: [Проверка]
+      operationId: runLint
+      summary: AntiCringe — правиловый слой всегда, LLM вторым слоем
+      description: |
+        Пустой текст → `422`. Отчёт неизменяем: повторная проверка создаёт
+        новую запись (история — цепочка). Превышение лимита канала → `402`,
+        но проверка выполняется правилами с `verified_without_ai: true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LintInput' }
+            example: { use_llm: true }
+      responses:
+        '201':
+          description: Новый отчёт проверки
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LintResponse' }
+              example:
+                lint_report:
+                  id: 88
+                  draft_id: 31
+                  score: 86
+                  engine: rules
+                  generation_run_id: null
+                  created_at: '2026-10-23T12:00:00.000Z'
+                  issues:
+                    - id: cliche-12
+                      type: cliche
+                      category: cliche
+                      quote: в современном мире
+                      start: 10
+                      end: 27
+                      explanation: 'Клише: фраза не несёт смысла'
+                      suggestion: Убрать оборот
+                      severity: medium
+                      fixable: true
+                groups: { cliche: 2, logic: 1, tov: 0, clarity: 1 }
+                verdict: Можно публиковать
+                verified_without_ai: true
+                ai_skipped_reason: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/BudgetExceeded' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /drafts/{id}/lint-reports:
+    get:
+      tags: [Проверка]
+      operationId: listLintReports
+      summary: История проверок черновика (`created_at DESC`)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница отчётов
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LintReportList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /lint-reports/{id}:
+    get:
+      tags: [Проверка]
+      operationId: getLintReport
+      summary: Отчёт проверки (после удаления черновика — 404)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Отчёт
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LintReport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 7. Источники — 5 методов
+  # ═══════════════════════════════════════════════════════════════════════════
+  /author-profiles/{id}/sources:
+    get:
+      tags: [Источники]
+      operationId: listSources
+      summary: Источники CommentRadar канала
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - name: is_active
+          in: query
+          required: false
+          schema: { type: boolean }
+        - name: source_type
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/SourceType' }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница источников (`created_at DESC`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SourceList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    post:
+      tags: [Источники]
+      operationId: createSource
+      summary: Добавить источник для сканирования
+      description: 'Пара `(author_id, source_url)` уникальна → повтор `409`.'
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SourceInput' }
+            example:
+              name: Канал про код
+              source_type: telegram_channel
+              source_url: 'https://t.me/s/code'
+      responses:
+        '201':
+          description: Созданный источник
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Source' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /sources/{id}:
+    get:
+      tags: [Источники]
+      operationId: getSource
+      summary: Источник с числом комментариев и статусом сканирования
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Источник
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Source' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    patch:
+      tags: [Источники]
+      operationId: updateSource
+      summary: Обновить источник; is_active=false выключает отслеживание
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SourcePatch' }
+      responses:
+        '200':
+          description: Обновлённый источник
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Source' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/Internal' }
+    delete:
+      tags: [Источники]
+      operationId: deleteSource
+      summary: Удалить источник; комментарии и ответы каскадом
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: Источник удалён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 8. Комментарии — 6 методов
+  # ═══════════════════════════════════════════════════════════════════════════
+  /sources/{id}/comments:
+    get:
+      tags: [Комментарии]
+      operationId: listComments
+      summary: Комментарии источника
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/FromQuery'
+        - $ref: '#/components/parameters/ToQuery'
+      responses:
+        '200':
+          description: Страница комментариев (`created_at DESC`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommentList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    post:
+      tags: [Комментарии]
+      operationId: createComment
+      summary: Ручное добавление комментария
+      description: '`external_id` не передаётся — сервер ставит `manual:<id>`.'
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommentInput' }
+            example:
+              commenter_name: Читатель
+              text: А как вы это настроили?
+              posted_at: '2026-10-20T09:00:00Z'
+      responses:
+        '201':
+          description: Созданный комментарий
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /sources/{id}/comments/scan:
+    post:
+      tags: [Комментарии]
+      operationId: scanComments
+      summary: Сканирование площадки (идемпотентно по external_id)
+      description: |
+        Ошибка площадки → одна повторная попытка → `502`, источник помечается
+        `last_scan_status = "failed"`; ранее найденные комментарии остаются.
+        Неактивный источник → `422`. Тот же источник чаще, чем раз в 60 секунд,
+        → `429`. Без ключей площадки — `503 not_configured`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScanInput' }
+            example: { limit: 100 }
+      responses:
+        '200':
+          description: Итоги сканирования
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanResult' }
+              example:
+                source_id: 3
+                found: 12
+                created: 8
+                duplicates: 4
+                last_scanned_at: '2026-10-23T12:00:00.000Z'
+                status: ok
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/Internal' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /comments/{id}:
+    get:
+      tags: [Комментарии]
+      operationId: getComment
+      summary: Комментарий с числом вариантов ответа
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Комментарий
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    patch:
+      tags: [Комментарии]
+      operationId: updateComment
+      summary: Изменить комментарий
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommentPatch' }
+      responses:
+        '200':
+          description: Обновлённый комментарий
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    delete:
+      tags: [Комментарии]
+      operationId: deleteComment
+      summary: Удалить комментарий; варианты ответа каскадом
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: Комментарий удалён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 9. Варианты ответа — 6 методов
+  # ═══════════════════════════════════════════════════════════════════════════
+  /comments/{id}/responses:
+    get:
+      tags: [Варианты ответа]
+      operationId: listResponses
+      summary: Варианты ответа на комментарий
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница ответов (`created_at DESC`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResponseList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    post:
+      tags: [Варианты ответа]
+      operationId: createResponse
+      summary: Добавить вариант ответа вручную (status = generated)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResponseInput' }
+            example: { response_text: 'Спасибо! У меня было так: …' }
+      responses:
+        '201':
+          description: Созданный ответ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Response' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /comments/{id}/responses/generate:
+    post:
+      tags: [Варианты ответа]
+      operationId: generateResponse
+      summary: Сгенерировать ответ из четырёх частей в стиле автора
+      description: |
+        Движок не выдумывает факты: в части `gap` остаётся
+        `[дополните: …]`, пока автор не заполнит. Превышение лимита → `402`;
+        при отказе LLM — правила и `verified_without_ai: true`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResponseGenerateInput' }
+            example: { count: 2 }
+      responses:
+        '201':
+          description: Сгенерированные варианты и база подсказки
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResponseGenerateResponse' }
+              example:
+                responses:
+                  - id: 12
+                    comment_id: 8
+                    response_text: 'Спасибо за вопрос! …'
+                    status: generated
+                    parts:
+                      reference: '…'
+                      experience: '…'
+                      gap: '[дополните: пример из практики]'
+                      question: '…'
+                    generation_run_id: 1002
+                verified_without_ai: false
+                based_on_post_id: 44
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/BudgetExceeded' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /responses/{id}:
+    get:
+      tags: [Варианты ответа]
+      operationId: getResponse
+      summary: Вариант ответа
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Ответ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Response' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    patch:
+      tags: [Варианты ответа]
+      operationId: updateResponse
+      summary: Правка и смена статуса ответа
+      description: |
+        Переходы: `generated → pending_approval → approved | rejected`;
+        `approved → sent`. `422 details.reason = "unfilled_gaps"` — остались
+        `[дополните: …]`; `422 details.reason = "approved_at_required"` —
+        статус `approved`/`sent`: сервер проставляет `approved_at` сам.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResponsePatch' }
+            example: { edited_text: '…', status: approved }
+      responses:
+        '200':
+          description: Обновлённый ответ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Response' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+    delete:
+      tags: [Варианты ответа]
+      operationId: deleteResponse
+      summary: Удалить вариант ответа
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: Ответ удалён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 10. База знаний — 6 методов
+  # ═══════════════════════════════════════════════════════════════════════════
+  /author-profiles/{id}/knowledge:
+    get:
+      tags: [База знаний]
+      operationId: listKnowledge
+      summary: Факты автора для RAG
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница фактов (`created_at DESC`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KnowledgeList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    post:
+      tags: [База знаний]
+      operationId: createKnowledge
+      summary: Добавить факт; побочно считается вектор ранга knowledge_base
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgeInput' }
+            example: { title: Обо мне, content: Работаю в продуктовой аналитике с 2019 года }
+      responses:
+        '201':
+          description: Созданный факт
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Knowledge' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /author-profiles/{id}/knowledge/search:
+    get:
+      tags: [База знаний]
+      operationId: searchKnowledge
+      summary: RAG-поиск по фактам автора (косинусное расстояние, HNSW)
+      description: |
+        Поиск по косинусному расстоянию через HNSW-индекс. Модель эмбеддингов
+        недоступна → `503`. Пустой `q` → `400`.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - name: q
+          in: query
+          required: true
+          description: Текст запроса
+          schema: { type: string, minLength: 1 }
+        - name: limit
+          in: query
+          required: false
+          description: 'Число чанков, по умолчанию `RAG_TOP_K` (5)'
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 5
+      responses:
+        '200':
+          description: Найденные чанки
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /knowledge/{id}:
+    get:
+      tags: [База знаний]
+      operationId: getKnowledge
+      summary: Факт базы знаний
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: Факт
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Knowledge' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    patch:
+      tags: [База знаний]
+      operationId: updateKnowledge
+      summary: Правка факта; пересчитывается вектор
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KnowledgePatch' }
+      responses:
+        '200':
+          description: Обновлённый факт
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Knowledge' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    delete:
+      tags: [База знаний]
+      operationId: deleteKnowledge
+      summary: Удалить факт; векторы уходят каскадом
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: Факт удалён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 11. Служебные — 7 методов
+  # ═══════════════════════════════════════════════════════════════════════════
+  /generation-runs:
+    get:
+      tags: [Служебные]
+      operationId: listGenerationRuns
+      summary: Журнал вызовов AI и расходов (автор — только свои каналы)
+      description: '`user` видит только свои каналы, `admin` — все.'
+      parameters:
+        - $ref: '#/components/parameters/AuthorProfileIdQuery'
+        - $ref: '#/components/parameters/TaskTypeQuery'
+        - $ref: '#/components/parameters/RunStatusQuery'
+        - $ref: '#/components/parameters/FromQuery'
+        - $ref: '#/components/parameters/ToQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница вызовов (`created_at DESC`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GenerationRunList' }
+              example:
+                items:
+                  - id: 1001
+                    author_id: 7
+                    task_type: lint
+                    model: deepseek-chat
+                    tokens_input: 900
+                    tokens_output: 300
+                    tokens: 1200
+                    cost: 0.0123
+                    status: success
+                    error_message: null
+                    duration_ms: 2100
+                    created_at: '2026-10-23T12:00:00.000Z'
+                next_cursor: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /golden-dataset:
+    get:
+      tags: [Служебные]
+      operationId: listGoldenDataset
+      summary: Эталонные тексты (только admin)
+      parameters:
+        - $ref: '#/components/parameters/PlatformQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница эталонов
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoldenList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/Internal' }
+    post:
+      tags: [Служебные]
+      operationId: createGolden
+      summary: Добавить эталон (только admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoldenInput' }
+            example:
+              text: эталонный текст
+              labels:
+                - { type: cliche, quote: в современном мире, start: 0, end: 17 }
+              platform: telegram
+      responses:
+        '201':
+          description: Созданный эталон
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Golden' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /golden-dataset/{id}:
+    patch:
+      tags: [Служебные]
+      operationId: updateGolden
+      summary: Изменить эталон (только admin)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoldenPatch' }
+      responses:
+        '200':
+          description: Обновлённый эталон
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Golden' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+    delete:
+      tags: [Служебные]
+      operationId: deleteGolden
+      summary: Удалить эталон (только admin)
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: Эталон удалён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /evals/run:
+    post:
+      tags: [Служебные]
+      operationId: runEvals
+      summary: Прогон Evals по всему golden_dataset (только admin)
+      description: 'Прогоняет `lint()` по эталонам, считает precision/recall. Пустой набор → `422`.'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EvalRunInput' }
+            example: { use_llm: false, platform: null }
+      responses:
+        '201':
+          description: Итоги прогона
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvalRunResponse' }
+              example:
+                generation_run_id: 1003
+                summary: { goldens: 12, precision: 0.91, recall: 0.84, matched: 34, missed: 6, false_positive: 3 }
+                results:
+                  - { golden_id: 1, precision: 1, recall: 0.5, matched: [], missed: [], false_positive: [] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /evals/runs:
+    get:
+      tags: [Служебные]
+      operationId: listEvals
+      summary: Прогоны Evals (только admin)
+      description: 'С `?generation_run_id=` — результаты прогона; без него — сводка по прогонам, `created_at DESC`.'
+      parameters:
+        - $ref: '#/components/parameters/GenerationRunIdQuery'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница прогонов или результатов
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvalRunsList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Internal' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: Размер страницы. По умолчанию 50, максимум 200
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      description: Непрозрачный курсор из `next_cursor` предыдущей страницы
+      required: false
+      schema:
+        type: string
+    IdPath:
+      name: id
+      in: path
+      required: true
+      description: Идентификатор записи (`bigint`)
+      schema: { $ref: '#/components/schemas/Id' }
+    PostIdPath:
+      name: postId
+      in: path
+      required: true
+      description: Идентификатор поста (`bigint`)
+      schema: { $ref: '#/components/schemas/Id' }
+    PlatformQuery:
+      name: platform
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/Platform' }
+    StatusQuery:
+      name: status
+      in: query
+      required: false
+      description: Фильтр по статусу (зависит от типа записи)
+      schema:
+        type: string
+    OriginQuery:
+      name: origin
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/DraftOrigin' }
+    ContentTypeQuery:
+      name: content_type
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/ContentType' }
+    FromQuery:
+      name: from
+      in: query
+      required: false
+      description: Начало диапазона по `created_at` (ISO 8601)
+      schema:
+        type: string
+        format: date-time
+    ToQuery:
+      name: to
+      in: query
+      required: false
+      description: Конец диапазона по `created_at` (ISO 8601)
+      schema:
+        type: string
+        format: date-time
+    AuthorProfileIdQuery:
+      name: author_profile_id
+      in: query
+      required: false
+      description: Фильтр журнала по каналу (только своего; admin — любой)
+      schema: { $ref: '#/components/schemas/Id' }
+    TaskTypeQuery:
+      name: task_type
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/TaskType' }
+    RunStatusQuery:
+      name: status
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/RunStatus' }
+    GenerationRunIdQuery:
+      name: generation_run_id
+      in: query
+      required: false
+      description: Прогон Evals, для которого вернуть результаты
+      schema: { $ref: '#/components/schemas/Id' }
+
+  responses:
+    BadRequest:
+      description: '`400 validation_error` — тело или параметры не проходят схему; `details.fields`'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: validation_error
+              message: Данные не проходят проверку
+              details:
+                fields:
+                  - path: name
+                    message: String must contain at least 1 character(s)
+    Unauthorized:
+      description: '`401 unauthorized` — нет токена, он просрочен или подпись неверна'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error: { code: unauthorized, message: Требуется вход, details: {} }
+    Forbidden:
+      description: '`403 forbidden` — нет роли `admin` или действие запрещено'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error: { code: forbidden, message: Действие запрещено, details: {} }
+    NotFound:
+      description: '`404 not_found` — записи нет **или** она чужая (наличие не раскрывается)'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error: { code: not_found, message: Запись не найдена, details: {} }
+    Conflict:
+      description: '`409 conflict` — нарушение уникальности; `details.constraint`'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: conflict
+              message: Такая запись уже существует
+              details:
+                constraint: tov_profiles_author_id_key
+    Unprocessable:
+      description: '`422 unprocessable` — валидно по форме, но неприменимо; `details.reason`'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: unprocessable
+              message: Профиль стиля не построен
+              details: { reason: too_short, length: 96 }
+    BudgetExceeded:
+      description: '`402 ai_budget_exceeded` — достигнут `monthly_cost_limit`; AI не вызывается, `details.fallback = "rules"`'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: ai_budget_exceeded
+              message: Месячный лимит расходов на AI исчерпан
+              details: { fallback: rules }
+    RateLimited:
+      description: '`429 rate_limited` — слишком частые сканирования'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error: { code: rate_limited, message: Слишком часто, details: {} }
+    Internal:
+      description: '`500 internal` — непредвиденная ошибка; текст исключения наружу не отдаётся'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error: { code: internal, message: Внутренняя ошибка сервера, details: {} }
+    BadGateway:
+      description: '`502 upstream_unavailable` — площадка недоступна после одной повторной попытки'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: upstream_unavailable
+              message: Telegram недоступен
+              details: { platform: telegram }
+    ServiceUnavailable:
+      description: '`503 not_configured` — адаптер площадки или модель эмбеддингов не настроены'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: not_configured
+              message: 'instagram: доступ не настроен'
+              details: { reason: not_configured }
+
+  schemas:
+    Id:
+      description: '`bigint`: числом, если значение ≤ 2^53, иначе строкой (клиент принимает оба варианта)'
+      oneOf:
+        - type: integer
+          format: int64
+        - type: string
+          pattern: '^[0-9]+$'
+    Timestamp:
+      type: string
+      format: date-time
+      description: ISO 8601 с зоной, UTC
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              enum:
+                - validation_error
+                - unauthorized
+                - forbidden
+                - not_found
+                - conflict
+                - unprocessable
+                - ai_budget_exceeded
+                - rate_limited
+                - upstream_unavailable
+                - not_configured
+                - internal
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+              description: 'Для `validation_error` — `fields`, для `402` — `fallback: "rules"`'
+    Page:
+      type: object
+      description: Метаданные страницы списка
+      properties:
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+      required: [next_cursor]
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, telegram_id, name, role, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        telegram_id: { $ref: '#/components/schemas/Id' }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    UserMe:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          required: [author_profiles_count]
+          properties:
+            author_profiles_count: { type: integer, minimum: 0 }
+    Role:
+      type: string
+      enum: [user, admin]
+    Platform:
+      type: string
+      enum: [telegram, instagram, youtube]
+    ContentType:
+      type: string
+      enum: [post, caption, reels_script, video_script, video_description]
+    DraftOrigin:
+      type: string
+      enum: [author, narrative_engine]
+    DraftStatus:
+      type: string
+      enum: [draft, on_check, ready, published]
+    ResponseStatus:
+      type: string
+      enum: [generated, pending_approval, approved, rejected, sent]
+    SourceType:
+      type: string
+      enum: [telegram_channel, telegram_chat, instagram, youtube, manual]
+    ScanStatus:
+      type: string
+      enum: [never, ok, failed]
+    TaskType:
+      type: string
+      enum: [narrative_generate, lint, tov_analyze, response_generate, embeddings]
+    RunStatus:
+      type: string
+      enum: [pending, success, failed]
+    AuthInput:
+      type: object
+      description: '`initData` боевого входа **или** пара `telegram_id`+`name` при `DEV_AUTH=1`'
+      additionalProperties: false
+      properties:
+        initData: { type: string }
+        telegram_id: { $ref: '#/components/schemas/Id' }
+        name: { type: string, minLength: 1, maxLength: 200 }
+    AuthResponse:
+      type: object
+      additionalProperties: false
+      required: [token, expires_at, user]
+      properties:
+        token: { type: string }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        user: { $ref: '#/components/schemas/User' }
+    AuthorProfileInput:
+      type: object
+      required: [name, platform]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        platform: { $ref: '#/components/schemas/Platform' }
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        content_settings:
+          oneOf:
+            - $ref: '#/components/schemas/ContentSettings'
+            - type: 'null'
+        monthly_cost_limit:
+          oneOf:
+            - type: number
+              format: double
+              minimum: 0
+            - type: 'null'
+    AuthorProfilePatch:
+      type: object
+      additionalProperties: false
+      description: Частичное обновление тех же полей
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        content_settings:
+          oneOf:
+            - $ref: '#/components/schemas/ContentSettings'
+            - type: 'null'
+        monthly_cost_limit:
+          oneOf:
+            - type: number
+              format: double
+              minimum: 0
+            - type: 'null'
+    ContentSettings:
+      type: object
+      additionalProperties: true
+      properties:
+        topics:
+          type: array
+          items: { type: string }
+        language: { type: string, default: ru }
+        target_length:
+          type: object
+          required: [min, max]
+          properties:
+            min: { type: integer, minimum: 0 }
+            max: { type: integer, minimum: 0 }
+      example:
+        topics: [код, учёба]
+        language: ru
+        target_length: { min: 800, max: 2500 }
+    AuthorProfile:
+      type: object
+      additionalProperties: false
+      required: [id, user_id, name, platform, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        user_id: { $ref: '#/components/schemas/Id' }
+        name: { type: string }
+        platform: { $ref: '#/components/schemas/Platform' }
+        description:
+          oneOf:
+            - type: string
+            - type: 'null'
+        content_settings:
+          oneOf:
+            - $ref: '#/components/schemas/ContentSettings'
+            - type: 'null'
+        monthly_cost_limit:
+          oneOf:
+            - type: number
+            - type: 'null'
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+        tov_profiles_count: { type: integer, minimum: 0 }
+        posts_count: { type: integer, minimum: 0 }
+        drafts_count: { type: integer, minimum: 0 }
+    AuthorProfileList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AuthorProfile' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    UsageByTask:
+      type: object
+      required: [task_type, runs, tokens, cost]
+      properties:
+        task_type: { $ref: '#/components/schemas/TaskType' }
+        runs: { type: integer, minimum: 0 }
+        tokens: { type: integer, minimum: 0 }
+        cost: { type: number }
+    Usage:
+      type: object
+      required: [author_profile_id, period, monthly_cost_limit, spent, limit_ratio, warning, blocked, runs, by_task]
+      properties:
+        author_profile_id: { $ref: '#/components/schemas/Id' }
+        period: { type: string, example: '2026-10' }
+        monthly_cost_limit:
+          oneOf:
+            - type: number
+            - type: 'null'
+        spent: { type: number }
+        limit_ratio: { type: number, description: '`spent / monthly_cost_limit`' }
+        warning: { type: boolean, description: '`limit_ratio ≥ COST_WARN_RATIO` (0.8)' }
+        blocked: { type: boolean, description: '`limit_ratio ≥ 1`: AI-вызовы не выполняются' }
+        runs:
+          type: object
+          required: [total, success, failed]
+          properties:
+            total: { type: integer, minimum: 0 }
+            success: { type: integer, minimum: 0 }
+            failed: { type: integer, minimum: 0 }
+        by_task:
+          type: array
+          items: { $ref: '#/components/schemas/UsageByTask' }
+    TovInput:
+      type: object
+      required: [tone]
+      additionalProperties: false
+      properties:
+        tone: { type: string, enum: [ты, вы, смешанное] }
+        slang:
+          type: array
+          items: { type: string }
+        stop_words:
+          type: array
+          items: { type: string }
+        favorite_phrases:
+          type: array
+          items: { type: string }
+        metrics:
+          type: object
+          additionalProperties: true
+      example:
+        tone: ты
+        slang: [кринж, залипать]
+        stop_words: [синергия]
+        favorite_phrases: [по делу]
+        metrics:
+          avg_sentence_length: 11.4
+    TovProfile:
+      allOf:
+        - $ref: '#/components/schemas/TovInput'
+        - type: object
+          required: [id, author_id, created_at, updated_at]
+          properties:
+            id: { $ref: '#/components/schemas/Id' }
+            author_id: { $ref: '#/components/schemas/Id' }
+            analyzed_at:
+              oneOf:
+                - $ref: '#/components/schemas/Timestamp'
+                - type: 'null'
+            generation_run_id:
+              oneOf:
+                - $ref: '#/components/schemas/Id'
+                - type: 'null'
+            created_at: { $ref: '#/components/schemas/Timestamp' }
+            updated_at: { $ref: '#/components/schemas/Timestamp' }
+    TovAnalyzeInput:
+      type: object
+      additionalProperties: false
+      properties:
+        texts:
+          type: array
+          minItems: 2
+          maxItems: 3
+          items: { type: string }
+          description: 2—3 поста; суммарно ≥ 180 символов, иначе `422 details.reason = "too_short"`
+        use_archive:
+          type: boolean
+          default: false
+          description: Взять последние посты канала из `posts` вместо `texts`
+    TovAnalyzeResponse:
+      type: object
+      required: [tov_profile, analysis, verified_without_ai, generation_run_id]
+      properties:
+        tov_profile: { $ref: '#/components/schemas/TovProfile' }
+        analysis:
+          type: object
+          required: [source, chars, posts_used]
+          properties:
+            source: { type: string, enum: [rules, rules+llm] }
+            chars: { type: integer, minimum: 0 }
+            posts_used: { type: integer, minimum: 0 }
+        verified_without_ai: { type: boolean }
+        generation_run_id:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+    PostInput:
+      type: object
+      required: [content_type, text]
+      additionalProperties: false
+      properties:
+        content_type: { $ref: '#/components/schemas/ContentType' }
+        text: { type: string, minLength: 1 }
+        external_id:
+          oneOf:
+            - type: string
+            - type: 'null'
+        external_url:
+          oneOf:
+            - type: string
+              format: uri
+            - type: 'null'
+        published_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    PostPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        content_type: { $ref: '#/components/schemas/ContentType' }
+        text: { type: string, minLength: 1 }
+        external_url:
+          oneOf:
+            - type: string
+              format: uri
+            - type: 'null'
+        published_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    Post:
+      type: object
+      additionalProperties: false
+      required: [id, author_id, content_type, text, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        author_id: { $ref: '#/components/schemas/Id' }
+        content_type: { $ref: '#/components/schemas/ContentType' }
+        text: { type: string }
+        external_id:
+          oneOf:
+            - type: string
+            - type: 'null'
+        external_url:
+          oneOf:
+            - type: string
+            - type: 'null'
+        published_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    PostList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Post' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    ImportInput:
+      type: object
+      required: [platform, source_url]
+      additionalProperties: false
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        source_url: { type: string, format: uri }
+        limit: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    ImportResult:
+      type: object
+      required: [imported, skipped_duplicates, skipped_invalid, errors, checked]
+      properties:
+        imported: { type: integer, minimum: 0 }
+        skipped_duplicates: { type: integer, minimum: 0 }
+        skipped_invalid: { type: integer, minimum: 0 }
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        checked: { type: integer, minimum: 0 }
+    DraftInput:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          oneOf:
+            - type: string
+            - type: 'null'
+        source_notes:
+          oneOf:
+            - type: string
+            - type: 'null'
+        text: { type: string, default: '' }
+        origin: { $ref: '#/components/schemas/DraftOrigin' }
+    DraftPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        text: { type: string }
+        title:
+          oneOf:
+            - type: string
+            - type: 'null'
+        status: { $ref: '#/components/schemas/DraftStatus' }
+        source_notes:
+          oneOf:
+            - type: string
+            - type: 'null'
+        arc:
+          oneOf:
+            - type: string
+            - type: 'null'
+    Draft:
+      type: object
+      additionalProperties: false
+      required: [id, author_id, text, origin, status, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        author_id: { $ref: '#/components/schemas/Id' }
+        title:
+          oneOf:
+            - type: string
+            - type: 'null'
+        source_notes:
+          oneOf:
+            - type: string
+            - type: 'null'
+        text: { type: string }
+        origin: { $ref: '#/components/schemas/DraftOrigin' }
+        status: { $ref: '#/components/schemas/DraftStatus' }
+        arc:
+          oneOf:
+            - type: string
+            - type: 'null'
+        published_post_id:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        latest_lint_report:
+          oneOf:
+            - $ref: '#/components/schemas/LintReport'
+            - type: 'null'
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    DraftList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Draft' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    DraftGenerateInput:
+      type: object
+      required: [source_notes]
+      additionalProperties: false
+      properties:
+        source_notes: { type: string }
+        arc:
+          oneOf:
+            - type: string
+              enum: [story_case, problem_solution, opinion_breakdown]
+            - type: 'null'
+        mode:
+          type: string
+          enum: [notes, draft]
+          default: notes
+    NarrativeBlock:
+      type: object
+      additionalProperties: false
+      required: [role, text]
+      properties:
+        role:
+          type: string
+          description: 'hook | context | conflict | insight | proof | summary | cta'
+        text: { type: string }
+        fragment:
+          oneOf:
+            - type: string
+            - type: 'null'
+    NarrativeBuild:
+      type: object
+      additionalProperties: false
+      required: [arc, arc_auto, blocks, added_by_engine, notes_used, notes_dropped]
+      properties:
+        arc: { type: string, enum: [story_case, problem_solution, opinion_breakdown] }
+        arc_auto: { type: boolean }
+        blocks:
+          type: array
+          items: { $ref: '#/components/schemas/NarrativeBlock' }
+        added_by_engine:
+          type: array
+          items: { type: string }
+        notes_used: { type: integer, minimum: 0 }
+        notes_dropped: { type: integer, minimum: 0 }
+    DraftGenerateResponse:
+      type: object
+      required: [draft, build, verified_without_ai, generation_run_id]
+      properties:
+        draft: { $ref: '#/components/schemas/Draft' }
+        build: { $ref: '#/components/schemas/NarrativeBuild' }
+        verified_without_ai: { type: boolean }
+        generation_run_id:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+    PublishInput:
+      type: object
+      additionalProperties: false
+      properties:
+        published_at: { $ref: '#/components/schemas/Timestamp' }
+    PublishResponse:
+      type: object
+      required: [draft, post]
+      properties:
+        draft: { $ref: '#/components/schemas/Draft' }
+        post: { $ref: '#/components/schemas/Post' }
+    LintIssue:
+      type: object
+      additionalProperties: false
+      required: [id, type, category, quote, start, end, explanation, suggestion, severity]
+      properties:
+        id: { type: string, example: cliche-12 }
+        type: { type: string, example: cliche }
+        category:
+          type: string
+          enum: [cliche, logic, tov, clarity]
+        quote: { type: string }
+        start: { type: integer, minimum: 0 }
+        end: { type: integer, minimum: 0 }
+        explanation: { type: string }
+        suggestion: { type: string }
+        severity: { type: string, enum: [low, medium, high] }
+        fixable: { type: boolean }
+    LintReport:
+      type: object
+      additionalProperties: false
+      required: [id, draft_id, score, issues, engine, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        draft_id: { $ref: '#/components/schemas/Id' }
+        score: { type: integer, minimum: 0, maximum: 100 }
+        engine: { type: string, enum: [rules, rules+llm] }
+        generation_run_id:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        issues:
+          type: array
+          items: { $ref: '#/components/schemas/LintIssue' }
+    LintInput:
+      type: object
+      additionalProperties: false
+      properties:
+        use_llm: { type: boolean, default: true }
+    LintResponse:
+      type: object
+      required: [lint_report, groups, verdict, verified_without_ai]
+      properties:
+        lint_report: { $ref: '#/components/schemas/LintReport' }
+        groups:
+          type: object
+          required: [cliche, logic, tov, clarity]
+          properties:
+            cliche: { type: integer, minimum: 0 }
+            logic: { type: integer, minimum: 0 }
+            tov: { type: integer, minimum: 0 }
+            clarity: { type: integer, minimum: 0 }
+        verdict: { type: string, enum: [Можно публиковать, Требует правок, Переписать] }
+        verified_without_ai: { type: boolean }
+        ai_skipped_reason:
+          oneOf:
+            - type: string
+              enum: [budget_exceeded, provider_unavailable, disabled]
+            - type: 'null'
+    LintReportList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/LintReport' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    SourceInput:
+      type: object
+      required: [name, source_type, source_url]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        source_type: { $ref: '#/components/schemas/SourceType' }
+        source_url: { type: string, format: uri }
+    SourcePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        source_url: { type: string, format: uri }
+        is_active: { type: boolean }
+    Source:
+      type: object
+      additionalProperties: false
+      required: [id, author_id, name, source_type, source_url, is_active, last_scan_status, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        author_id: { $ref: '#/components/schemas/Id' }
+        name: { type: string }
+        source_type: { $ref: '#/components/schemas/SourceType' }
+        source_url: { type: string }
+        is_active: { type: boolean }
+        last_scanned_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        last_scan_status: { $ref: '#/components/schemas/ScanStatus' }
+        last_scan_error:
+          oneOf:
+            - type: string
+            - type: 'null'
+        comments_count: { type: integer, minimum: 0 }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    SourceList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Source' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    CommentInput:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        commenter_name:
+          oneOf:
+            - type: string
+            - type: 'null'
+        text: { type: string, minLength: 1 }
+        posted_at: { $ref: '#/components/schemas/Timestamp' }
+    CommentPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        commenter_name:
+          oneOf:
+            - type: string
+            - type: 'null'
+        text: { type: string, minLength: 1 }
+    Comment:
+      type: object
+      additionalProperties: false
+      required: [id, source_id, external_id, text, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        source_id: { $ref: '#/components/schemas/Id' }
+        external_id: { type: string, example: 'manual:1' }
+        commenter_name:
+          oneOf:
+            - type: string
+            - type: 'null'
+        text: { type: string }
+        posted_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        responses_count: { type: integer, minimum: 0 }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    CommentList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Comment' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    ScanInput:
+      type: object
+      additionalProperties: false
+      properties:
+        limit: { type: integer, minimum: 1, maximum: 200, default: 100 }
+    ScanResult:
+      type: object
+      required: [source_id, found, created, duplicates, status]
+      properties:
+        source_id: { $ref: '#/components/schemas/Id' }
+        found: { type: integer, minimum: 0 }
+        created: { type: integer, minimum: 0 }
+        duplicates: { type: integer, minimum: 0 }
+        last_scanned_at: { $ref: '#/components/schemas/Timestamp' }
+        status: { $ref: '#/components/schemas/ScanStatus' }
+    ResponseInput:
+      type: object
+      required: [response_text]
+      additionalProperties: false
+      properties:
+        response_text: { type: string, minLength: 1 }
+    ResponsePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        edited_text: { type: string }
+        status: { $ref: '#/components/schemas/ResponseStatus' }
+    ResponseParts:
+      type: object
+      required: [reference, experience, gap, question]
+      properties:
+        reference: { type: string }
+        experience: { type: string }
+        gap: { type: string, description: 'Содержит `[дополните: …]`, пока автор не заполнит факт' }
+        question: { type: string }
+    Response:
+      type: object
+      additionalProperties: false
+      required: [id, comment_id, response_text, status, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        comment_id: { $ref: '#/components/schemas/Id' }
+        response_text: { type: string }
+        edited_text:
+          oneOf:
+            - type: string
+            - type: 'null'
+        status: { $ref: '#/components/schemas/ResponseStatus' }
+        approved_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        sent_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        generation_run_id:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        parts:
+          oneOf:
+            - $ref: '#/components/schemas/ResponseParts'
+            - type: 'null'
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    ResponseList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Response' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    ResponseGenerateInput:
+      type: object
+      additionalProperties: false
+      properties:
+        count: { type: integer, minimum: 1, maximum: 5, default: 1 }
+    ResponseGenerateResponse:
+      type: object
+      required: [responses, verified_without_ai, based_on_post_id]
+      properties:
+        responses:
+          type: array
+          items: { $ref: '#/components/schemas/Response' }
+        verified_without_ai: { type: boolean }
+        based_on_post_id:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+    KnowledgeInput:
+      type: object
+      required: [title, content]
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        content: { type: string, minLength: 1 }
+    KnowledgePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        content: { type: string, minLength: 1 }
+    Knowledge:
+      type: object
+      additionalProperties: false
+      required: [id, author_id, title, content, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        author_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        content: { type: string }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    KnowledgeList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Knowledge' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    SearchHit:
+      type: object
+      required: [knowledge_id, title, chunk_text, score, chunk_index]
+      properties:
+        knowledge_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        chunk_text: { type: string }
+        score: { type: number, description: 'Косинусное сходство 1 − distance; больше — ближе' }
+        chunk_index: { type: integer, minimum: 0 }
+    SearchResponse:
+      type: object
+      required: [items, query_embedding_model, searched_chunks]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/SearchHit' }
+        query_embedding_model: { type: string, example: text-embedding-3-small }
+        searched_chunks: { type: integer, minimum: 0 }
+      example:
+        items:
+          - knowledge_id: 3
+            title: Обо мне
+            chunk_text: Работаю в продуктовой аналитике с 2019 года
+            score: 0.82
+            chunk_index: 0
+        query_embedding_model: text-embedding-3-small
+        searched_chunks: 12
+    GenerationRun:
+      type: object
+      additionalProperties: false
+      required: [id, task_type, model, tokens_input, tokens_output, tokens, cost, status, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        author_id:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        task_type: { $ref: '#/components/schemas/TaskType' }
+        model: { type: string, example: deepseek-chat }
+        tokens_input: { type: integer, minimum: 0 }
+        tokens_output: { type: integer, minimum: 0 }
+        tokens: { type: integer, minimum: 0 }
+        cost: { type: number }
+        status: { $ref: '#/components/schemas/RunStatus' }
+        error_message:
+          oneOf:
+            - type: string
+            - type: 'null'
+        duration_ms:
+          oneOf:
+            - type: integer
+              minimum: 0
+            - type: 'null'
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+    GenerationRunList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/GenerationRun' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    GoldenLabel:
+      type: object
+      required: [type, quote]
+      additionalProperties: false
+      properties:
+        type: { type: string }
+        quote: { type: string }
+        start: { type: integer, minimum: 0 }
+        end: { type: integer, minimum: 0 }
+    GoldenInput:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        text: { type: string, minLength: 1 }
+        labels:
+          type: array
+          items: { $ref: '#/components/schemas/GoldenLabel' }
+        platform:
+          oneOf:
+            - $ref: '#/components/schemas/Platform'
+            - type: 'null'
+    GoldenPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        text: { type: string, minLength: 1 }
+        labels:
+          type: array
+          items: { $ref: '#/components/schemas/GoldenLabel' }
+        platform:
+          oneOf:
+            - $ref: '#/components/schemas/Platform'
+            - type: 'null'
+    Golden:
+      type: object
+      additionalProperties: false
+      required: [id, text, labels, created_at, updated_at]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        text: { type: string }
+        labels:
+          type: array
+          items: { $ref: '#/components/schemas/GoldenLabel' }
+        platform:
+          oneOf:
+            - $ref: '#/components/schemas/Platform'
+            - type: 'null'
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    GoldenList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Golden' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+    EvalRunInput:
+      type: object
+      additionalProperties: false
+      properties:
+        use_llm: { type: boolean, default: false }
+        platform:
+          oneOf:
+            - $ref: '#/components/schemas/Platform'
+            - type: 'null'
+    EvalSummary:
+      type: object
+      required: [goldens, precision, recall, matched, missed, false_positive]
+      properties:
+        goldens: { type: integer, minimum: 0 }
+        precision: { type: number, minimum: 0, maximum: 1 }
+        recall: { type: number, minimum: 0, maximum: 1 }
+        matched: { type: integer, minimum: 0 }
+        missed: { type: integer, minimum: 0 }
+        false_positive: { type: integer, minimum: 0 }
+    EvalResult:
+      type: object
+      required: [golden_id, precision, recall]
+      properties:
+        golden_id: { $ref: '#/components/schemas/Id' }
+        precision: { type: number }
+        recall: { type: number }
+        matched:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        missed:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        false_positive:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    EvalRunResponse:
+      type: object
+      required: [generation_run_id, summary, results]
+      properties:
+        generation_run_id: { $ref: '#/components/schemas/Id' }
+        summary: { $ref: '#/components/schemas/EvalSummary' }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/EvalResult' }
+    EvalRunSummary:
+      type: object
+      additionalProperties: true
+      description: Сводка по прогону Evals (без фильтра `generation_run_id`)
+      properties:
+        generation_run_id: { $ref: '#/components/schemas/Id' }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        goldens: { type: integer, minimum: 0 }
+        precision: { type: number }
+        recall: { type: number }
+    EvalRunsList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/EvalRunSummary' }
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'

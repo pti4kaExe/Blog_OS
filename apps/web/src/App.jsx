@@ -1,101 +1,34 @@
-import { useEffect, useMemo, useState } from 'react'
-import StyleStep from './components/StyleStep.jsx'
-import NotesStep from './components/NotesStep.jsx'
-import PostStep from './components/PostStep.jsx'
-import CheckStep from './components/CheckStep.jsx'
-import RadarView from './components/RadarView.jsx'
-import { buildPost } from './engine/narrative.js'
-import { Tag } from './components/ui.jsx'
+import { useState } from 'react'
+import LocalApp from './components/LocalApp.jsx'
+import CloudApp from './components/cloud/CloudApp.jsx'
 
-const STORAGE_KEY = 'blogos.state.v1'
+const MODE_KEY = 'blogos.mode.v1'
 
-const STEPS = [
-  { n: 1, label: 'Стиль', hint: 'Разобрать свои посты' },
-  { n: 2, label: 'Заметки', hint: 'Сырые мысли или черновик' },
-  { n: 3, label: 'Пост', hint: 'Сборка по сюжетной арке' },
-  { n: 4, label: 'Проверка', hint: 'AntiCringe перед публикацией' },
-]
-
-function loadState() {
+function loadMode() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
+    return localStorage.getItem(MODE_KEY) === 'cloud' ? 'cloud' : 'local'
   } catch {
-    return null
+    return 'local'
   }
 }
 
+/**
+ * Оболочка клиента: выбор режима работы и общая шапка.
+ *
+ * «Локально» — исходный прототип без сети (localStorage, движки в браузере).
+ * «В облаке» — работа через BlogOS API: вход, каналы, стиль, черновики,
+ * проверки, CommentRadar, база знаний и расходы.
+ */
 export default function App() {
-  const saved = useMemo(loadState, [])
+  const [mode, setMode] = useState(loadMode)
 
-  const [view, setView] = useState('pipeline')
-  const [step, setStep] = useState(saved?.profile ? 2 : 1)
-  const [samples, setSamples] = useState(saved?.samples || ['', '', ''])
-  const [profile, setProfile] = useState(saved?.profile || null)
-  const [mode, setMode] = useState(saved?.mode || 'notes')
-  const [notes, setNotes] = useState(saved?.notes || '')
-  const [rawDraft, setRawDraft] = useState(saved?.rawDraft || '')
-  const [arcKey, setArcKey] = useState(saved?.arcKey || null)
-  const [post, setPost] = useState(null)
-  const [draft, setDraft] = useState(saved?.draft || '')
-  const [baseline, setBaseline] = useState(null)
-  const [approved, setApproved] = useState(saved?.approved || [])
-
-  useEffect(() => {
+  const changeMode = (next) => {
+    setMode(next)
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        samples, profile, mode, notes, rawDraft, arcKey, draft, approved,
-      }))
+      localStorage.setItem(MODE_KEY, next)
     } catch {
-      // приватный режим браузера — просто не сохраняем
+      // приватный режим: выбор не сохранится, приложение продолжит работать
     }
-  }, [samples, profile, mode, notes, rawDraft, arcKey, draft, approved])
-
-  // профиль сбросили — сбрасываем и зависящие от него шаги
-  useEffect(() => {
-    if (!profile && step > 1) setStep(1)
-  }, [profile, step])
-
-  const buildFromNotes = (key) => {
-    const result = buildPost(notes, profile, key || undefined)
-    if (!result.ok) return
-    setPost(result)
-    setArcKey(key || null)
-    setDraft(result.text)
-    setBaseline(null)
-    setStep(3)
-  }
-
-  const rebuild = (key) => {
-    const result = buildPost(notes, profile, key)
-    if (!result.ok) return
-    setPost(result)
-    setArcKey(key)
-    setDraft(result.text)
-    setBaseline(null)
-  }
-
-  const checkRawDraft = () => {
-    setPost(null)
-    setDraft(rawDraft)
-    setBaseline(null)
-    setStep(4)
-  }
-
-  const stepState = (n) => {
-    if (n === step) return 'active'
-    if (n < step) return 'done'
-    return 'idle'
-  }
-
-  const stepAvailable = (n) => {
-    if (n === 1) return true
-    if (!profile) return false
-    if (n === 2) return true
-    if (n === 3) return Boolean(post)
-    if (n === 4) return draft.trim().length > 0
-    return false
   }
 
   return (
@@ -109,108 +42,31 @@ export default function App() {
           </div>
         </div>
 
-        <div className="tabs" role="tablist">
+        <div className="mode-switch" role="group" aria-label="Режим работы">
           <button
-            type="button" className="tab" role="tab"
-            aria-selected={view === 'pipeline'} onClick={() => setView('pipeline')}
+            type="button"
+            data-active={mode === 'local'}
+            data-mode="local"
+            onClick={() => changeMode('local')}
+            title="Без сети: движки в браузере, данные в localStorage"
           >
-            Конвейер поста
+            Локально
           </button>
           <button
-            type="button" className="tab" role="tab"
-            aria-selected={view === 'radar'} onClick={() => setView('radar')}
+            type="button"
+            data-active={mode === 'cloud'}
+            data-mode="cloud"
+            onClick={() => changeMode('cloud')}
+            title="Через BlogOS API: вход, серверные черновики и проверки"
           >
-            CommentRadar
-            {approved.length > 0 && <span className="dot" />}
+            В облаке
           </button>
         </div>
       </header>
 
-      {view === 'pipeline' ? (
-        <>
-          <h1>Пост в вашем голосе — и проверка до публикации</h1>
-          <p className="lead">
-            Один конвейер вместо трёх инструментов: система разбирает ваш стиль по прошлым постам,
-            собирает из сырых заметок связную историю и проверяет текст на клише, логические
-            ошибки и отклонения от вашего Tone of Voice. Всё считается локально в браузере.
-          </p>
-
-          <nav className="steps">
-            {STEPS.map((s) => (
-              <button
-                type="button"
-                className="step"
-                key={s.n}
-                data-state={stepState(s.n)}
-                disabled={!stepAvailable(s.n)}
-                onClick={() => setStep(s.n)}
-                title={!stepAvailable(s.n) ? 'Сначала пройдите предыдущие шаги' : undefined}
-              >
-                <span className="step-num">{s.n}</span>
-                <span>
-                  <span className="step-label">{s.label}</span>
-                  <span className="step-hint" style={{ display: 'block' }}>{s.hint}</span>
-                </span>
-              </button>
-            ))}
-          </nav>
-
-          {step === 1 && (
-            <StyleStep
-              samples={samples}
-              setSamples={setSamples}
-              profile={profile}
-              setProfile={setProfile}
-              onNext={() => setStep(2)}
-            />
-          )}
-
-          {step === 2 && (
-            <NotesStep
-              mode={mode}
-              setMode={setMode}
-              notes={notes}
-              setNotes={setNotes}
-              rawDraft={rawDraft}
-              setRawDraft={setRawDraft}
-              arcKey={arcKey}
-              setArcKey={setArcKey}
-              onBuild={buildFromNotes}
-              onCheckDraft={checkRawDraft}
-            />
-          )}
-
-          {step === 3 && (
-            <PostStep
-              post={post}
-              arcKey={arcKey}
-              onRebuild={rebuild}
-              onCheck={() => setStep(4)}
-              onBack={() => setStep(2)}
-            />
-          )}
-
-          {step === 4 && (
-            <CheckStep
-              text={draft}
-              setText={setDraft}
-              profile={profile}
-              baseline={baseline}
-              setBaseline={setBaseline}
-              onBack={() => setStep(post ? 3 : 2)}
-            />
-          )}
-        </>
-      ) : (
-        <RadarView profile={profile} approved={approved} setApproved={setApproved} />
-      )}
-
-      <footer style={{ marginTop: 34, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Tag>MVP-прототип</Tag>
-        <Tag>без внешних API</Tag>
-        <Tag kind="demo">лента CommentRadar — демо-данные</Tag>
-        <span className="faint">Ваши тексты никуда не отправляются и хранятся только в этом браузере.</span>
-      </footer>
+      {mode === 'local'
+        ? <LocalApp />
+        : <CloudApp onUseLocal={() => changeMode('local')} />}
     </div>
   )
 }

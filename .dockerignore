@@ -1,0 +1,29 @@
+# Контекст сборки Docker: в образ нужен только API, DDL из db/sql и
+# production-зависимости монорепо. Всё остальное — лишний вес и риск утечки.
+
+# Зависимости и артефакты
+node_modules
+**/node_modules
+dist
+**/dist
+.pglite-data
+.npm-cache
+coverage
+*.log
+
+# Секреты: в образ не попадают, задаются через --env-file/docker run -e
+.env
+.env.*
+!.env.example
+
+# Репозиторий и служебные папки
+.git
+.gitignore
+.github
+_docs
+_scratch
+
+# Только для чтения человеком; в образе не нужны
+docs
+README.md
+tests

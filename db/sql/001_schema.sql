@@ -76,9 +76,23 @@ END $$;
 
 -- Отчёт AntiCringe неизменяем после создания (ТЗ, раздел 7): история проверок —
 -- это цепочка отчётов, а не перезапись одного и того же.
+--
+-- Исключение одно и оно следует из того же раздела ТЗ: ссылки на generation_runs
+-- обнуляются при удалении вызова (ON DELETE SET NULL). Без этого исключения
+-- требование «обнуление для ссылок на журнал AI» и требование «отчёт неизменяем»
+-- противоречили бы друг другу: удаление вызова падало бы с ошибкой триггера.
+-- Разрешено ровно одно изменение — generation_run_id становится NULL, а все
+-- остальные поля отчёта совпадают со старыми. Содержимое отчёта не меняется.
 CREATE OR REPLACE FUNCTION blogos_forbid_update() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_TABLE_NAME = 'lint_reports'
+     AND NEW.generation_run_id IS NULL
+     AND OLD.generation_run_id IS NOT NULL
+     AND (to_jsonb(NEW) - 'generation_run_id') = (to_jsonb(OLD) - 'generation_run_id')
+  THEN
+    RETURN NEW;
+  END IF;
   RAISE EXCEPTION 'Таблица % неизменяема после создания', TG_TABLE_NAME;
 END $$;
 
@@ -161,7 +175,6 @@ CREATE TABLE IF NOT EXISTS tov_profiles (
   favorite_phrases  jsonb       NOT NULL DEFAULT '[]'::jsonb,
   metrics           jsonb,
   analyzed_at       timestamptz,
-  generation_run_id bigint      REFERENCES generation_runs (id) ON DELETE SET NULL,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT tov_profiles_slang_is_array CHECK (jsonb_typeof(slang) = 'array'),
@@ -169,7 +182,6 @@ CREATE TABLE IF NOT EXISTS tov_profiles (
   CONSTRAINT tov_profiles_phrases_is_array CHECK (jsonb_typeof(favorite_phrases) = 'array')
 );
 COMMENT ON COLUMN tov_profiles.metrics IS 'Результат buildStyleProfile(): длина и разброс фраз, доля «я», темы, читаемость, стиль начала';
-COMMENT ON COLUMN tov_profiles.generation_run_id IS 'Заполнен, если профиль собран AI-анализом; NULL — правиловым движком';
 
 CREATE OR REPLACE TRIGGER tov_profiles_touch_updated_at
   BEFORE UPDATE ON tov_profiles FOR EACH ROW EXECUTE FUNCTION blogos_touch_updated_at();
