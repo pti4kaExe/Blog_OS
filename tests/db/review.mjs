@@ -15,7 +15,7 @@
  * не изменяются, используется их публичный слой доступа к БД.
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
@@ -31,7 +31,10 @@ if (!process.env.JWT_SECRET) process.env.JWT_SECRET = 'review-secret-0123456789a
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '../..')
-const schemaPath = resolve(repoRoot, 'db/sql/001_schema.sql')
+const sqlDir = resolve(repoRoot, 'db/sql')
+const sqlFiles = readdirSync(sqlDir)
+  .filter((file) => file.endsWith('.sql'))
+  .sort()
 
 const db = await import('../../apps/api/src/db.ts')
 
@@ -73,9 +76,15 @@ const RECORD = {
 }
 
 // ─── Применение схемы ─────────────────────────────────────────────────────────
-const ddl = readFileSync(schemaPath, 'utf8')
-await db.exec(ddl)
-console.log(`Схема применена: db/sql/001_schema.sql (${ddl.length} байт)`)
+// Применяем все миграции по порядку имён, как это делает migrate.ts.
+const ddlByFile = new Map()
+for (const file of sqlFiles) {
+  const sql = readFileSync(resolve(sqlDir, file), 'utf8')
+  ddlByFile.set(file, sql)
+  await db.exec(sql)
+  console.log(`Схема применена: db/sql/${file} (${sql.length} байт)`)
+}
+const combinedDdl = [...ddlByFile.values()].join('\n')
 
 // ═══════════════════════════════════════════════════════════════════════════════
 group('1. Таблицы и внешние ключи (системные каталоги)')
@@ -147,19 +156,18 @@ for (const fk of parsedFks) {
 
 record(
   'Количество внешних ключей',
-  'по ТЗ и шапке DDL — 17',
+  'по ТЗ (раздел 7) и шапке DDL — ровно 17',
   `${parsedFks.length} фактических FK`,
   parsedFks.length === 17,
   parsedFks.length === 17
     ? 'Совпадает с документацией'
-    : `Расхождение документации и схемы: ТЗ (раздел 7) и комментарий в db/sql/001_schema.sql говорят «17 внешних ключей», фактически их ${parsedFks.length}`,
+    : `Расхождение документации и схемы: ТЗ (раздел 7) и db/sql/001_schema.sql говорят «17 внешних ключей», фактически их ${parsedFks.length}`,
 )
 
 const EXPECTED_FKS = [
   ['author_profiles', 'user_id', 'users', 'CASCADE'],
   ['generation_runs', 'author_id', 'author_profiles', 'SET NULL'],
   ['tov_profiles', 'author_id', 'author_profiles', 'CASCADE'],
-  ['tov_profiles', 'generation_run_id', 'generation_runs', 'SET NULL'],
   ['posts', 'author_id', 'author_profiles', 'CASCADE'],
   ['drafts', 'author_id', 'author_profiles', 'CASCADE'],
   ['drafts', 'published_post_id', 'posts', 'SET NULL'],
@@ -184,7 +192,7 @@ const extraFks = [...actualFkSet].filter(
 
 record(
   'Состав и правила ON DELETE каждого FK',
-  '13 CASCADE + 5 SET NULL, состав по ТЗ (разделы 4, 7)',
+  '13 CASCADE + 4 SET NULL, состав по ТЗ (разделы 4, 7)',
   `${parsedFks.filter((f) => f.onDelete === 'CASCADE').length} CASCADE + ${
     parsedFks.filter((f) => f.onDelete === 'SET NULL').length
   } SET NULL`,
@@ -228,9 +236,9 @@ const fxRun = await one(
   [fxChannel.id],
 )
 const fxTov = await one(
-  `INSERT INTO tov_profiles (author_id, tone, slang, stop_words, favorite_phrases, generation_run_id)
-   VALUES ($1, 'ты', '["кринж"]'::jsonb, '["синергия"]'::jsonb, '["по делу"]'::jsonb, $2) RETURNING id`,
-  [fxChannel.id, fxRun.id],
+  `INSERT INTO tov_profiles (author_id, tone, slang, stop_words, favorite_phrases)
+   VALUES ($1, 'ты', '["кринж"]'::jsonb, '["синергия"]'::jsonb, '["по делу"]'::jsonb) RETURNING id`,
+  [fxChannel.id],
 )
 const fxPost = await one(
   `INSERT INTO posts (author_id, content_type, text, external_id, external_url, published_at)
@@ -820,7 +828,7 @@ async function makeUserWithChannel(telegramId, label) {
   )
 }
 
-// ── 5.6 Дополнительно: generation_runs → SET NULL, eval_results → CASCADE ───
+// ── 5.6 Обнуление ссылки на прогон AI и каскад eval_results ─────────────────
 {
   const { channel } = await makeUserWithChannel(930006, 'Каскад: прогон')
   const draft = await one(
@@ -832,69 +840,113 @@ async function makeUserWithChannel(telegramId, label) {
      VALUES ($1, 'lint', 'mock', 'success') RETURNING id`,
     [channel.id],
   )
-  await one(
-    `INSERT INTO lint_reports (draft_id, generation_run_id, score) VALUES ($1, $2, 50) RETURNING id`,
+  const report = await one(
+    `INSERT INTO lint_reports (draft_id, generation_run_id, score, issues, engine)
+     VALUES ($1, $2, 50, '[{"type":"cliche","quote":"в современном мире"}]'::jsonb, 'rules')
+     RETURNING id, draft_id, generation_run_id, score, issues, engine, created_at`,
     [draft.id, run.id],
   )
   const golden = await one(
-    `INSERT INTO golden_dataset (text) VALUES ('Эталон') RETURNING id`,
+    `INSERT INTO golden_dataset (text) VALUES ('Эталон для каскада') RETURNING id`,
   )
   await one(
     `INSERT INTO eval_results (generation_run_id, golden_id) VALUES ($1, $2) RETURNING id`,
     [run.id, golden.id],
   )
+
+  // (б) Удаление прогона, на который ссылается отчёт, обязано пройти:
+  // FK — ON DELETE SET NULL, а триггер разрешает ровно обнуление этой ссылки.
   const del = await expectDbError(() => q(`DELETE FROM generation_runs WHERE id = $1`, [run.id]))
-  const lint = await one(
-    `SELECT generation_run_id FROM lint_reports WHERE draft_id = $1`,
-    [draft.id],
+  const after = await one(
+    `SELECT id, draft_id, generation_run_id, score, issues, engine, created_at
+       FROM lint_reports WHERE id = $1`,
+    [report.id],
   )
   const evals = await one(
     `SELECT count(*)::int AS n FROM eval_results WHERE generation_run_id = $1`,
     [run.id],
   )
+  const unchanged =
+    after &&
+    Number(after.draft_id) === Number(report.draft_id) &&
+    Number(after.score) === Number(report.score) &&
+    after.engine === report.engine &&
+    JSON.stringify(after.issues) === JSON.stringify(report.issues) &&
+    new Date(after.created_at).getTime() === new Date(report.created_at).getTime()
   record(
-    'Удаление generation_runs: ссылки обнуляются, eval_results каскадятся',
-    'DELETE прогона проходит; lint_reports.generation_run_id = null; eval_results прогона = 0',
+    '(б) DELETE прогона, на который ссылается отчёт: ссылка обнуляется, отчёт неизменен',
+    'DELETE проходит; lint_reports.generation_run_id = null; draft_id/score/issues/engine/created_at не изменились; eval_results прогона = 0',
     del.failed
-      ? `DELETE прогона УПАЛ: ${del.code} — ${del.message}; ссылка в lint_reports осталась ${
-          lint?.generation_run_id === null ? 'null' : lint?.generation_run_id
-        }, eval_results=${evals.n}`
-      : `DELETE прошёл; lint_reports.generation_run_id=${
-          lint?.generation_run_id === null ? 'null' : lint?.generation_run_id
-        }; eval_results=${evals.n}`,
-    !del.failed && lint?.generation_run_id === null && Number(evals.n) === 0,
-    del.failed
-      ? 'ДЕФЕКТ СХЕМЫ: lint_reports.generation_run_id объявлен ON DELETE SET NULL, но BEFORE UPDATE-триггер неизменяемости запрещает этот UPDATE — удаление прогона, на который ссылается отчёт, невозможно (P0001)'
-      : undefined,
+      ? `DELETE прогона УПАЛ: ${del.code} — ${del.message}`
+      : `DELETE прошёл; generation_run_id=${
+          after?.generation_run_id === null ? 'null' : after?.generation_run_id
+        }; отчёт: score=${after?.score}, engine=${after?.engine}, draft_id=${after?.draft_id}; eval_results=${evals.n}`,
+    !del.failed && after?.generation_run_id === null && Boolean(unchanged) && Number(evals.n) === 0,
+    del.failed ?? (unchanged ? undefined : 'содержимое отчёта изменилось — неизменяемость нарушена'),
   )
 
-  // Тот же SET NULL, но без ссылки из lint_reports: удаление прогона обязано пройти.
+  // (в) Любая другая правка generation_run_id (подмена на другой id) запрещена.
   const run2 = await one(
     `INSERT INTO generation_runs (author_id, task_type, model, status)
-     VALUES ($1, 'tov_analyze', 'mock', 'success') RETURNING id`,
+     VALUES ($1, 'response_generate', 'mock', 'success') RETURNING id`,
     [channel.id],
   )
-  await one(
-    `INSERT INTO tov_profiles (author_id, tone, generation_run_id) VALUES ($1, 'вы', $2)
-     ON CONFLICT (author_id) DO UPDATE SET generation_run_id = EXCLUDED.generation_run_id
-     RETURNING id`,
-    [channel.id, run2.id],
+  const swap = await expectDbError(() =>
+    q(`UPDATE lint_reports SET generation_run_id = $1 WHERE id = $2`, [run2.id, report.id]),
   )
-  const del2 = await expectDbError(() => q(`DELETE FROM generation_runs WHERE id = $1`, [run2.id]))
-  const tov = await one(
-    `SELECT generation_run_id FROM tov_profiles WHERE author_id = $1`,
-    [channel.id],
+  const still = await one(
+    `SELECT generation_run_id FROM lint_reports WHERE id = $1`,
+    [report.id],
   )
   record(
-    'SET NULL работает там, где нет неперезаписываемой таблицы',
-    'удаление прогона, на который ссылается только tov_profiles, проходит; ссылка → null',
-    del2.failed
-      ? `DELETE УПАЛ: ${del2.message}`
-      : `DELETE прошёл; tov_profiles.generation_run_id=${
-          tov?.generation_run_id === null ? 'null' : tov?.generation_run_id
+    '(в) Нецелевое изменение generation_run_id запрещено',
+    'UPDATE generation_run_id на не-NULL другой прогон → P0001; значение осталось null',
+    swap.failed
+      ? `ошибка ${swap.code}: ${swap.message}; generation_run_id=${
+          still?.generation_run_id === null ? 'null' : still?.generation_run_id
+        }`
+      : 'UPDATE прошёл (плохо)',
+    swap.failed &&
+      /неизменяем/i.test(swap.message) &&
+      still?.generation_run_id === null,
+    swap.message,
+  )
+
+  // SET NULL для generated_responses: удаление прогона, не упомянутого в отчёте.
+  const run3 = await one(
+    `INSERT INTO generation_runs (author_id, task_type, model, status)
+     VALUES ($1, 'response_generate', 'mock', 'success') RETURNING id`,
+    [channel.id],
+  )
+  const source = await one(
+    `INSERT INTO sources (author_id, name, source_type, source_url)
+     VALUES ($1, 'S2', 'telegram_channel', 'https://t.me/s/s2') RETURNING id`,
+    [channel.id],
+  )
+  const comment = await one(
+    `INSERT INTO comments (source_id, external_id, text) VALUES ($1, 'x2', 'К') RETURNING id`,
+    [source.id],
+  )
+  const response = await one(
+    `INSERT INTO generated_responses (comment_id, response_text, generation_run_id)
+     VALUES ($1, 'О', $2) RETURNING id`,
+    [comment.id, run3.id],
+  )
+  const del3 = await expectDbError(() => q(`DELETE FROM generation_runs WHERE id = $1`, [run3.id]))
+  const responseAfter = await one(
+    `SELECT generation_run_id FROM generated_responses WHERE id = $1`,
+    [response.id],
+  )
+  record(
+    'SET NULL работает у generated_responses.generation_run_id',
+    'удаление прогона проходит; ссылка в ответе → null',
+    del3.failed
+      ? `DELETE УПАЛ: ${del3.message}`
+      : `DELETE прошёл; generation_run_id=${
+          responseAfter?.generation_run_id === null ? 'null' : responseAfter?.generation_run_id
         }`,
-    !del2.failed && tov?.generation_run_id === null,
-    del2.message,
+    !del3.failed && responseAfter?.generation_run_id === null,
+    del3.message,
   )
 }
 
@@ -905,7 +957,8 @@ group('6. Идемпотентность DDL и служебные катало�
 {
   let reapplyError = null
   try {
-    await db.exec(ddl) // повторное применение того же файла
+    // Повторное применение всех миграций в том же порядке: файлы идемпотентны.
+    for (const sql of ddlByFile.values()) await db.exec(sql)
   } catch (error) {
     reapplyError = String(error?.message ?? error)
   }
@@ -916,10 +969,10 @@ group('6. Идемпотентность DDL и служебные катало�
               WHERE c.contype='f' AND n.nspname='public') AS fks`,
   )
   record(
-    'Повторное применение db/sql/001_schema.sql (идемпотентность)',
-    'повторный запуск не падает; 14 таблиц и 18 FK остаются',
+    'Повторное применение db/sql/001 + 002 (идемпотентность)',
+    'повторный запуск не падает; 14 таблиц и 17 FK остаются',
     reapplyError ? `ошибка: ${reapplyError}` : `повторный запуск прошёл: ${JSON.stringify(after)}`,
-    !reapplyError && Number(after.tables) === 14 && Number(after.fks) === 18,
+    !reapplyError && Number(after.tables) === 14 && Number(after.fks) === 17,
     reapplyError ?? undefined,
   )
 }

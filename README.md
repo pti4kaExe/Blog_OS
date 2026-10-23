@@ -120,7 +120,7 @@ npm run dev:api
 | `packages/engine/` | `@blogos/engine` — чистые функции движков: Tone of Voice, Narrative Engine, AntiCringe, CommentRadar. Без сети и DOM; используются и клиентом, и сервером. 49 тестов. |
 | `apps/api/` | `@blogos/api` — Fastify 5 + TypeScript: 11 групп методов, репозитории с проверкой владельца, LLM-провайдеры, эмбеддинги/RAG, адаптеры площадок, Evals. `scripts/migrate.ts`, `scripts/seed.ts`, `scripts/reset.ts`; тесты в `test/`. |
 | `apps/web/` | `@blogos/web` — React 18 + Vite 8: локальный режим на `localStorage`, облачный режим через API, вход, экраны стиля/черновиков/проверки/радара/базы знаний. |
-| `db/sql/` | `001_schema.sql` — единственный источник схемы: 14 таблиц, 17 внешних ключей, триггеры, HNSW-индекс. |
+| `db/sql/` | SQL-миграции — единственный источник схемы: `001_schema.sql` (14 таблиц, 17 внешних ключей, триггеры, HNSW-индекс) и последующие уточняющие файлы, например `002_align_17_relations.sql`. Применяются по порядку имён через `npm run db:migrate`. |
 | `scripts/` | `build-web.mjs`, `dev-web.mjs` — штатные обёртки Vite (единая точка входа для npm-скриптов, CI и Vercel). |
 | `docs/` | [docs/API.md](docs/API.md) и [docs/openapi.yaml](docs/openapi.yaml) — контракт 59 методов; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — устройство; [docs/DECISIONS.md](docs/DECISIONS.md) — журнал решений; [docs/DB-REVIEW.md](docs/DB-REVIEW.md) — ревизия схемы; [docs/RUNBOOK.md](docs/RUNBOOK.md) — развёртывание. |
 | `.github/workflows/ci.yml` | CI: установка, миграции на PGlite, тесты движков и API, typecheck, сборка клиента. |
@@ -272,7 +272,8 @@ npm run dev:api
 
 Схема базы: 14 таблиц, 17 внешних ключей, каскадное удаление и `SET NULL` для
 журнала расходов, триггеры `updated_at`, неизменяемость `lint_reports`,
-HNSW-индекс для косинусного поиска.
+HNSW-индекс для косинусного поиска. Схема живёт в `db/sql/` и применяется
+миграциями — второго источника истины (ORM, initdb) нет.
 
 ## Деплой: Neon → Render → Vercel
 

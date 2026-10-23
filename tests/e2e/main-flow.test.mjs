@@ -48,6 +48,13 @@ test('Главный сценарий: конвейер автора целик�
     state.userId = user.id
   })
 
+  await t.test('1b. Алиас /api/v1 отвечает так же, как корень', async () => {
+    need(state, 'token', 'вход')
+    const res = await api.get(app, '/api/v1/users/me', { token: state.token })
+    assertStatus(res, 200, 'GET /api/v1/users/me')
+    assert.equal(res.json.id, state.userId)
+  })
+
   await t.test('2. GET /users/me — профиль и число каналов', async () => {
     need(state, 'token', 'вход')
     const res = await api.get(app, '/users/me', { token: state.token })
@@ -511,5 +518,13 @@ test('Главный сценарий: конвейер автора целик�
     const runs = await api.get(app, '/evals/runs', { token: admin.token })
     assertStatus(runs, 200, 'GET /evals/runs')
     assert.ok(Array.isArray(runs.json.items))
+
+    // admin видит журнал всех каналов (в т.ч. вызовы другого автора).
+    const allRuns = await api.get(app, '/generation-runs?limit=200', { token: admin.token })
+    assertStatus(allRuns, 200, 'GET /generation-runs как admin')
+    assert.ok(
+      allRuns.json.items.some((run) => run.author_id === state.channelId),
+      'admin видит вызовы чужого канала',
+    )
   })
 })

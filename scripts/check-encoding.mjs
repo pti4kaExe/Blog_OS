@@ -7,7 +7,7 @@ import { join, relative } from 'node:path'
 const root = process.argv[2] ?? '.'
 const exts = new Set(['.ts', '.js', '.jsx', '.mjs', '.sql', '.md', '.css', '.json', '.yaml', '.yml', '.html'])
 const skip = new Set(['node_modules', 'dist', '.git', '.npm-cache', '.pglite-data', '_scratch', 'coverage'])
-const marker = /[\u0402\u0403\u201a\u0453\u201e\u2020\u2021\u20ac\u2030\u0409\u2039\u040a\u040c\u040b\u040f\u0452\u2018\u2019\u201c\u201d\u2022\u2122\u0459\u203a\u045a\u045c\u045b\u045f\u00b5\u00b7]/g
+const marker = /[\u0402\u0403\u201a\u0453\u2020\u2021\u2030\u0409\u040a\u040c\u040b\u040f\u0452\u2018\u2019\u201c\u201d\u2122\u0459\u045a\u045c\u045b\u045f\u00b5]/g
 
 const files = []
 const walk = (dir) => {

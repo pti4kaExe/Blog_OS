@@ -1,12 +1,13 @@
 # Ревизия схемы базы данных BlogOS
 
-Версия 2.0 · дата ревизии: 23.10.2026 · ревизор: QA (независимая проверка)
+Версия 2.0 · дата ревизии: 24.10.2026 · ревизор: QA (независимая проверка)
 
-Источник истины — `db/sql/001_schema.sql`. Ревизия выполнена **на живой базе**, а не
+Источник истины — `db/sql/001_schema.sql`; согласование уже существующих баз —
+`db/sql/002_align_17_relations.sql`. Ревизия выполнена **на живой базе**, а не
 по чтению DDL: скрипт [`tests/db/review.mjs`](../tests/db/review.mjs) поднимает
-PGlite (настоящий PostgreSQL 16 + pgvector, собранный в WASM), применяет
-`db/sql/001_schema.sql` через `apps/api/src/db.ts` и проверяет схему по системным
-каталогам (`pg_tables`, `pg_constraint`, `pg_indexes`, `pg_trigger`) и реальными
+PGlite (настоящий PostgreSQL 16 + pgvector, собранный в WASM), применяет обе
+миграции через `apps/api/src/db.ts` и проверяет схему по системным каталогам
+(`pg_tables`, `pg_constraint`, `pg_indexes`, `pg_trigger`) и реальными
 INSERT/UPDATE/DELETE-сценариями.
 
 ```bash
@@ -16,9 +17,13 @@ DATABASE_URL=pglite://memory node tests/db/review.mjs
 Скрипт печатает «ожидание → факт → вердикт» по каждой проверке и завершается
 с кодом 1, если хоть одна проверка не сошлась.
 
-**Итог: проверок 22, пройдено 20, провалено 2.** Оба провала — расхождения
-с документацией/ограничением ТЗ, а не сбой инфраструктуры; вынесены в раздел
-«Дефекты» в конце документа.
+**Итог: проверок 23, пройдено 23, провалено 0.** Ревизия проведена повторно
+после правок Lead: `001_schema.sql` (22 027 байт) + `002_align_17_relations.sql`
+(2 023 байта); PGlite-каталог не использовался — база каждый раз создаётся
+чистой в памяти, временных файлов не остаётся.
+
+Два дефекта, найденные первой ревизией (DB-1 и DB-2), **исправлены и повторно
+проверены** — раздел «Дефекты» в конце документа.
 
 ---
 
@@ -27,18 +32,17 @@ DATABASE_URL=pglite://memory node tests/db/review.mjs
 | Проверка | Ожидание | Факт | Вердикт |
 |---|---|---|---|
 | Ровно 14 таблиц | 14 и только 14 таблиц из ТЗ, раздел 7 | 14: `author_profiles, comments, drafts, embeddings, eval_results, generated_responses, generation_runs, golden_dataset, knowledge_base, lint_reports, posts, sources, tov_profiles, users` | **ПРОЙДЕНО** |
-| Количество внешних ключей | По ТЗ (раздел 7) и шапке DDL — 17 | **18** фактических FK (полный перечень ниже) | **ПРОВАЛ** — расхождение документации и схемы (см. дефект DB-1) |
-| Состав и правила `ON DELETE` каждого FK | 13 `CASCADE` + 5 `SET NULL`; `SET NULL` только у журнала расходов и `drafts.published_post_id` (ТЗ, разделы 4 и 7) | 13 `CASCADE` + 5 `SET NULL`; каждая пара совпала с ожиданием | **ПРОЙДЕНО** |
-| Повторное применение DDL (идемпотентность) | Повторный запуск файла не падает, 14 таблиц и FK сохраняются | Повторный запуск прошёл: `{"tables":14,"fks":18}` | **ПРОЙДЕНО** |
+| Количество внешних ключей | По ТЗ (раздел 7) и шапке DDL — ровно 17 | **17** фактических FK (полный перечень ниже) | **ПРОЙДЕНО** |
+| Состав и правила `ON DELETE` каждого FK | 13 `CASCADE` + 4 `SET NULL`; `SET NULL` только у ссылок на журнал расходов и `drafts.published_post_id` (ТЗ, разделы 4 и 7) | 13 `CASCADE` + 4 `SET NULL`; каждая пара совпала с ожиданием | **ПРОЙДЕНО** |
+| Повторное применение DDL (идемпотентность) | Повторный запуск 001 + 002 не падает, 14 таблиц и 17 FK сохраняются | Повторный запуск прошёл: `{"tables":14,"fks":17}` | **ПРОЙДЕНО** |
 
-Фактический перечень всех 18 FK (`pg_get_constraintdef`):
+Фактический перечень всех 17 FK (`pg_get_constraintdef`, после 001 + 002):
 
 | Таблица.колонка | Ссылается на | `ON DELETE` |
 |---|---|---|
 | `author_profiles.user_id` | `users.id` | CASCADE |
 | `generation_runs.author_id` | `author_profiles.id` | SET NULL |
 | `tov_profiles.author_id` | `author_profiles.id` | CASCADE |
-| `tov_profiles.generation_run_id` | `generation_runs.id` | SET NULL |
 | `posts.author_id` | `author_profiles.id` | CASCADE |
 | `drafts.author_id` | `author_profiles.id` | CASCADE |
 | `drafts.published_post_id` | `posts.id` | SET NULL |
@@ -54,11 +58,12 @@ DATABASE_URL=pglite://memory node tests/db/review.mjs
 | `eval_results.generation_run_id` | `generation_runs.id` | CASCADE |
 | `eval_results.golden_id` | `golden_dataset.id` | CASCADE |
 
-Правило ТЗ «удаление канала/пользователя не стирает журнал расходов, а удаление
-опубликованного поста не удаляет черновик» на уровне DDL выполнено:
-`generation_runs.author_id` и `drafts.published_post_id` — `SET NULL`, остальные
-ссылки каскадные. Расхождение только в **счётчике** документации: 18 FK вместо
-заявленных 17 (дефект DB-1).
+Правила ТЗ «удаление канала/пользователя не стирает журнал расходов, а удаление
+опубликованного поста не удаляет черновик» выполнены: `generation_runs.author_id`
+и `drafts.published_post_id` — `SET NULL`, остальные ссылки каскадные. Связь
+`tov_profiles.generation_run_id`, из-за которой было 18 FK вместо 17, удалена
+миграцией 002; профиль стиля по-прежнему виден в журнале через
+`generation_runs(author_id, task_type = 'tov_analyze')`.
 
 ## 2. Уникальные индексы и CHECK-ограничения
 
@@ -95,7 +100,13 @@ NULL` и уникальность `sources (author_id, source_url)` — они �
 | `blogos_touch_updated_at` на изменяемых таблицах | 10 таблиц: `users, author_profiles, tov_profiles, posts, drafts, sources, comments, generated_responses, knowledge_base, golden_dataset` | 10 таблиц ровно этого состава; у `generation_runs`, `lint_reports`, `embeddings`, `eval_results` нет колонки `updated_at` — триггера нет, это верно | **ПРОЙДЕНО** |
 | Триггер неизменяемости `lint_reports` | `BEFORE UPDATE → EXCEPTION`, единственный `_immutable`-триггер | `lint_reports_immutable` → `blogos_forbid_update`; других `_immutable` нет | **ПРОЙДЕНО** |
 | `updated_at` реально перезаписывается | `UPDATE ... SET updated_at='2000-01-01'` → значение = `now()` на всех 10 таблицах | На всех 10 таблицах год стал 2026 (`users=2026, author_profiles=2026, tov_profiles=2026, posts=2026, drafts=2026, sources=2026, comments=2026, generated_responses=2026, knowledge_base=2026, golden_dataset=2026`) | **ПРОЙДЕНО** |
-| `UPDATE lint_reports` запрещён | Ошибка с текстом «неизменяема», `score` не меняется | `UPDATE` → `Таблица lint_reports неизменяема после создания`; `score` после попытки = 86 | **ПРОЙДЕНО** |
+| (а) `UPDATE lint_reports SET score = …` запрещён | Ошибка с текстом «неизменяема», `score` не меняется | `UPDATE` → `Таблица lint_reports неизменяема после создания`; `score` после попытки = 86 | **ПРОЙДЕНО** |
+| (в) Нецелевое изменение `generation_run_id` запрещено | `UPDATE lint_reports SET generation_run_id = <другой id>` → `P0001`, значение остаётся `null` | `ошибка P0001: Таблица lint_reports неизменяема после создания`; `generation_run_id=null` | **ПРОЙДЕНО** |
+
+Разрешено ровно одно изменение отчёта — обнуление ссылки на журнал расходов при
+удалении прогона AI (`ON DELETE SET NULL`). Триггер сравнивает
+`to_jsonb(NEW) - 'generation_run_id'` с `to_jsonb(OLD) - 'generation_run_id'`,
+поэтому содержание отчёта (оценка, замечания, движок, дата) измениться не может.
 
 ## 5. Каскады и обнуление на реальных строках
 
@@ -108,59 +119,53 @@ NULL` и уникальность `sources (author_id, source_url)` — они �
 | Удаление `users` | Каскад: каналы, стили, посты, черновики, отчёты, источники, комментарии, ответы, база знаний, векторы — 0; журнал расходов остаётся | `{"channels":0,"tov":0,"posts":0,"drafts":0,"lints":0,"sources":0,"comments":0,"responses":0,"knowledge":0,"embeddings":0,"runs":1}` | **ПРОЙДЕНО** |
 | Удаление черновика → `lint_reports` | Отчёты уходят каскадом | Осталось отчётов по удалённому черновику: 0 | **ПРОЙДЕНО** |
 | Удаление `sources` / `knowledge_base` | Комментарии и ответы / векторы уходят каскадом | `source: {"comments":0,"responses":0}; knowledge: {"embeddings":0}` | **ПРОЙДЕНО** |
-| Удаление `generation_runs`: ссылки обнуляются, `eval_results` каскадятся | `DELETE` прогона проходит; `lint_reports.generation_run_id = null`; `eval_results` прогона = 0 | `DELETE` **упал**: `P0001 — Таблица lint_reports неизменяема после создания`; ссылка осталась `4`, `eval_results=1` | **ПРОВАЛ** — дефект DB-2 |
-| `SET NULL` там, где нет неперезаписываемой таблицы | Удаление прогона, на который ссылается только `tov_profiles`, проходит; ссылка → `null` | `DELETE` прошёл; `tov_profiles.generation_run_id=null` | **ПРОЙДЕНО** |
+| (б) Удаление `generation_runs`, на который ссылается отчёт | `DELETE` проходит; `lint_reports.generation_run_id = null`; `draft_id/score/issues/engine/created_at` не изменились; `eval_results` прогона каскадом = 0 | `DELETE прошёл; generation_run_id=null; отчёт: score=50, engine=rules, draft_id=6; eval_results=0` | **ПРОЙДЕНО** |
+| `SET NULL` у `generated_responses.generation_run_id` | Удаление прогона проходит; ссылка в ответе → `null` | `DELETE прошёл; generation_run_id=null` | **ПРОЙДЕНО** |
 
 ---
 
-## Дефекты, найденные ревизией
+## Дефекты первой ревизии: закрыты и повторно проверены
 
-Код приложения не менялся (границы зоны записи QA). Запись передана Lead.
+Код приложения не менялся (границы зоны записи QA). Дефекты были переданы Lead,
+исправлены им в DDL и повторно проверены этим же скриптом.
 
-### DB-1. Счётчик внешних ключей в документации неверен: 18 вместо 17
+### DB-1. Счётчик внешних ключей: было 18 вместо 17 — исправлено
 
-- **Где:** `db/sql/001_schema.sql` (шапка и финальный комментарий файла),
-  `_docs/BlogOS___ТЗ.txt`, раздел 7 («14 таблиц, 17 связей»).
-- **Факт:** на живой базе `pg_constraint` возвращает **18** внешних ключей.
-  Полный перечень — в разделе 1; каждая связь осмысленна и нужна.
-- **Влияние:** только документация. Поведение БД корректно; но приёмка по
-  формальному критерию «ровно 17 FK» не проходит, поэтому дефект нельзя скрыть.
-- **Что делать (решение Lead):** либо исправить формулировку в DDL/ТЗ на 18,
-  либо удалить одну связь осознанно — QA не выбирает за владельца схемы.
+- **Было:** `pg_constraint` возвращал 18 FK; лишней была
+  `tov_profiles.generation_run_id`. ТЗ (раздел 7) и шапка DDL заявляли 17.
+- **Исправление Lead:** миграция `db/sql/002_align_17_relations.sql` —
+  `ALTER TABLE tov_profiles DROP COLUMN IF EXISTS generation_run_id`.
+- **Проверка после:** каталог возвращает **ровно 17** FK, состав и `ON DELETE`
+  совпадают с ожиданием (13 CASCADE + 4 SET NULL), повторное применение
+  миграций не ломает базу. **ЗАКРЫТО.**
 
-### DB-2. `ON DELETE SET NULL` у `lint_reports.generation_run_id` конфликтует с триггером неизменяемости
+### DB-2. Конфликт `ON DELETE SET NULL` и триггера неизменяемости — исправлено
 
-- **Где:** `db/sql/001_schema.sql`: `lint_reports.generation_run_id ... ON DELETE
-  SET NULL` (строка 237) + `TRIGGER lint_reports_immutable BEFORE UPDATE
-  ... blogos_forbid_update()` (строки 250—251).
-- **Факт:** `DELETE FROM generation_runs WHERE id = <прогон, на который ссылается
-  отчёт>` падает с `SQLSTATE P0001`: PostgreSQL для `SET NULL` выполняет
-  `UPDATE lint_reports SET generation_run_id = NULL`, а `BEFORE UPDATE`-триггер
-  запрещает любой `UPDATE`. Ошибка воспроизводится на чистой базе скриптом
-  `tests/db/review.mjs` (проверка 5.6).
-- **Влияние:** противоречие DDL самому себе. Публичного метода удаления
-  `generation_runs` в API нет, поэтому сегодня это не ломает сценарии
-  пользователя; но любая очистка журнала расходов (миграция, скрипт, будущий
-  админ-метод) упрётся в ошибку. Удаление канала и пользователя не затронуто —
-  там `generation_runs` только теряет `author_id` (`SET NULL` по `author_id`
-  не трогает `lint_reports`).
-- **Варианты (решение Lead, не QA):** (а) для `lint_reports.generation_run_id`
-  заменить `SET NULL` на `NO ACTION`/`RESTRICT`; (б) разрешить ровно этот
-  `UPDATE` в триггере (`WHEN old.generation_run_id IS DISTINCT FROM
-  new.generation_run_id`); (в) убрать FK — хуже, теряется целостность.
-  Вариант (б) сохраняет и неизменяемость содержания отчёта, и `SET NULL`.
+- **Было:** `lint_reports.generation_run_id ON DELETE SET NULL` + запрет любого
+  `UPDATE` в `blogos_forbid_update()` → `DELETE generation_runs`, на который
+  ссылается отчёт, падал с `P0001`.
+- **Исправление Lead:** функция триггера разрешает ровно один вариант —
+  `generation_run_id` становится `NULL`, а все остальные поля совпадают с
+  прежними (`to_jsonb(NEW) - 'generation_run_id'` = `to_jsonb(OLD) - 'generation_run_id'`).
+- **Проверка после:** три сценария пройдены на живой базе —
+  (а) обычный `UPDATE score` → `P0001`, оценка не изменилась;
+  (б) `DELETE generation_runs` при наличии ссылки из отчёта → успешно,
+  `generation_run_id = NULL`, остальные поля отчёта не изменились;
+  (в) `UPDATE generation_run_id` на другой прогон → `P0001`.
+  **ЗАКРЫТО.**
 
 ---
 
 ## Что подтверждено и что нет
 
 - **Подтверждено на живой PostgreSQL 16 + pgvector (PGlite):** 14 таблиц,
-  перечень и `ON DELETE` всех FK, пять уникальных ограничений и частичный
-  уникальный индекс, `CHECK` «ровно один владелец» у `embeddings`, HNSW-индекс
-  и осмысленный косинусный поиск, все 10 триггеров `updated_at`, запрет
-  `UPDATE` у `lint_reports`, каскады и обнуления на реальных строках.
+  ровно 17 FK и правила `ON DELETE` всех связей, пять уникальных ограничений и
+  частичный уникальный индекс, `CHECK` «ровно один владелец» у `embeddings`,
+  HNSW-индекс и осмысленный косинусный поиск, все 10 триггеров `updated_at`,
+  запрет `UPDATE` у `lint_reports` в трёх сценариях, каскады и обнуления на
+  реальных строках, идемпотентность миграций 001 + 002.
 - **Не проверялось:** поведение на внешнем PostgreSQL (Neon/Docker) — в
   окружении QA нет Docker и сети; отличия ограничены расширением `vector` и
   версией PostgreSQL, которые в PGlite совпадают (PG 16).
 - **Воспроизведение:** `node tests/db/review.mjs` (из корня монорепо, Node 24).
-  Скрипт автономен: не требует сервера, Docker, сети и не оставляет данных.
+  Скрипт автономен: не требует сервера, Docker, сети, не оставляет данных.

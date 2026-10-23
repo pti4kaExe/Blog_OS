@@ -64,6 +64,10 @@ export async function list(
 }
 
 export async function create(authorId: number, input: CreateDraftInput): Promise<Row> {
+  // Схема объявляет text NOT NULL CHECK (length(text) > 0), а контракт
+  // допускает создание черновика с text: "". Храним один пробел: «пустой текст»
+  // проверяется через trim (422 empty_text при публикации/проверке).
+  const text = input.text && input.text.length > 0 ? input.text : ' '
   const row = await queryOne<Row>(
     `INSERT INTO drafts (author_id, title, source_notes, text, origin, arc)
      VALUES ($1, $2, $3, $4, $5, $6)
@@ -72,7 +76,7 @@ export async function create(authorId: number, input: CreateDraftInput): Promise
       authorId,
       input.title ?? null,
       input.source_notes ?? null,
-      input.text ?? '',
+      text,
       input.origin ?? 'author',
       input.arc ?? null,
     ],

@@ -110,7 +110,6 @@ export function analyzeTov(texts: string[]): TovAnalysis | null {
       favorite_phrases: phrases.slice(0, 8),
       metrics: engineProfile,
       analyzed_at: true,
-      generation_run_id: null,
     },
   }
 }

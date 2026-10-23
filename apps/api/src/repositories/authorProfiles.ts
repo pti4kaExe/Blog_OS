@@ -96,7 +96,7 @@ export async function update(
   const params: QueryParam[] = [profileId]
   let index = 2
 
-  const set = (sql: string, value: unknown) => {
+  const set = (sql: string, value: QueryParam) => {
     sets.push(`${sql} = $${index}`)
     params.push(value)
     index++

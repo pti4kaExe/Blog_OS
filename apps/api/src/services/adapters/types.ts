@@ -32,13 +32,16 @@ export interface PlatformAdapter {
   scanComments(options: ScanOptions): Promise<ScannedComment[]>
 }
 
-/** Ошибка площадки после одной повторной попытки → 502 upstream_unavailable. */
+/**
+ * Ошибка площадки после одной повторной попытки → 502 upstream_unavailable.
+ * Поле объявлено явно: strip-only режим Node не поддерживает parameter properties.
+ */
 export class PlatformError extends Error {
-  constructor(
-    readonly platform: PlatformName,
-    message: string,
-  ) {
+  readonly platform: PlatformName
+
+  constructor(platform: PlatformName, message: string) {
     super(message)
     this.name = 'PlatformError'
+    this.platform = platform
   }
 }

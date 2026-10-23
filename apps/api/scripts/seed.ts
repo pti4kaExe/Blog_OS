@@ -281,7 +281,6 @@ export async function seed(): Promise<SeedResult> {
       ).slice(0, 6) as string[],
       metrics: engineProfile,
       analyzed_at: true,
-      generation_run_id: null,
     })
   }
 

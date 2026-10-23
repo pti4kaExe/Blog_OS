@@ -50,7 +50,6 @@ export async function tovRoutes(app: FastifyInstance): Promise<void> {
       favorite_phrases: body.favorite_phrases,
       metrics: body.metrics ?? null,
       analyzed_at: false,
-      generation_run_id: null,
     })
     return reply.status(200).send(saved)
   })
@@ -140,10 +139,7 @@ export async function tovRoutes(app: FastifyInstance): Promise<void> {
         }
       }
 
-      const saved = await tovRepo.upsert(profileId, {
-        ...analysis.input,
-        generation_run_id: generationRunId,
-      })
+      const saved = await tovRepo.upsert(profileId, analysis.input)
       return reply.status(200).send({
         tov_profile: saved,
         analysis: { source, chars, posts_used: texts.length },

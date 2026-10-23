@@ -2,18 +2,26 @@
  * Провайдер, совместимый с OpenAI chat/completions: DeepSeek и OpenAI.
  * Один адаптер закрывает оба (docs/DECISIONS.md, решение № 6).
  * Таймаут — LLM_TIMEOUT_MS, отмена — AbortController.
+ *
+ * Поля объявлены явно, а не через parameter properties: Node запускает .ts
+ * в strip-only режиме и не поддерживает такой синтаксис (erasableSyntaxOnly).
  */
 import { env } from '../../env.ts'
 import { costFor, estimateTokens } from './pricing.ts'
 import { LlmUnavailableError, type LlmCallParams, type LlmProvider, type ProviderResult } from './types.ts'
 
 export class OpenAiCompatibleProvider implements LlmProvider {
-  constructor(
-    readonly name: 'deepseek' | 'openai',
-    readonly model: string,
-    private readonly baseUrl: string,
-    private readonly apiKey: string,
-  ) {}
+  readonly name: 'deepseek' | 'openai'
+  readonly model: string
+  private readonly baseUrl: string
+  private readonly apiKey: string
+
+  constructor(name: 'deepseek' | 'openai', model: string, baseUrl: string, apiKey: string) {
+    this.name = name
+    this.model = model
+    this.baseUrl = baseUrl
+    this.apiKey = apiKey
+  }
 
   async complete(params: LlmCallParams): Promise<ProviderResult> {
     if (!this.apiKey) throw new LlmUnavailableError(`Ключ ${this.name} не задан`)
@@ -58,7 +66,9 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         throw new LlmUnavailableError(`${this.name}: пустой ответ модели`)
       }
 
-      const tokensIn = Number(data.usage?.prompt_tokens ?? estimateTokens(params.system + params.user))
+      const tokensIn = Number(
+        data.usage?.prompt_tokens ?? estimateTokens(params.system + params.user),
+      )
       const tokensOut = Number(data.usage?.completion_tokens ?? estimateTokens(text))
       return {
         text,

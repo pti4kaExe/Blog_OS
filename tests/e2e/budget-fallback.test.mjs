@@ -102,22 +102,37 @@ test('Отказ LLM, отказ от AI и пороги расходов', asyn
   })
 
   await t.test('Пороги 80% и 100% в GET …/usage', async () => {
-    // Лимит почти нулевой: первый же mock-вызов выводит расход за 100%.
-    const author = await makeAuthor(app, 'QA Пороги', 0.000001)
-    const analysis = await api.post(app, `/author-profiles/${author.channelId}/tov/analyze`, {
-      token: author.token,
-      body: { texts: [CLEAN_TEXT, CLEAN_TEXT], use_archive: false },
-    })
-    assertStatus(analysis, 200, 'tov/analyze на канале с микролимитом')
+    const { db } = await getContext()
+    const author = await makeAuthor(app, 'QA Пороги', 500)
 
-    const usage = await api.get(app, `/author-profiles/${author.channelId}/usage`, {
+    // mock-провайдер бесплатный по замыслу (DECISIONS.md №25), поэтому расход
+    // для проверки порогов создаётся фикстурой в журнале генераций — так же,
+    // как роль admin выдаётся в базе: иного способа получить ненулевой cost нет.
+    const insertCost = (cost) =>
+      db.query(
+        `INSERT INTO generation_runs (author_id, task_type, model, tokens_input, tokens_output, tokens, cost, status)
+         VALUES ($1, 'lint', 'mock', 100, 100, 200, $2, 'success')`,
+        [author.channelId, cost],
+      )
+
+    await insertCost(400)
+    const at80 = await api.get(app, `/author-profiles/${author.channelId}/usage`, {
       token: author.token,
     })
-    assertStatus(usage, 200, 'GET …/usage после расхода')
-    assert.ok(usage.json.spent > 0, 'расход учтён')
-    assert.ok(usage.json.limit_ratio >= 0.8, `limit_ratio ≥ 0.8, факт ${usage.json.limit_ratio}`)
-    assert.equal(usage.json.warning, true, 'на 80% канал видит предупреждение')
-    assert.equal(usage.json.blocked, true, 'на 100% AI-вызовы заблокированы')
-    assert.ok(usage.json.runs.total >= 1)
+    assertStatus(at80, 200, 'GET …/usage после 80% расхода')
+    assert.ok(at80.json.spent > 0, 'расход учтён')
+    assert.ok(at80.json.limit_ratio >= 0.8, `limit_ratio ≥ 0.8, факт ${at80.json.limit_ratio}`)
+    assert.equal(at80.json.warning, true, 'на 80% канал видит предупреждение')
+    assert.equal(at80.json.blocked, false, 'на 80% AI ещё не заблокирован')
+
+    await insertCost(100)
+    const at100 = await api.get(app, `/author-profiles/${author.channelId}/usage`, {
+      token: author.token,
+    })
+    assertStatus(at100, 200, 'GET …/usage после 100% расхода')
+    assert.ok(at100.json.limit_ratio >= 1, `limit_ratio ≥ 1, факт ${at100.json.limit_ratio}`)
+    assert.equal(at100.json.warning, true)
+    assert.equal(at100.json.blocked, true, 'на 100% AI-вызовы заблокированы')
+    assert.ok(at100.json.runs.total >= 2)
   })
 })

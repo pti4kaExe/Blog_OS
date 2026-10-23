@@ -9,7 +9,6 @@ export interface TovInput {
   favorite_phrases: string[]
   metrics?: Row | null
   analyzed_at?: boolean
-  generation_run_id?: number | null
 }
 
 export async function getByAuthor(userId: number, authorId: number): Promise<Row | null> {
@@ -21,12 +20,16 @@ export async function getByAuthor(userId: number, authorId: number): Promise<Row
   )
 }
 
-/** Полная замена (PUT) и upsert анализа: нарушить 1:1 невозможно. */
+/**
+ * Полная замена (PUT) и upsert анализа: нарушить 1:1 невозможно.
+ * Связь с журналом AI через tov_profiles не хранится (docs/DB-REVIEW.md, DB-1):
+ * вызов виден в generation_runs по author_id и task_type = 'tov_analyze'.
+ */
 export async function upsert(authorId: number, input: TovInput): Promise<Row> {
   const row = await queryOne<Row>(
     `INSERT INTO tov_profiles
-       (author_id, tone, slang, stop_words, favorite_phrases, metrics, analyzed_at, generation_run_id)
-     VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8)
+       (author_id, tone, slang, stop_words, favorite_phrases, metrics, analyzed_at)
+     VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7)
      ON CONFLICT (author_id) DO UPDATE SET
        tone = EXCLUDED.tone,
        slang = EXCLUDED.slang,
@@ -34,7 +37,6 @@ export async function upsert(authorId: number, input: TovInput): Promise<Row> {
        favorite_phrases = EXCLUDED.favorite_phrases,
        metrics = EXCLUDED.metrics,
        analyzed_at = EXCLUDED.analyzed_at,
-       generation_run_id = EXCLUDED.generation_run_id,
        updated_at = now()
      RETURNING *`,
     [
@@ -45,17 +47,8 @@ export async function upsert(authorId: number, input: TovInput): Promise<Row> {
       JSON.stringify(input.favorite_phrases),
       input.metrics ? JSON.stringify(input.metrics) : null,
       input.analyzed_at ? new Date().toISOString() : null,
-      input.generation_run_id ?? null,
     ],
   )
   if (!row) throw new Error('Профиль стиля не сохранён')
   return row
-}
-
-/** Обновляет только generation_run_id после AI-анализа. */
-export async function setRun(authorId: number, generationRunId: number): Promise<void> {
-  await queryOne(
-    `UPDATE tov_profiles SET generation_run_id = $2 WHERE author_id = $1`,
-    [authorId, generationRunId],
-  )
 }

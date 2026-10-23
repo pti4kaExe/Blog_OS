@@ -78,8 +78,9 @@ bash/macOS/Linux:
 DATABASE_URL="postgresql://user:password@ep-xxx.neon.tech/blogos?sslmode=require" npm run db:migrate
 ```
 
-Ожидаемый вывод: `Применено файлов: 1. Таблиц в базе: 14` (повторный запуск —
-`Схема актуальна. Таблиц в базе: 14`). Проверка в SQL-редакторе Neon:
+Ожидаемый вывод: `Применено файлов: N. Таблиц в базе: 14`, где N — число
+файлов в `db/sql` (сейчас два: `001_schema.sql` и `002_align_17_relations.sql`).
+Повторный запуск — `Схема актуальна. Таблиц в базе: 14`. Проверка в SQL-редакторе Neon:
 
 ```sql
 SELECT count(*) FROM information_schema.tables
