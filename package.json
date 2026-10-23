@@ -1,0 +1,34 @@
+{
+  "name": "blogos",
+  "private": true,
+  "version": "2.0.0",
+  "description": "BlogOS — целевая версия: React-клиент, серверное API на 59 методов и PostgreSQL + pgvector",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "npm run dev -w @blogos/api",
+    "dev:web": "npm run dev -w @blogos/web",
+    "build": "npm run build -w @blogos/web && npm run build -w @blogos/api",
+    "start": "npm run start -w @blogos/api",
+    "test": "npm run test:engine && npm run test:api",
+    "test:engine": "npm run test -w @blogos/engine",
+    "test:api": "npm run test -w @blogos/api",
+    "typecheck": "npm run typecheck -w @blogos/api",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:push": "npm run db:push -w @blogos/api",
+    "db:migrate": "npm run db:migrate -w @blogos/api",
+    "db:seed": "npm run db:seed -w @blogos/api",
+    "db:reset": "npm run db:reset -w @blogos/api",
+    "verify": "npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@blogos/engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Чистые функции движков BlogOS: Tone of Voice, Narrative Engine, AntiCringe, CommentRadar. Без сети, без DOM — используются и клиентом, и сервером.",
+  "exports": {
+    ".": "./src/index.js",
+    "./text": "./src/text.js",
+    "./styleProfile": "./src/styleProfile.js",
+    "./narrative": "./src/narrative.js",
+    "./anticringe": "./src/anticringe.js",
+    "./radar": "./src/radar.js",
+    "./rules": "./src/rules.js",
+    "./demoData": "./src/demoData.js",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "test": "node test/test-engine.mjs"
+  }
+}

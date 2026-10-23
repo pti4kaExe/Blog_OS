@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BlogOS: схема базы данных</title>
+  <style>
+    :root {
+      --bg: #f4f3ef;
+      --paper: #ffffff;
+      --ink: #202126;
+      --muted: #676a73;
+      --line: #dedbd5;
+      --coral: #ff665e;
+      --coral-soft: #ffe8e5;
+      --violet: #7058d7;
+      --violet-soft: #eeeaff;
+      --mint: #238767;
+      --mint-soft: #e1f5ed;
+      --yellow: #f1bd4e;
+      --yellow-soft: #fff3d5;
+      --blue: #2f6fd0;
+      --blue-soft: #e4eefc;
+      --shadow: 0 18px 55px rgba(32, 33, 38, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(255, 102, 94, 0.15), transparent 28rem),
+        radial-gradient(circle at 95% 15%, rgba(112, 88, 215, 0.12), transparent 28rem),
+        var(--bg);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      line-height: 1.55;
+    }
+
+    .page {
+      width: min(1040px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 30px 0 64px;
+    }
+
+    /* ---------- hero ---------- */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(28px, 7vw, 62px);
+      color: #fff;
+      background: var(--ink);
+      border-radius: 30px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      right: -110px;
+      top: -125px;
+      border: 58px solid var(--coral);
+      border-radius: 50%;
+      opacity: 0.9;
+    }
+
+    .label {
+      position: relative;
+      z-index: 1;
+      display: inline-block;
+      margin-bottom: 22px;
+      padding: 6px 11px;
+      color: #7b2420;
+      background: #ffb9b4;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      position: relative;
+      z-index: 1;
+      max-width: 680px;
+      margin-bottom: 18px;
+      font-size: clamp(40px, 8vw, 72px);
+      line-height: 0.98;
+      letter-spacing: -0.05em;
+    }
+
+    .hero-text {
+      position: relative;
+      z-index: 1;
+      max-width: 680px;
+      margin-bottom: 28px;
+      color: #dcdee5;
+      font-size: clamp(17px, 2.5vw, 21px);
+    }
+
+    .student {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 22px;
+      color: #bfc1ca;
+      font-size: 14px;
+    }
+
+    .student strong { color: #fff; }
+    section { margin-top: 48px; }
+
+    .section-number {
+      margin-bottom: 9px;
+      color: var(--coral);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      font-size: clamp(27px, 4vw, 39px);
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      font-size: 20px;
+      line-height: 1.25;
+    }
+
+    .lead { max-width: 760px; color: var(--muted); margin-bottom: 22px; }
+
+    .card {
+      padding: clamp(22px, 4vw, 32px);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .card p:last-child { margin-bottom: 0; }
+
+    code {
+      padding: 2px 6px;
+      color: var(--ink);
+      background: #efede9;
+      border-radius: 6px;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    /* ---------- 1. данные ---------- */
+    .plain-answer {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .answer-card {
+      padding: 23px;
+      border-radius: 22px;
+    }
+
+    .answer-card:nth-child(1) { background: var(--coral-soft); }
+    .answer-card:nth-child(2) { background: var(--violet-soft); }
+    .answer-card:nth-child(3) { background: var(--mint-soft); }
+    .answer-card:nth-child(4) { background: var(--yellow-soft); }
+
+    .answer-card ul { margin: 0; padding: 0; list-style: none; }
+    .answer-card li { padding: 7px 0; color: #4f5159; border-top: 1px solid rgba(32,33,38,0.08); }
+    .answer-card li:first-child { border-top: 0; padding-top: 0; }
+    .answer-card li b { color: var(--ink); font-family: "Cascadia Code", Consolas, monospace; font-size: 14px; }
+
+    /* ---------- 2. схема ---------- */
+    .schema {
+      padding: clamp(18px, 4vw, 36px);
+      background: #27282e;
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .schema-hint { color: #b9bbc4; font-size: 14px; margin-bottom: 18px; }
+
+    .hub {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+      max-width: 720px;
+      margin: 0 auto 26px;
+    }
+
+    .table-card {
+      overflow: hidden;
+      background: #fff;
+      border-radius: 18px;
+      min-width: 0;
+    }
+
+    .table-title {
+      padding: 13px 16px;
+      color: #fff;
+      background: var(--coral);
+    }
+
+    .table-title strong {
+      display: block;
+      font-size: 17px;
+      font-family: "Cascadia Code", Consolas, monospace;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    .table-title span { font-size: 12.5px; opacity: 0.9; }
+
+    .t-author .table-title { background: var(--coral); }
+    .t-content .table-title { background: var(--violet); }
+    .t-radar .table-title { background: var(--mint); }
+    .t-ai .table-title { background: var(--blue); }
+
+    .table-card.proposed { border: 2px dashed var(--yellow); }
+    .table-card.proposed .table-title { background: #6b6e78; }
+    .tag {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 1px 8px;
+      color: #4c3b08;
+      background: var(--yellow);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 750;
+      opacity: 1 !important;
+    }
+
+    .field-list {
+      margin: 0;
+      padding: 6px 16px 10px;
+      list-style: none;
+    }
+
+    .field-list li {
+      display: grid;
+      grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+      gap: 10px;
+      align-items: baseline;
+      padding: 8px 0;
+      border-bottom: 1px solid #ece9e5;
+    }
+
+    .field-list li:last-child { border-bottom: 0; }
+    .field-list strong { font-family: "Cascadia Code", Consolas, monospace; font-size: 13.5px; overflow-wrap: anywhere; }
+    .field-list span { color: var(--muted); font-size: 12.5px; text-align: right; }
+    .key { color: var(--coral); font-size: 10.5px; font-weight: 800; margin-left: 4px; }
+    .key.fk { color: var(--violet); }
+
+    .arrow { color: #fff; text-align: center; }
+
+    .arrow-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 6px 0;
+    }
+
+    .arrow-line::before {
+      content: "";
+      flex: 1;
+      height: 2px;
+      background: #8d909a;
+    }
+
+    .arrow-line span { font-size: 26px; line-height: 1; }
+    .arrow p { margin-bottom: 0; color: #d2d3da; font-size: 12.5px; line-height: 1.35; }
+    .arrow .card-n { color: #ffb9b4; font-weight: 800; font-size: 12px; letter-spacing: 0.05em; }
+
+    .branches { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+
+    .branch {
+      padding: 16px;
+      background: #303139;
+      border-radius: 22px;
+    }
+
+    .branch-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      align-items: baseline;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .branch-head b { font-size: 16px; }
+    .branch-head span { color: #b9bbc4; font-size: 13.5px; }
+
+    .chain {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .chain > .table-card { flex: 1 1 0; min-width: 0; max-width: 330px; }
+    .chain > .arrow { flex: 0 0 92px; }
+
+    .chain.compact > .arrow { flex-basis: 60px; }
+    .chain.compact > .table-card { max-width: none; }
+    .chain.compact .field-list li { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .chain.compact .field-list span { text-align: left; }
+
+    .start-pill {
+      flex: 0 0 auto;
+      padding: 10px 12px;
+      color: #7b2420;
+      background: #ffb9b4;
+      border-radius: 14px;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .service {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 4px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 20px;
+      color: #c9cad2;
+      font-size: 13px;
+    }
+
+    .legend i {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 6px;
+      vertical-align: -1px;
+      border-radius: 4px;
+    }
+
+    .explanation {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .mini-card {
+      padding: 20px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+    }
+
+    .mini-card p { margin-bottom: 0; color: var(--muted); }
+
+    .check-note {
+      margin-top: 18px;
+      padding: 20px 22px;
+      color: #4c3b08;
+      background: var(--yellow-soft);
+      border-radius: 18px;
+    }
+
+    .check-note h3 { font-size: 17px; }
+    .check-note ol { margin: 0; padding-left: 20px; }
+    .check-note li { margin: 6px 0; }
+
+    /* ---------- 3. записи ---------- */
+    .records {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .record-table {
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+
+    .record-table h3 {
+      margin: 0;
+      padding: 15px 18px;
+      background: var(--coral-soft);
+      font-size: 17px;
+    }
+
+    .record-table:nth-child(2) h3 { background: var(--violet-soft); }
+    .record-table:nth-child(3) h3 { background: var(--mint-soft); }
+    .record-table:nth-child(4) h3 { background: var(--blue-soft); }
+
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+
+    th, td {
+      padding: 11px 14px;
+      text-align: left;
+      border-bottom: 1px solid #ece9e5;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    th { color: var(--muted); font-size: 12px; font-weight: 750; white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    td.hl { background: var(--yellow-soft); font-weight: 700; }
+
+    .example-note {
+      margin-top: 18px;
+      padding: 20px 22px;
+      color: #4c3b08;
+      background: var(--yellow-soft);
+      border-radius: 18px;
+    }
+
+    /* ---------- 4. выбор ---------- */
+    .choice {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 24px;
+      align-items: center;
+      color: #fff;
+      background: var(--ink);
+      border: 0;
+    }
+
+    .choice-name {
+      display: grid;
+      min-height: 125px;
+      place-items: center;
+      padding: 16px;
+      color: #7f2824;
+      background: #ffb6b1;
+      border-radius: 20px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .choice p { color: #d4d6de; }
+    .choice code { background: #3a3b43; color: #fff; }
+
+    .helpers {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    /* ---------- 5. шаги ---------- */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      counter-reset: steps;
+    }
+
+    .step {
+      position: relative;
+      padding: 54px 20px 22px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+    }
+
+    .step::before {
+      counter-increment: steps;
+      content: counter(steps);
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      display: grid;
+      width: 27px;
+      height: 27px;
+      place-items: center;
+      color: #fff;
+      background: var(--mint);
+      border-radius: 8px;
+      font-weight: 800;
+    }
+
+    .step h3 { font-size: 18px; }
+    .step p { margin-bottom: 0; color: var(--muted); }
+
+    .footer {
+      margin-top: 48px;
+      padding: 22px 0;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    @media (max-width: 860px) {
+      .chain { flex-direction: column; align-items: stretch; }
+      .chain > .arrow { flex: 0 0 auto; }
+      .chain > .table-card { flex: 0 0 auto; }
+      .start-pill { align-self: center; }
+      .chain .arrow-line {
+        width: 2px;
+        height: 34px;
+        margin: 4px auto;
+        background: #8d909a;
+      }
+      .chain .arrow-line::before { display: none; }
+      .chain .arrow-line span { transform: rotate(90deg); margin-left: -12px; }
+    }
+
+    @media (max-width: 760px) {
+      .plain-answer, .explanation, .records, .steps, .service, .helpers { grid-template-columns: 1fr; }
+      .hub { grid-template-columns: 1fr; }
+      .hub .arrow-line {
+        width: 2px;
+        height: 40px;
+        margin: 6px auto;
+        background: #8d909a;
+      }
+      .hub .arrow-line::before { display: none; }
+      .hub .arrow-line span { transform: rotate(90deg); margin-left: -12px; }
+      .choice { grid-template-columns: 1fr; }
+      .choice-name { min-height: auto; }
+    }
+
+    @media (max-width: 480px) {
+      .page { width: min(100% - 20px, 1040px); padding-top: 10px; }
+      .hero, .schema { border-radius: 22px; }
+      .student { display: grid; }
+      th, td { padding: 9px 10px; font-size: 13px; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .page { width: 100%; padding: 0; }
+      .hero, .schema, .card, .record-table { box-shadow: none; }
+      section, .record-table, .table-card, .branch { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <span class="label">Домашнее задание · базы данных</span>
+      <h1>BlogOS</h1>
+      <p class="hero-text">Система для авторов Telegram-каналов и блогов. Три модуля: CommentRadar находит обсуждения и готовит ответы, Narrative Engine собирает посты из сырых заметок, AntiCringe проверяет текст на клише и отклонения от стиля автора.</p>
+      <div class="student">
+        <span><strong>Автор:</strong> [ИМЯ]</span>
+        <span><strong>Проект:</strong> BlogOS</span>
+        <span><strong>Урок:</strong> [НОМЕР]</span>
+      </div>
+    </header>
+
+    <!-- 1 -->
+    <section aria-labelledby="data-title">
+      <p class="section-number">1. Данные приложения</p>
+      <h2 id="data-title">Что BlogOS должен хранить</h2>
+      <p class="lead">Всего 13 сущностей. Я разложил их на четыре группы по тому, какая часть системы ими пользуется.</p>
+      <div class="plain-answer">
+        <article class="answer-card">
+          <h3>Автор и его стиль</h3>
+          <ul>
+            <li><b>Users</b> — пользователь: Telegram ID, имя, дата регистрации.</li>
+            <li><b>AuthorProfiles</b> — профиль автора: описание и настройки контента.</li>
+            <li><b>ToVProfiles</b> — стиль автора: тональность, сленг, стоп-слова, любимые выражения.</li>
+          </ul>
+        </article>
+        <article class="answer-card">
+          <h3>Контент</h3>
+          <ul>
+            <li><b>Posts</b> — опубликованные посты и их текст.</li>
+            <li><b>Drafts</b> — черновики от автора или от Narrative Engine.</li>
+            <li><b>LintReports</b> — результаты проверки AntiCringe.</li>
+          </ul>
+        </article>
+        <article class="answer-card">
+          <h3>CommentRadar</h3>
+          <ul>
+            <li><b>Sources</b> — отслеживаемые Telegram-каналы и другие источники.</li>
+            <li><b>Comments</b> — найденные в источниках комментарии.</li>
+            <li><b>GeneratedResponses</b> — варианты ответов, которые готовит CommentRadar.</li>
+          </ul>
+        </article>
+        <article class="answer-card">
+          <h3>AI и качество</h3>
+          <ul>
+            <li><b>KnowledgeBase</b> — факты и материалы авторской базы знаний.</li>
+            <li><b>Embeddings</b> — векторы постов и материалов для RAG.</li>
+            <li><b>GenerationRuns</b> — запуски AI: модель, токены, стоимость, статус.</li>
+            <li><b>GoldenDataset</b> — эталонные тексты и разметка ошибок для Evals.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section aria-labelledby="schema-title">
+      <p class="section-number">2. Схема базы данных</p>
+      <h2 id="schema-title">Как таблицы связаны между собой</h2>
+      <p class="lead">Центр схемы — профиль автора. Пользователь может вести несколько каналов, поэтому у одного <code>users</code> может быть несколько <code>author_profiles</code>, а всё остальное привязано уже к конкретному профилю.</p>
+
+      <div class="schema">
+        <p class="schema-hint">Стрелка идёт от главной таблицы к зависимой. «1 → N» значит: одной записи слева может соответствовать много записей справа.</p>
+
+        <div class="hub">
+          <article class="table-card t-author">
+            <div class="table-title"><strong>users</strong><span>Пользователи</span></div>
+            <ul class="field-list">
+              <li><strong>id<em class="key">PK</em></strong><span>номер пользователя</span></li>
+              <li><strong>telegram_id</strong><span>ID в Telegram</span></li>
+              <li><strong>name</strong><span>имя</span></li>
+              <li><strong>created_at</strong><span>дата регистрации</span></li>
+            </ul>
+          </article>
+          <div class="arrow" aria-label="Один пользователь может иметь много профилей автора">
+            <div class="arrow-line"><span>→</span></div>
+            <p><span class="card-n">1 → N</span><br>у одного пользователя может быть несколько каналов</p>
+          </div>
+          <article class="table-card t-author">
+            <div class="table-title"><strong>author_profiles</strong><span>Профили автора</span></div>
+            <ul class="field-list">
+              <li><strong>id<em class="key">PK</em></strong><span>номер профиля</span></li>
+              <li><strong>user_id<em class="key fk">FK</em></strong><span>чей профиль</span></li>
+              <li><strong>name</strong><span>название</span></li>
+              <li><strong>description</strong><span>описание</span></li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="branches">
+          <!-- стиль -->
+          <div class="branch">
+            <div class="branch-head"><b>Стиль автора</b><span>по нему AntiCringe сверяет текст</span></div>
+            <div class="chain">
+              <div class="start-pill">author_profiles</div>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p><span class="card-n">1 → ?</span><br>уточнить</p></div>
+              <article class="table-card t-author">
+                <div class="table-title"><strong>tov_profiles</strong><span>Профиль стиля (Tone of Voice)</span></div>
+                <ul class="field-list">
+                  <li><strong>id<em class="key">PK</em></strong><span>номер</span></li>
+                  <li><strong>author_id<em class="key fk">FK</em></strong><span>чей стиль</span></li>
+                  <li><strong>tone</strong><span>тональность</span></li>
+                  <li><strong>slang</strong><span>сленг</span></li>
+                  <li><strong>stop_words</strong><span>стоп-слова</span></li>
+                </ul>
+              </article>
+            </div>
+          </div>
+
+          <!-- посты -->
+          <div class="branch">
+            <div class="branch-head"><b>Посты и RAG</b><span>архив постов превращается в векторы, чтобы ИИ помнил прошлые темы</span></div>
+            <div class="chain">
+              <div class="start-pill">author_profiles</div>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p><span class="card-n">1 → N</span><br>много постов</p></div>
+              <article class="table-card t-content">
+                <div class="table-title"><strong>posts</strong><span>Опубликованные посты</span></div>
+                <ul class="field-list">
+                  <li><strong>id<em class="key">PK</em></strong><span>номер поста</span></li>
+                  <li><strong>author_id<em class="key fk">FK</em></strong><span>чей пост</span></li>
+                  <li><strong>text</strong><span>текст</span></li>
+                  <li><strong>published_at</strong><span>дата публикации</span></li>
+                </ul>
+              </article>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p><span class="card-n">1 → N</span><br>векторы поста</p></div>
+              <article class="table-card t-ai">
+                <div class="table-title"><strong>embeddings</strong><span>Векторы для RAG</span></div>
+                <ul class="field-list">
+                  <li><strong>id<em class="key">PK</em></strong><span>номер</span></li>
+                  <li><strong>post_id<em class="key fk">FK</em></strong><span>из какого поста</span></li>
+                  <li><strong>vector</strong><span>вектор (pgvector)</span></li>
+                </ul>
+              </article>
+            </div>
+          </div>
+
+          <!-- черновики -->
+          <div class="branch">
+            <div class="branch-head"><b>Черновики и проверка</b><span>черновик много раз меняется, поэтому он отдельно от поста</span></div>
+            <div class="chain">
+              <div class="start-pill">author_profiles</div>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p><span class="card-n">1 → N</span><br>много черновиков</p></div>
+              <article class="table-card t-content">
+                <div class="table-title"><strong>drafts</strong><span>Черновики</span></div>
+                <ul class="field-list">
+                  <li><strong>id<em class="key">PK</em></strong><span>номер черновика</span></li>
+                  <li><strong>author_id<em class="key fk">FK</em></strong><span>чей черновик</span></li>
+                  <li><strong>text</strong><span>текст</span></li>
+                  <li><strong>status</strong><span>статус</span></li>
+                </ul>
+              </article>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p><span class="card-n">1 → N</span><br>каждая проверка — новый отчёт</p></div>
+              <article class="table-card t-content">
+                <div class="table-title"><strong>lint_reports</strong><span>Отчёты AntiCringe</span></div>
+                <ul class="field-list">
+                  <li><strong>id<em class="key">PK</em></strong><span>номер отчёта</span></li>
+                  <li><strong>draft_id<em class="key fk">FK</em></strong><span>какой черновик</span></li>
+                  <li><strong>score</strong><span>оценка</span></li>
+                  <li><strong>issues</strong><span>замечания (JSONB)</span></li>
+                </ul>
+              </article>
+            </div>
+          </div>
+
+          <!-- commentradar -->
+          <div class="branch">
+            <div class="branch-head"><b>CommentRadar</b><span>источник → комментарий → вариант ответа</span></div>
+            <div class="chain compact">
+              <div class="start-pill">author_profiles</div>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p><span class="card-n">1 → N</span></p></div>
+              <article class="table-card t-radar">
+                <div class="table-title"><strong>sources</strong><span>Источники</span></div>
+                <ul class="field-list">
+                  <li><strong>id<em class="key">PK</em></strong><span>номер</span></li>
+                  <li><strong>author_id<em class="key fk">FK</em></strong><span>кто отслеживает</span></li>
+                  <li><strong>name</strong><span>название</span></li>
+                  <li><strong>source_url</strong><span>ссылка</span></li>
+                </ul>
+              </article>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p><span class="card-n">1 → N</span></p></div>
+              <article class="table-card t-radar">
+                <div class="table-title"><strong>comments</strong><span>Комментарии</span></div>
+                <ul class="field-list">
+                  <li><strong>id<em class="key">PK</em></strong><span>номер</span></li>
+                  <li><strong>source_id<em class="key fk">FK</em></strong><span>откуда</span></li>
+                  <li><strong>text</strong><span>текст</span></li>
+                  <li><strong>created_at</strong><span>когда найден</span></li>
+                </ul>
+              </article>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p><span class="card-n">1 → N</span></p></div>
+              <article class="table-card t-radar">
+                <div class="table-title"><strong>generated_<wbr>responses</strong><span>Варианты ответа</span></div>
+                <ul class="field-list">
+                  <li><strong>id<em class="key">PK</em></strong><span>номер</span></li>
+                  <li><strong>comment_id<em class="key fk">FK</em></strong><span>на что ответ</span></li>
+                  <li><strong>response_text</strong><span>текст ответа</span></li>
+                  <li><strong>status</strong><span>статус</span></li>
+                </ul>
+              </article>
+            </div>
+          </div>
+
+          <!-- база знаний -->
+          <div class="branch">
+            <div class="branch-head"><b>База знаний</b><span>материалы автора тоже идут в RAG</span></div>
+            <div class="chain">
+              <div class="start-pill">author_profiles</div>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p><span class="card-n">1 → N</span></p></div>
+              <article class="table-card t-ai proposed">
+                <div class="table-title"><strong>knowledge_base</strong><span>База знаний</span><br><span class="tag">поля предложены</span></div>
+                <ul class="field-list">
+                  <li><strong>id<em class="key">PK</em></strong><span>номер</span></li>
+                  <li><strong>author_id<em class="key fk">FK</em></strong><span>чья база</span></li>
+                  <li><strong>content</strong><span>факт или материал</span></li>
+                </ul>
+              </article>
+              <div class="arrow"><div class="arrow-line"><span>→</span></div><p>нужно поле связи в embeddings</p></div>
+              <div class="start-pill" style="background:#cfd6f3;color:#1d3c7a;">embeddings</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="branch" style="margin-top:18px;">
+          <div class="branch-head"><b>Служебные таблицы</b><span>напрямую с авторами не связаны: журнал запусков AI и эталоны для тестов</span></div>
+          <div class="service">
+            <article class="table-card t-ai proposed">
+              <div class="table-title"><strong>generation_runs</strong><span>Запуски AI</span><br><span class="tag">поля по описанию</span></div>
+              <ul class="field-list">
+                <li><strong>id<em class="key">PK</em></strong><span>номер запуска</span></li>
+                <li><strong>model</strong><span>какая модель</span></li>
+                <li><strong>tokens</strong><span>сколько токенов</span></li>
+                <li><strong>cost</strong><span>стоимость</span></li>
+                <li><strong>status</strong><span>статус</span></li>
+              </ul>
+            </article>
+            <article class="table-card t-ai proposed">
+              <div class="table-title"><strong>golden_dataset</strong><span>Эталоны для Evals</span><br><span class="tag">поля предложены</span></div>
+              <ul class="field-list">
+                <li><strong>id<em class="key">PK</em></strong><span>номер</span></li>
+                <li><strong>text</strong><span>эталонный текст</span></li>
+                <li><strong>labels</strong><span>разметка ошибок</span></li>
+              </ul>
+            </article>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><i style="background:var(--coral)"></i>автор и стиль</span>
+          <span><i style="background:var(--violet)"></i>контент</span>
+          <span><i style="background:var(--mint)"></i>CommentRadar</span>
+          <span><i style="background:var(--blue)"></i>AI и качество</span>
+          <span><i style="background:transparent;border:2px dashed var(--yellow)"></i>поля ещё не утверждены</span>
+        </div>
+      </div>
+
+      <div class="explanation">
+        <article class="mini-card">
+          <h3>Что такое <code>PK</code> и <code>FK</code></h3>
+          <p><code>PK</code> — номер записи, у каждой он свой. <code>FK</code> — номер записи из другой таблицы. Например, <code>author_id</code> в черновике показывает, какому автору он принадлежит. По таким полям таблицы и соединяются.</p>
+        </article>
+        <article class="mini-card">
+          <h3>Зачем <code>JSONB</code> и <code>vector</code></h3>
+          <p>Замечания AntiCringe бывают разные, поэтому <code>issues</code> хранится как JSONB — гибкий список внутри одной ячейки. <code>vector</code> — числовое представление текста, по нему RAG ищет похожие посты.</p>
+        </article>
+      </div>
+
+      <div class="check-note">
+        <h3>Что я нашёл при сборке схемы и ещё нужно решить</h3>
+        <ol>
+          <li>На общей диаграмме посты, черновики и источники подключены к <code>users</code>, а в ER-схеме — к <code>author_id</code>. На этой странице я взял вариант с <code>author_id</code>: он точнее, если у пользователя несколько каналов.</li>
+          <li>База знаний на диаграмме ведёт в <code>embeddings</code>, но в <code>embeddings</code> есть только <code>post_id</code>. Нужно добавить поле, которое показывает, что вектор взят из базы знаний.</li>
+          <li>Для <code>knowledge_base</code>, <code>generation_runs</code> и <code>golden_dataset</code> в ER-схеме полей не было. Здесь они собраны по описанию сущностей и требуют подтверждения.</li>
+          <li>Не решено, может ли у одного автора быть несколько профилей стиля (1 → 1 или 1 → N).</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section aria-labelledby="records-title">
+      <p class="section-number">3. Пример записей</p>
+      <h2 id="records-title">Как это выглядит с данными</h2>
+      <p class="lead">Записи ниже придуманы для примера, чтобы показать, как работают связи.</p>
+      <div class="records">
+        <article class="record-table">
+          <h3>Таблица author_profiles</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>id</th><th>user_id</th><th>name</th></tr></thead>
+              <tbody>
+                <tr><td class="hl">7</td><td>1</td><td>Заметки разработчика</td></tr>
+                <tr><td>8</td><td>1</td><td>Учёба и проекты</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+        <article class="record-table">
+          <h3>Таблица drafts</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>id</th><th>author_id</th><th>status</th></tr></thead>
+              <tbody>
+                <tr><td class="hl">31</td><td class="hl">7</td><td>на проверке</td></tr>
+                <tr><td>32</td><td>8</td><td>черновик</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+        <article class="record-table">
+          <h3>Таблица lint_reports</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>id</th><th>draft_id</th><th>score</th><th>issues</th></tr></thead>
+              <tbody>
+                <tr><td>88</td><td class="hl">31</td><td>41</td><td>клише, цифра без источника</td></tr>
+                <tr><td>89</td><td class="hl">31</td><td>79</td><td>канцелярит</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+        <article class="record-table">
+          <h3>Таблица comments → generated_responses</h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>comment id</th><th>response id</th><th>status</th></tr></thead>
+              <tbody>
+                <tr><td>502</td><td>1201</td><td>ждёт одобрения</td></tr>
+                <tr><td>502</td><td>1202</td><td>отклонён</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+      <div class="example-note">Пользователь с <code>id = 1</code> ведёт два канала — профили 7 и 8. Черновик 31 принадлежит профилю 7. Его проверили дважды: в первый раз AntiCringe поставил 41, после правок — 79. Оба отчёта ссылаются на один <code>draft_id = 31</code>, поэтому история проверок сохраняется.</div>
+    </section>
+
+    <!-- 4 -->
+    <section aria-labelledby="database-title">
+      <p class="section-number">4. Выбор базы данных</p>
+      <h2 id="database-title">Основа — PostgreSQL с pgvector</h2>
+      <div class="card choice">
+        <div class="choice-name">PostgreSQL<br>+ pgvector</div>
+        <div>
+          <p>Почти все данные BlogOS структурированы и связаны внешними ключами: автор → черновик → отчёт, источник → комментарий → ответ. Для этого лучше всего подходит реляционная база.</p>
+          <p>Результаты AI (замечания AntiCringe) хранятся в <code>JSONB</code>, а векторы для RAG — через расширение pgvector. Поэтому на этапе MVP отдельная векторная база не нужна: всё лежит в одном месте.</p>
+        </div>
+      </div>
+      <div class="helpers">
+        <article class="mini-card">
+          <h3>Redis</h3>
+          <p>Не основная база. Нужен для очередей, кэша и фоновых задач, например для проверки новых комментариев CommentRadar.</p>
+        </article>
+        <article class="mini-card">
+          <h3>Объектное хранилище</h3>
+          <p>Для файлов и аудиорасшифровок, если они появятся. В PostgreSQL лежат только их метаданные.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section aria-labelledby="flow-title">
+      <p class="section-number">5. Как BlogOS работает с данными</p>
+      <h2 id="flow-title">Шесть действий</h2>
+      <div class="steps">
+        <article class="step"><h3>Автор подключается</h3><p>Через Telegram создаётся запись в <code>users</code>, затем профиль канала в <code>author_profiles</code> и его стиль в <code>tov_profiles</code>.</p></article>
+        <article class="step"><h3>Загружается архив</h3><p>Старые посты попадают в <code>posts</code>, из них строятся <code>embeddings</code>. Так ИИ знает прошлые темы автора.</p></article>
+        <article class="step"><h3>Появляется черновик</h3><p>Автор или Narrative Engine создаёт запись в <code>drafts</code>. При каждой правке меняется текст, а не создаётся новый черновик.</p></article>
+        <article class="step"><h3>AntiCringe проверяет</h3><p>Каждая проверка добавляет строку в <code>lint_reports</code> с оценкой и замечаниями. Запуск модели пишется в <code>generation_runs</code>.</p></article>
+        <article class="step"><h3>CommentRadar ищет</h3><p>Новые комментарии из <code>sources</code> сохраняются в <code>comments</code>, а варианты ответов — в <code>generated_responses</code>.</p></article>
+        <article class="step"><h3>Пост публикуется</h3><p>Готовый текст уходит в <code>posts</code> и сразу получает свои <code>embeddings</code>, чтобы следующий пост учитывал его.</p></article>
+      </div>
+    </section>
+
+    <footer class="footer">Домашнее задание · базы данных · проект BlogOS · WMT Kids Senior</footer>
+  </main>
+</body>
+</html>

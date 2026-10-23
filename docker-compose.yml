@@ -1,0 +1,35 @@
+# Локальный стенд BlogOS: PostgreSQL 16 + pgvector, Redis (необязательно).
+#   docker compose up -d db
+#   npm run db:push && npm run db:seed
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: blogos-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: blogos
+      POSTGRES_PASSWORD: blogos
+      POSTGRES_DB: blogos
+    ports:
+      - "5432:5432"
+    volumes:
+      - blogos-db-data:/var/lib/postgresql/data
+      # Схема не подкладывается в initdb: единственный путь её применения —
+      # `npm run db:migrate`. Иначе появилось бы два источника истины.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blogos -d blogos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: blogos-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    profiles: ["full"]
+
+volumes:
+  blogos-db-data:

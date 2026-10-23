@@ -1,0 +1,1081 @@
+<meta charset="utf-8">
+<title>Техническое задание BlogOS</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --ground: #f4f6fa;
+  --surface: #ffffff;
+  --surface-2: #eef1f7;
+  --ink: #141922;
+  --ink-2: #2c3542;
+  --muted: #5d6a7d;
+  --faint: #8b96a8;
+  --line: #d9dfe9;
+  --line-soft: #e7ebf2;
+  --accent: #2f62c4;
+  --accent-soft: rgba(47, 98, 196, 0.09);
+  --good: #16734a;
+  --good-soft: rgba(22, 115, 74, 0.1);
+  --plan: #8a5a06;
+  --plan-soft: rgba(138, 90, 6, 0.1);
+  --ask: #a8303e;
+  --ask-soft: rgba(168, 48, 62, 0.09);
+
+  --sans: "Golos Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --serif: "Spectral", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --measure: 74ch;
+  --pad: clamp(18px, 4vw, 56px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0e1014;
+    --surface: #161a21;
+    --surface-2: #1c212a;
+    --ink: #e8ecf3;
+    --ink-2: #d2d9e4;
+    --muted: #9aa4b5;
+    --faint: #6b7688;
+    --line: #2a303b;
+    --line-soft: #222732;
+    --accent: #6ea8fe;
+    --accent-soft: rgba(110, 168, 254, 0.14);
+    --good: #4ec98a;
+    --good-soft: rgba(78, 201, 138, 0.14);
+    --plan: #f0b64b;
+    --plan-soft: rgba(240, 182, 75, 0.14);
+    --ask: #f2716b;
+    --ask-soft: rgba(242, 113, 107, 0.14);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0e1014;
+  --surface: #161a21;
+  --surface-2: #1c212a;
+  --ink: #e8ecf3;
+  --ink-2: #d2d9e4;
+  --muted: #9aa4b5;
+  --faint: #6b7688;
+  --line: #2a303b;
+  --line-soft: #222732;
+  --accent: #6ea8fe;
+  --accent-soft: rgba(110, 168, 254, 0.14);
+  --good: #4ec98a;
+  --good-soft: rgba(78, 201, 138, 0.14);
+  --plan: #f0b64b;
+  --plan-soft: rgba(240, 182, 75, 0.14);
+  --ask: #f2716b;
+  --ask-soft: rgba(242, 113, 107, 0.14);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sheet {
+  max-width: 1120px;
+  margin: 0 auto;
+  background: var(--surface);
+  border-left: 1px solid var(--line-soft);
+  border-right: 1px solid var(--line-soft);
+  padding: 0 var(--pad) 72px;
+}
+
+p, li, dd { color: var(--ink-2); }
+p { margin: 0 0 14px; max-width: var(--measure); }
+strong { color: var(--ink); font-weight: 600; }
+
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+/* ---------- cover ---------- */
+
+.cover { padding: clamp(40px, 7vw, 84px) 0 34px; border-bottom: 1px solid var(--line); }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 22px;
+}
+
+.doc-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: clamp(44px, 8vw, 82px);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--ink);
+}
+
+.doc-title span { color: var(--accent); }
+
+.lede {
+  font-family: var(--serif);
+  font-size: clamp(18px, 2.3vw, 23px);
+  line-height: 1.45;
+  color: var(--muted);
+  margin: 16px 0 0;
+  max-width: 34ch;
+}
+
+.meta {
+  margin-top: 38px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1px;
+  background: var(--line-soft);
+  border: 1px solid var(--line-soft);
+}
+
+.meta > div { background: var(--surface); padding: 14px 16px; }
+
+.meta dt {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 6px;
+}
+
+.meta dd { margin: 0; font-size: 15px; font-weight: 500; color: var(--ink); }
+
+/* ---------- about + legend ---------- */
+
+.about { padding: 34px 0 10px; display: grid; gap: 30px; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 780px) { .about { grid-template-columns: 1fr; gap: 22px; } }
+
+.legend { border: 1px solid var(--line); padding: 18px 20px; background: var(--surface-2); }
+.legend h3 { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); margin: 0 0 14px; font-weight: 500; }
+.legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+.legend li { display: grid; grid-template-columns: auto 1fr; gap: 11px; align-items: baseline; font-size: 14px; color: var(--muted); }
+
+.chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px 3px;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+  display: inline-block;
+}
+.chip--good { color: var(--good); background: var(--good-soft); }
+.chip--plan { color: var(--plan); background: var(--plan-soft); }
+.chip--ask  { color: var(--ask);  background: var(--ask-soft); }
+
+/* ---------- contents ---------- */
+
+.toc { margin: 30px 0 0; padding: 26px 0 0; border-top: 1px solid var(--line); }
+.toc h2 { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); margin: 0 0 16px; font-weight: 500; }
+.toc ol { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 46px; }
+@media (max-width: 680px) { .toc ol { columns: 1; } }
+.toc li { break-inside: avoid; display: grid; grid-template-columns: 2.4em 1fr; padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
+.toc .n { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+.toc a { color: var(--ink-2); text-decoration: none; font-size: 14.5px; }
+.toc a:hover { color: var(--accent); }
+
+/* ---------- sections ---------- */
+
+section { padding-top: 46px; }
+
+h2.sec {
+  font-family: var(--serif);
+  font-size: clamp(26px, 3.4vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 22px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--accent);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: baseline;
+  text-wrap: balance;
+}
+
+h2.sec .n {
+  font-family: var(--mono);
+  font-size: 0.5em;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+h3 {
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 30px 0 12px;
+  text-wrap: balance;
+}
+
+h4 {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  margin: 26px 0 8px;
+}
+
+/* ---------- label / value blocks ---------- */
+
+.kv { margin: 0 0 18px; display: grid; gap: 12px; max-width: 94ch; }
+.kv > div { display: grid; grid-template-columns: 15.5em 1fr; gap: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+@media (max-width: 760px) { .kv > div { grid-template-columns: 1fr; gap: 4px; } }
+.kv dt { font-weight: 600; color: var(--ink); font-size: 14.5px; }
+.kv dd { margin: 0; }
+
+ul.plain { padding-left: 1.15em; margin: 0 0 16px; max-width: var(--measure); }
+ul.plain li { margin-bottom: 9px; }
+ul.plain li::marker { color: var(--accent); }
+
+/* ---------- tables ---------- */
+
+.tw { overflow-x: auto; margin: 0 0 20px; border: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; min-width: 580px; font-size: 13.5px; }
+thead th {
+  background: var(--surface-2);
+  text-align: left;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: bottom;
+}
+tbody td { padding: 10px 13px; border-bottom: 1px solid var(--line-soft); color: var(--ink-2); vertical-align: top; line-height: 1.5; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+td.num, th.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+caption { caption-side: top; text-align: left; font-size: 12.5px; color: var(--faint); padding: 0 0 8px; }
+
+code, .mono { font-family: var(--mono); font-size: 0.9em; color: var(--ink); background: var(--accent-soft); padding: 0.1em 0.35em; }
+td code, th code { background: none; padding: 0; color: var(--muted); }
+
+/* ---------- panels: ascii diagrams, run commands ---------- */
+
+.panel { border: 1px solid var(--line); background: var(--surface-2); padding: 20px 22px; margin: 0 0 22px; overflow-x: auto; }
+.panel h4 { margin: 0 0 14px; }
+.panel pre { font-family: var(--mono); font-size: 13px; line-height: 1.75; margin: 0; color: var(--ink-2); white-space: pre; }
+.panel pre b { color: var(--accent); font-weight: 500; }
+
+.note { border-left: 3px solid var(--accent); padding: 2px 0 2px 18px; margin: 0 0 22px; max-width: 86ch; }
+.note p:last-child { margin-bottom: 0; }
+
+/* ---------- pipeline (a real sequence: 4 steps of the product) ---------- */
+
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); margin: 0 0 24px; }
+@media (max-width: 760px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+.steps > div { background: var(--surface); padding: 15px 16px 17px; }
+.steps .n { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; }
+.steps h5 { margin: 6px 0 5px; font-size: 15px; font-weight: 600; color: var(--ink); }
+.steps p { margin: 0; font-size: 13px; color: var(--muted); max-width: none; }
+
+/* ---------- scenario cards ---------- */
+
+.scn { border: 1px solid var(--line); margin: 0 0 20px; }
+.scn > header { background: var(--surface-2); padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.scn > header h3 { margin: 0; font-size: 15.5px; }
+.scn dl { margin: 0; display: grid; }
+.scn dl > div { display: grid; grid-template-columns: 13.5em 1fr; gap: 18px; padding: 11px 16px; border-bottom: 1px solid var(--line-soft); }
+.scn dl > div:last-child { border-bottom: 0; }
+@media (max-width: 720px) { .scn dl > div { grid-template-columns: 1fr; gap: 3px; } }
+.scn dt { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.03em; color: var(--faint); padding-top: 2px; }
+.scn dd { margin: 0; font-size: 14px; }
+
+footer.doc { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 13px; color: var(--faint); display: flex; flex-wrap: wrap; gap: 6px 22px; font-family: var(--mono); }
+
+/* ---------- print / PDF ---------- */
+
+@page { size: A4; margin: 14mm 12mm 16mm; }
+
+@media print {
+  :root {
+    --ground: #ffffff; --surface: #ffffff; --surface-2: #f3f5fa;
+    --ink: #11161e; --ink-2: #222a36; --muted: #4c5768; --faint: #76818f;
+    --line: #c9d1de; --line-soft: #e2e7ef; --accent: #22509f;
+    --good: #0f5f3c; --plan: #754c05; --ask: #8e2733;
+  }
+  body { font-size: 10.2pt; line-height: 1.45; background: #fff; }
+  .sheet { max-width: none; border: 0; padding: 0 0 8mm; }
+  .cover { padding: 0 0 8mm; }
+  .doc-title { font-size: 40pt; }
+  .lede { font-size: 13pt; max-width: 40ch; }
+  .meta { margin-top: 8mm; }
+  section { padding-top: 7mm; break-inside: auto; }
+  h2.sec { font-size: 17pt; break-after: avoid; break-inside: avoid; }
+  h3, h4 { break-after: avoid; }
+  table { font-size: 8.6pt; min-width: 0; }
+  thead { display: table-header-group; }
+  tr, .scn, .panel, .steps, .legend, .note { break-inside: avoid; }
+  .tw { overflow: visible; }
+  a { color: var(--ink); text-decoration: none; }
+  .toc { break-after: page; }
+}
+</style>
+
+<div class="sheet">
+
+<header class="cover">
+  <p class="eyebrow">Техническое задание · WMT Kids Senior</p>
+  <h1 class="doc-title">Blog<span>OS</span></h1>
+  <p class="lede">Инструмент автора блога: читает его стиль, собирает пост из заметок и вычитывает текст перед публикацией.</p>
+
+  <dl class="meta">
+    <div><dt>Авторы</dt><dd>Миша, Лиза</dd></div>
+    <div><dt>Версия и дата</dt><dd>v1.1 · 19.10.2026</dd></div>
+    <div><dt>Статус</dt><dd>Черновик, на проверку</dd></div>
+    <div><dt>Рабочее название</dt><dd>ContentOS Guardian</dd></div>
+  </dl>
+</header>
+
+<div class="about">
+  <div>
+    <h3>О документе</h3>
+    <p>Документ описывает <strong>весь задуманный проект</strong> BlogOS: и то, что уже реализовано в клиентском прототипе, и то, что запланировано как целевая серверная архитектура. Порядок разработки не сокращает перечень функций — состояние каждой функции отмечено отдельно.</p>
+    <p>Источники: бриф проекта, техническая документация 00—06, документ «Структура базы данных и методы сервиса» вместе с его ревью, исходный код прототипа и материалы занятий по исследованию ниши.</p>
+  </div>
+
+  <div class="legend">
+    <h3>Как читать пометки</h3>
+    <ul>
+      <li><span class="chip chip--good">Работает</span><span>Реализовано и проверено в прототипе</span></li>
+      <li><span class="chip chip--plan">Планируется</span><span>Задумано, решение принято, код ещё не написан</span></li>
+      <li><span class="chip chip--ask">Нужно уточнить</span><span>Открытый вопрос — к преподавателю или к команде</span></li>
+    </ul>
+  </div>
+</div>
+
+<nav class="toc">
+  <h2>Содержание</h2>
+  <ol>
+    <li><span class="n">01</span><a href="#s1">Назначение и результат</a></li>
+    <li><span class="n">02</span><a href="#s2">Пользователи и права</a></li>
+    <li><span class="n">03</span><a href="#s3">Функции и границы проекта</a></li>
+    <li><span class="n">04</span><a href="#s4">Сценарии и правила</a></li>
+    <li><span class="n">05</span><a href="#s5">Экраны и поведение</a></li>
+    <li><span class="n">06</span><a href="#s6">Вход и результат действий</a></li>
+    <li><span class="n">07</span><a href="#s7">База и модель данных</a></li>
+    <li><span class="n">08</span><a href="#s8">Методы и внешние сервисы</a></li>
+    <li><span class="n">09</span><a href="#s9">Архитектура</a></li>
+    <li><span class="n">10</span><a href="#s10">Технологии и среда</a></li>
+    <li><span class="n">11</span><a href="#s11">Безопасность и условия работы</a></li>
+    <li><span class="n">12</span><a href="#s12">Проверки и приёмка</a></li>
+    <li><span class="n">13</span><a href="#s13">Запуск и передача результата</a></li>
+    <li><span class="n">14</span><a href="#s14">Этапы разработки</a></li>
+    <li><span class="n">—</span><a href="#q">Открытые вопросы и решения</a></li>
+    <li><span class="n">—</span><a href="#app">Приложения и история документа</a></li>
+    <li><span class="n">—</span><a href="#ai">Проверка понимания с ИИ</a></li>
+  </ol>
+</nav>
+
+<!-- ======================= 1 ======================= -->
+<section id="s1">
+  <h2 class="sec"><span class="n">01</span>Назначение и результат</h2>
+
+  <dl class="kv">
+    <div>
+      <dt>Для кого приложение</dt>
+      <dd>Авторы личных блогов и каналов (Telegram, Instagram, YouTube), которые пишут сами, от своего имени, без редактора.</dd>
+    </div>
+    <div>
+      <dt>Какую задачу решает</dt>
+      <dd>Сейчас на один пост автор использует несколько разных инструментов: поиск темы → написание → вычитка → ответ в комментариях. Ни один из них не учитывает, как именно этот автор пишет, а общие AI-помощники усредняют авторский голос. BlogOS соединяет весь цикл в одном месте и сохраняет стиль конкретного автора.</dd>
+    </div>
+    <div>
+      <dt>Какой результат получает человек</dt>
+      <dd>За один проход — профиль собственного стиля (Tone of Voice), связный пост, собранный из сырых заметок с учётом этого стиля, и проверку готового текста на клише, логические ошибки и соответствие голосу: с конкретными правками, а не общей оценкой «хорошо/плохо». Дополнительно — подборка обсуждений, где стоит прокомментировать, с черновиком комментария в своём стиле.</dd>
+    </div>
+    <div>
+      <dt>Что уже существует</dt>
+      <dd>Рабочий клиентский прототип (React + Vite, без сервера и базы данных, хранение в <code>localStorage</code> браузера): три модуля, 49 автотестов движков и готовая статическая сборка для публикации. Публичной ссылки на сайт пока нет — это ближайшая открытая задача.</dd>
+    </div>
+  </dl>
+
+  <h3>Из чего состоит продукт</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Модуль</th><th>Задача</th><th>Место в конвейере</th></tr></thead>
+      <tbody>
+        <tr><td><strong>CommentRadar</strong></td><td>Находит обсуждения, близкие к темам автора, и готовит основу комментария</td><td>Вход — точки роста аудитории</td></tr>
+        <tr><td><strong>Narrative Engine</strong></td><td>Превращает сырые заметки в связный пост с сюжетной аркой</td><td>Середина — производство текста</td></tr>
+        <tr><td><strong>AntiCringe</strong></td><td>Проверяет готовый текст на клише, логику и соответствие стилю</td><td>Выход — контроль качества</td></tr>
+        <tr><td><strong>Профиль Tone&nbsp;of&nbsp;Voice</strong></td><td>Описывает, как пишет автор: обращение, ритм, темы, фирменные фразы</td><td>Связующий элемент всех трёх модулей</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <h4>Главный вопрос проекта</h4>
+    <p>Нужен ли авторам единый инструмент, который одновременно сохраняет их авторский стиль, помогает строить сюжет поста и проверяет готовый текст на клише и логические ошибки.</p>
+    <p><strong>Критерий успешной демонстрации:</strong> незнакомый человек проходит сценарий без подсказок, узнаёт себя в карточке Tone of Voice, признаёт справедливым хотя бы одно замечание AntiCringe и исправляет его — после чего даёт содержательный ответ на этот вопрос.</p>
+  </div>
+</section>
+
+<!-- ======================= 2 ======================= -->
+<section id="s2">
+  <h2 class="sec"><span class="n">02</span>Пользователи и права</h2>
+
+  <dl class="kv">
+    <div>
+      <dt>Нужен ли аккаунт и вход</dt>
+      <dd>В текущем прототипе — нет, и это осознанное решение MVP: гипотеза проверяется одним человеком на своих текстах, а вход добавил бы только трение на демонстрации. В целевой серверной версии — да, вход через Telegram.</dd>
+    </div>
+    <div>
+      <dt>Что доступно без входа</dt>
+      <dd>Все функции сразу: ввод стиля, сборка поста, проверка AntiCringe, демо-лента CommentRadar. Данные привязаны к браузеру через <code>localStorage</code>, а не к человеку.</dd>
+    </div>
+    <div>
+      <dt>Регистрация, вход и выход <span class="chip chip--plan">Планируется</span></dt>
+      <dd>Вход через Telegram (<code>telegram_id</code>), отдельной регистрации нет — учётная запись создаётся при первом входе. Роль (<code>user</code> / <code>admin</code>) выдаётся только вручную в базе при развёртывании; метода для самостоятельного назначения роли сознательно не предусмотрено — иначе первый администратор не смог бы появиться, а сам метод стал бы самым опасным в сервисе.</dd>
+    </div>
+  </dl>
+
+  <h3>Роли</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Роль</th><th>Кто это</th><th>Для чего использует приложение</th><th>Состояние</th></tr></thead>
+      <tbody>
+        <tr><td>Гость (браузер)</td><td>Любой человек, открывший прототип</td><td>Весь цикл: стиль → заметки → пост → проверка → CommentRadar, в рамках своего браузера</td><td><span class="chip chip--good">Работает</span></td></tr>
+        <tr><td>Автор <code>user</code></td><td>Владелец одного или нескольких каналов (<code>author_profiles</code>)</td><td>Хранит профиль стиля, черновики, посты и источники для CommentRadar — только свои</td><td><span class="chip chip--plan">Планируется</span></td></tr>
+        <tr><td>Администратор <code>admin</code></td><td>Ответственный за эталонный набор и контроль качества</td><td>Управляет <code>golden_dataset</code>, запускает прогоны Evals — проверки качества AI-генерации</td><td><span class="chip chip--plan">Планируется</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Права на действия</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Действие / метод</th><th>Кому разрешено</th><th>Условия</th><th>Что при отказе</th></tr></thead>
+      <tbody>
+        <tr><td>Любое действие в прототипе (Шаги 1—4, CommentRadar)</td><td>Любой гость</td><td>Данные видит и меняет только тот, чей это браузер</td><td>Ограничений нет: функция просто недоступна без данных предыдущего шага</td></tr>
+        <tr><td>CRUD над <code>author_profiles</code>, <code>tov_profiles</code>, <code>posts</code>, <code>drafts</code>, <code>sources</code>, <code>comments</code>, <code>generated_responses</code>, <code>knowledge_base</code></td><td><code>user</code></td><td>Только над записями, где <code>user_id</code> / <code>author_id</code> принадлежит самому пользователю</td><td>Отказ в доступе, данные не меняются</td></tr>
+        <tr><td>Просмотр журнала вызовов AI и расходов — <code>GET /generation-runs</code></td><td><code>user</code></td><td>Только свои записи: вызовы по своим каналам; чужие вызовы не видны</td><td>Отказ в доступе, данные не меняются</td></tr>
+        <tr><td>CRUD над <code>golden_dataset</code>, запуск <code>/evals/run</code>, просмотр <code>eval_results</code></td><td><code>admin</code></td><td>—</td><td>Отказ в доступе, данные не меняются</td></tr>
+        <tr><td>Назначение роли <code>admin</code></td><td>Никто через интерфейс сервиса</td><td>Роль выставляется только вручную в базе при развёртывании</td><td>Метод отсутствует сознательно</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Права всех серверных методов раздела 8 подчиняются этим правилам: «свои данные» для роли <code>user</code>, служебные методы — только для <code>admin</code>. Лишние роли ради таблицы не создавались.</p>
+</section>
+
+<!-- ======================= 3 ======================= -->
+<section id="s3">
+  <h2 class="sec"><span class="n">03</span>Функции и границы проекта</h2>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Функция</th><th>Зачем нужна</th><th>Состояние</th></tr></thead>
+      <tbody>
+        <tr><td>Профиль стиля (Tone of Voice) по 2—3 прошлым постам</td><td>Понять, как именно пишет автор: обращение, длина фраз, темы, стоп-слова</td><td><span class="chip chip--good">Работает</span></td></tr>
+        <tr><td>Narrative Engine — сборка поста из сырых заметок</td><td>Превратить список мыслей в связный пост с сюжетной аркой</td><td><span class="chip chip--good">Работает</span></td></tr>
+        <tr><td>Режим «Черновик» — готовый текст без сборки</td><td>Проверить уже написанный текст, минуя сборку</td><td><span class="chip chip--good">Работает</span></td></tr>
+        <tr><td>AntiCringe — проверка на клише, логику, Tone of Voice и ясность</td><td>Контроль качества перед публикацией: оценка 0—100 и конкретные замечания с цитатами</td><td><span class="chip chip--good">Работает</span></td></tr>
+        <tr><td>Автоправки замечаний AntiCringe</td><td>Снизить число ручных правок, не испортив грамотность текста</td><td><span class="chip chip--good">Работает</span></td></tr>
+        <tr><td>CommentRadar — поиск обсуждений и черновик комментария</td><td>Помочь автору находить точки роста аудитории через комментарии</td><td><span class="chip chip--good">Работает</span> на демо-данных</td></tr>
+        <tr><td>Сохранение состояния в браузере</td><td>Не терять прогресс между сессиями без входа в систему</td><td><span class="chip chip--good">Работает</span></td></tr>
+        <tr><td>Автотесты движков — 49 тестов</td><td>Гарантировать, что правила и алгоритмы не ломаются при изменениях</td><td><span class="chip chip--good">Работает</span></td></tr>
+        <tr><td>Публикация статической сборки на Netlify</td><td>Дать живую ссылку для показа посторонним авторам</td><td><span class="chip chip--plan">Планируется</span> сборка готова, ссылки нет</td></tr>
+        <tr><td>Вход через Telegram, учётные записи, роли</td><td>Привязать данные к конкретному человеку, а не к браузеру</td><td><span class="chip chip--plan">Планируется</span></td></tr>
+        <tr><td>Несколько каналов на одного автора, разные площадки</td><td>Поддержать авторов, ведущих несколько площадок</td><td><span class="chip chip--plan">Планируется</span> первая площадка — Telegram; Instagram и YouTube — после проверки условий их API</td></tr>
+        <tr><td>Архив опубликованных постов и их импорт с площадок</td><td>Строить профиль стиля по реальной истории публикаций</td><td><span class="chip chip--plan">Планируется</span> сначала Telegram</td></tr>
+        <tr><td>Реальный источник обсуждений для CommentRadar</td><td>Заменить демонстрационные данные настоящим сканером площадок</td><td><span class="chip chip--plan">Планируется</span> сначала сканер Telegram</td></tr>
+        <tr><td>База знаний автора и поиск по векторам (RAG, pgvector)</td><td>Дать движкам опираться на факты автора, а не придумывать их</td><td><span class="chip chip--plan">Планируется</span> модель эмбеддингов <span class="chip chip--ask">Нужно уточнить</span> — от неё зависит размерность вектора</td></tr>
+        <tr><td>Нейросеть во всех трёх модулях: сборка поста, проверка текста, ответы на комментарии</td><td>Повысить качество текста по сравнению с правиловым движком; подключается через API провайдера — подробности в разделе 8</td><td><span class="chip chip--plan">Планируется</span> провайдер и модель <span class="chip chip--ask">нужно уточнить</span></td></tr>
+        <tr><td>Журнал вызовов AI-модели и расходов</td><td>Контролировать стоимость использования сервиса на автора</td><td><span class="chip chip--plan">Планируется</span></td></tr>
+        <tr><td>Эталонный набор <code>golden_dataset</code> и прогоны Evals</td><td>Проверять, что движок или будущая AI-модель не деградирует</td><td><span class="chip chip--plan">Планируется</span> 49 автотестов — предшественник</td></tr>
+        <tr><td>Настраиваемые правила AntiCringe: свои клише, отключение групп</td><td>Дать автору влиять на то, что считается ошибкой</td><td><span class="chip chip--ask">Нужно уточнить</span> интерфейс не описан</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Границы</h3>
+  <p>BlogOS помогает написать и проверить текст и подготовить ответ в комментариях. Он <strong>не публикует</strong> посты от имени автора без подтверждения, <strong>не придумывает факты</strong> — вместо выдумки оставляет явный пропуск <code>[дополните: …]</code>, и <strong>не заменяет решение автора</strong> публиковать или нет.</p>
+  <p>В замысел проекта <strong>не входят</strong>: полноценный планировщик публикаций, аналитика вовлечённости аудитории и монетизация. Новые предложения ИИ согласуются отдельно; задуманные функции из перечня молча не удаляются.</p>
+  <p><strong>Площадки по порядку.</strong> Первая и единственная подтверждённая площадка целевой версии — <strong>Telegram</strong>. Instagram и YouTube остаются в замысле, но попадают в план работ только после проверки того, что их официальные API позволяют читать публикации и комментарии автора на нужных условиях (раздел 8).</p>
+</section>
+
+<!-- ======================= 4 ======================= -->
+<section id="s4">
+  <h2 class="sec"><span class="n">04</span>Сценарии и правила</h2>
+
+  <p>Главный путь пользователя — четыре шага конвейера. Порядок здесь содержательный: каждый следующий шаг невозможен без результата предыдущего.</p>
+
+  <div class="steps">
+    <div><div class="n">ШАГ 1</div><h5>Стиль</h5><p>2—3 прошлых поста → профиль Tone of Voice</p></div>
+    <div><div class="n">ШАГ 2</div><h5>Заметки</h5><p>Сырые мысли по строкам или готовый черновик</p></div>
+    <div><div class="n">ШАГ 3</div><h5>Пост</h5><p>Сборка по сюжетной арке с ролями фрагментов</p></div>
+    <div><div class="n">ШАГ 4</div><h5>Проверка</h5><p>Оценка 0—100, замечания, автоправки</p></div>
+  </div>
+
+  <div class="scn">
+    <header><h3>Сценарий: построение профиля стиля</h3></header>
+    <dl>
+      <div><dt>Кто выполняет</dt><dd>Автор; в прототипе — любой гость.</dd></div>
+      <div><dt>Что уже должно быть</dt><dd>Ничего, это первый шаг.</dd></div>
+      <div><dt>Шаги</dt><dd>Вставляет 2—3 своих прошлых поста (минимум 180 символов материала) или нажимает «Использовать демо-автора».</dd></div>
+      <div><dt>Результат</dt><dd>Карточка профиля: обращение (ты / вы / смешанное), длина и разброс фраз, темы, стиль начала поста, читаемость и другие метрики. Профиль открывает доступ к следующим шагам.</dd></div>
+      <div><dt>Если не получилось</dt><dd>При материале короче 180 символов профиль не строится, следующие шаги остаются заблокированы — человек видит, что нужно добавить текста.</dd></div>
+    </dl>
+  </div>
+
+  <div class="scn">
+    <header><h3>Сценарий: сборка поста из заметок</h3></header>
+    <dl>
+      <div><dt>Кто выполняет</dt><dd>Автор, у которого уже есть профиль стиля.</dd></div>
+      <div><dt>Что уже должно быть</dt><dd>Построенный профиль (Шаг 1).</dd></div>
+      <div><dt>Шаги</dt><dd>Вводит сырые заметки по одной строке или переключается в режим «Черновик» и вставляет готовый текст; по желанию выбирает сюжетную арку (История / кейс, Проблема → решение, Мнение / разбор) или оставляет автоматический выбор; нажимает «Собрать пост».</dd></div>
+      <div><dt>Результат</dt><dd>Связный пост: заметки распределены по ролям (зацепка, контекст, конфликт, вывод, доказательство, итог, призыв к действию), показан список фрагментов, добавленных движком, учтён ритм и стиль автора.</dd></div>
+      <div><dt>Если не получилось</dt><dd>Пустой ввод заметок — кнопка сборки недоступна. В режиме «Черновик» сборка пропускается и текст уходит прямо на проверку.</dd></div>
+    </dl>
+  </div>
+
+  <div class="scn">
+    <header><h3>Сценарий: проверка текста (AntiCringe)</h3></header>
+    <dl>
+      <div><dt>Кто выполняет</dt><dd>Автор, у которого есть собранный пост или черновик.</dd></div>
+      <div><dt>Что уже должно быть</dt><dd>Текст поста — из сборки или из режима «Черновик».</dd></div>
+      <div><dt>Шаги</dt><dd>Нажимает «Проверить», видит оценку 0—100 и замечания по четырём группам (клише, логика, Tone of Voice, ясность) с цитатами и объяснением; применяет автоправки по одной или все сразу; может повторить проверку.</dd></div>
+      <div><dt>Результат</dt><dd>Обновлённая оценка, список оставшихся замечаний и сравнение итогового текста со своим профилем стиля.</dd></div>
+      <div><dt>Если не получилось</dt><dd>Автоправка не применяется, если может оставить текст неграмотным — например, замена «вы» → «ты» вне косвенных падежей. Замечание остаётся для ручной правки.</dd></div>
+    </dl>
+  </div>
+
+  <div class="scn">
+    <header><h3>Сценарий: поиск обсуждений и черновик комментария (CommentRadar)</h3></header>
+    <dl>
+      <div><dt>Кто выполняет</dt><dd>Автор.</dd></div>
+      <div><dt>Что уже должно быть</dt><dd>Построенный профиль стиля — по нему ранжируются темы.</dd></div>
+      <div><dt>Шаги</dt><dd>Открывает вкладку CommentRadar, видит ранжированную ленту обсуждений (сейчас — демонстрационные данные), выбирает обсуждение и получает черновик комментария из четырёх частей: отсылка к посту собеседника, личный опыт автора, место для дополнения фактом, вопрос.</dd></div>
+      <div><dt>Результат</dt><dd>Черновик комментария в своём стиле, который можно отредактировать и одобрить.</dd></div>
+      <div><dt>Если не получилось</dt><dd>Кнопка «Одобрить» заблокирована, пока в черновике остаются незаполненные квадратные скобки <code>[дополните: …]</code> — движок никогда не выдумывает факты сам.</dd></div>
+    </dl>
+  </div>
+
+  <h3>Правила приложения</h3>
+  <ul class="plain">
+    <li>Без профиля стиля сборка поста, проверка и CommentRadar недоступны — <strong>профиль обязателен для входа в конвейер</strong>, иначе продукт не отличается от обычного редактора.</li>
+    <li>Автоправка <strong>не имеет права оставить текст неграмотным</strong>: правки применяются с конца текста к началу, затем автоматически причёсываются пунктуация, пробелы и заглавные буквы.</li>
+    <li>Движок <strong>никогда не выдумывает факты</strong> от имени автора — на их месте остаётся явный пропуск, и такой текст нельзя одобрить как готовый.</li>
+    <li>Каждая правка пересчитывает оценку заново: вердикт «Можно публиковать» всегда относится к текущему тексту, а не к прошлой проверке.</li>
+    <li>В планируемой серверной версии удаление автора или канала <strong>не удаляет журнал расходов</strong> на AI (ссылка обнуляется, запись остаётся), а удаление опубликованного поста не удаляет связанный с ним черновик.</li>
+  </ul>
+</section>
+
+<!-- ======================= 5 ======================= -->
+<section id="s5">
+  <h2 class="sec"><span class="n">05</span>Экраны и поведение</h2>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Экран / компонент</th><th>Что показывает</th><th>Действия и переходы</th><th>Кто имеет доступ</th></tr></thead>
+      <tbody>
+        <tr><td>Панель вкладок <code>App.jsx</code></td><td>Переключение «Конвейер поста» / «CommentRadar», точка-индикатор при наличии одобренных комментариев</td><td>Клик по вкладке переключает режим</td><td>Любой гость</td></tr>
+        <tr><td>Шаг 1 — Стиль <code>StyleStep.jsx</code></td><td>Поле ввода постов, кнопка демо-автора, карточка построенного профиля</td><td>Переход к Шагу 2 открывается только после построения профиля</td><td>Любой гость</td></tr>
+        <tr><td>Шаг 2 — Заметки <code>NotesStep.jsx</code></td><td>Поле заметок по строкам, переключатель режима «Черновик», выбор сюжетной арки</td><td>«Собрать пост» ведёт на Шаг 3; в режиме «Черновик» — сразу на Шаг 4</td><td>Гость с профилем</td></tr>
+        <tr><td>Шаг 3 — Пост <code>PostStep.jsx</code></td><td>Собранный текст, блоки сюжетной арки, список фрагментов, добавленных движком</td><td>Переход на Шаг 4 «Проверить»</td><td>Гость с постом</td></tr>
+        <tr><td>Шаг 4 — Проверка <code>CheckStep.jsx</code></td><td>Кольцо оценки 0—100, четыре группы замечаний с подсветкой цитат, кнопки автоправок, сравнение со стилем</td><td>Применение правок обновляет текст и пересчитывает оценку на месте</td><td>Гость с текстом</td></tr>
+        <tr><td>CommentRadar <code>RadarView.jsx</code></td><td>Лента обсуждений (демо-данные), черновик комментария, список одобренных</td><td>Клик по обсуждению открывает черновик; «Одобрить» переносит его в список одобренных</td><td>Гость с профилем</td></tr>
+        <tr><td>Общие элементы <code>ui.jsx</code></td><td>Кольцо и полоса оценки, теги, кнопка копирования</td><td>—</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Поведение экранов</h3>
+  <ul class="plain">
+    <li><strong>Если данных нет.</strong> Шаги 2—4 и CommentRadar блокируются переходом, пока не выполнено условие предыдущего шага: нет профиля — нет сборки, нет текста — нет проверки. Явно показывается, какой шаг недоступен.</li>
+    <li><strong>Ожидание.</strong> Прототип синхронный — чистые функции без сети, заметной задержки нет, поэтому отдельный индикатор загрузки не предусмотрен ни в коде, ни в планах.</li>
+    <li><strong>При успехе.</strong> Результат — профиль, пост, оценка или черновик комментария — показывается прямо на экране, без отдельного уведомления.</li>
+    <li><strong>Ошибки.</strong> Сетевых сбоев в прототипе быть не может. Есть «мягкие» случаи недостатка данных (текст короче 180 символов) — они просто не дают профилю построиться. <span class="chip chip--ask">Нужно уточнить</span> явный текст подсказки для таких случаев стоит добавить.</li>
+    <li><strong>Сохраняется ли введённое.</strong> Да: всё состояние, кроме текущей вкладки и шага, сохраняется в <code>localStorage</code> по ключу <code>blogos.state.v1</code> при каждом изменении.</li>
+  </ul>
+
+  <div class="panel">
+    <h4>Схема переходов</h4>
+<pre><b>Шаг 1</b>            <b>Шаг 2</b>                 <b>Шаг 3</b>          <b>Шаг 4</b>
+Стиль    →    Заметки / Черновик   →    Пост    →    Проверка
+                       │                              ↑   │
+                       └── режим «Черновик» ───────────┘   │
+                                         автоправки ───────┘
+
+Вкладка CommentRadar доступна параллельно —
+с момента, когда построен профиль стиля.</pre>
+  </div>
+</section>
+
+<!-- ======================= 6 ======================= -->
+<section id="s6">
+  <h2 class="sec"><span class="n">06</span>Вход и результат действий</h2>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Функция</th><th>Что вводим, передаём или читаем</th><th>Откуда берётся</th><th>Что получает человек</th></tr></thead>
+      <tbody>
+        <tr><td>Построение профиля стиля</td><td>2—3 текста постов, от 180 символов суммарно</td><td>Вставляет сам автор либо демо-автор</td><td>Карточка профиля: обращение, темы, ритм, стиль начала, читаемость</td></tr>
+        <tr><td>Сборка поста</td><td>Сырые заметки по строкам, выбранная или автоматическая арка, профиль стиля</td><td>Автор вводит заметки; профиль — из Шага 1</td><td>Связный пост с ролями фрагментов и списком добавленного движком</td></tr>
+        <tr><td>Проверка AntiCringe</td><td>Текст поста или черновика, профиль стиля</td><td>Из Шага 3 или режима «Черновик»</td><td>Оценка 0—100, замечания с цитатами, предложения правок</td></tr>
+        <tr><td>Применение автоправки</td><td>Выбранное замечание или «применить все»</td><td>Из отчёта AntiCringe</td><td>Обновлённый текст и пересчитанная оценка</td></tr>
+        <tr><td>CommentRadar — ранжирование</td><td>Лента обсуждений, профиль стиля (темы автора)</td><td>Сейчас <code>demoData.js</code>; планируется сканер источников</td><td>Отсортированный список обсуждений по релевантности и свежести</td></tr>
+        <tr><td>CommentRadar — черновик комментария</td><td>Выбранное обсуждение, профиль стиля</td><td>Лента и профиль</td><td>Черновик из четырёх частей с явными пропусками вместо фактов</td></tr>
+        <tr><td>Импорт постов <span class="chip chip--plan">план</span></td><td>Файл или ссылка на пост площадки</td><td>Площадка через метод <code>/posts/import</code> — сначала Telegram, Instagram и YouTube после проверки условий их API</td><td>Запись в архиве <code>posts</code>, дедуплицированная по <code>external_id</code></td></tr>
+        <tr><td>Запуск Evals <span class="chip chip--plan">план, админ</span></td><td>Эталонный набор <code>golden_dataset</code></td><td>Администратор заполняет вручную</td><td><code>eval_results</code>: совпадения, пропуски, ложные срабатывания, precision и recall</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>Файлы.</strong> В текущем прототипе загрузки файлов нет — весь ввод текстовый. Для планируемого импорта постов формат и ограничение размера не зафиксированы: <span class="chip chip--ask">нужно уточнить</span> при реализации серверной части. Форматы и размеры без необходимости не придумываются.</p>
+</section>
+
+<!-- ======================= 7 ======================= -->
+<section id="s7">
+  <h2 class="sec"><span class="n">07</span>База и модель данных</h2>
+
+  <dl class="kv">
+    <div>
+      <dt>Текущее хранение</dt>
+      <dd>Базы данных нет. Всё состояние — в <code>localStorage</code> браузера под ключом <code>blogos.state.v1</code>: профиль стиля, заметки, черновик, собранный пост, выбранная арка, список одобренных комментариев. <strong>Почему подходит:</strong> достаточно для проверки гипотезы одним пользователем, не требует сервера, ключей и сети.</dd>
+    </div>
+    <div>
+      <dt>Целевая база <span class="chip chip--plan">Планируется</span></dt>
+      <dd>PostgreSQL с расширением pgvector: 14 таблиц, 17 связей. <strong>Почему подходит:</strong> нужен и реляционный учёт (пользователи, посты, черновики), и векторный поиск по базе знаний для RAG.</dd>
+    </div>
+  </dl>
+
+  <h3>users</h3>
+  <p>Назначение: учётные записи, вход через Telegram.</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Поле</th><th>Что хранится</th><th>Тип</th><th>Обязательное</th><th>Правило</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>Идентификатор записи</td><td>bigint</td><td>Да</td><td>Первичный ключ, назначает база</td></tr>
+        <tr><td><code>telegram_id</code></td><td>ID в Telegram</td><td>bigint</td><td>Да</td><td>Уникальное</td></tr>
+        <tr><td><code>name</code></td><td>Имя</td><td>текст</td><td>Да</td><td>—</td></tr>
+        <tr><td><code>role</code></td><td>Роль</td><td>enum: user, admin</td><td>Да</td><td>По умолчанию <code>user</code>, меняется только вручную в базе</td></tr>
+        <tr><td><code>created_at</code>, <code>updated_at</code></td><td>Служебные даты</td><td>дата-время</td><td>Да</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Связи: 1 → много с <code>author_profiles</code>.</p>
+
+  <h3>author_profiles</h3>
+  <p>Назначение: каналы и блоги одного автора на разных площадках.</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Поле</th><th>Что хранится</th><th>Тип</th><th>Обязательное</th><th>Правило</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>Идентификатор записи</td><td>bigint</td><td>Да</td><td>Первичный ключ</td></tr>
+        <tr><td><code>user_id</code></td><td>Владелец</td><td>bigint</td><td>Да</td><td>Ссылка на <code>users</code></td></tr>
+        <tr><td><code>name</code></td><td>Название канала</td><td>текст</td><td>Да</td><td>—</td></tr>
+        <tr><td><code>platform</code></td><td>Площадка</td><td>enum: telegram, instagram, youtube</td><td>Да</td><td>Определяет допустимые типы контента</td></tr>
+        <tr><td><code>description</code></td><td>Описание</td><td>текст</td><td>Нет</td><td>—</td></tr>
+        <tr><td><code>content_settings</code></td><td>Темы, язык, целевая длина текста</td><td>JSONB</td><td>Нет</td><td><code>{topics, language, target_length:{min,max}}</code></td></tr>
+        <tr><td><code>monthly_cost_limit</code></td><td>Лимит расходов на AI в месяц</td><td>деньги</td><td>Нет</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Связи: много → 1 с <code>users</code>; 1 → много с большинством остальных таблиц через <code>author_id</code>.</p>
+
+  <h3>tov_profiles</h3>
+  <p>Назначение: серверный аналог карточки стиля из Шага 1.</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Поле</th><th>Что хранится</th><th>Тип</th><th>Обязательное</th><th>Правило</th></tr></thead>
+      <tbody>
+        <tr><td><code>author_id</code></td><td>Канал, к которому относится профиль</td><td>bigint</td><td>Да</td><td>Один профиль на канал — уникальное</td></tr>
+        <tr><td><code>tone</code></td><td>Обращение: ты, вы, смешанное</td><td>текст</td><td>Да</td><td>—</td></tr>
+        <tr><td><code>slang</code></td><td>Жаргон и словечки автора</td><td>JSONB, массив строк</td><td>Нет</td><td>—</td></tr>
+        <tr><td><code>stop_words</code></td><td>Слова, которые нельзя использовать</td><td>JSONB, массив строк</td><td>Нет</td><td>—</td></tr>
+        <tr><td><code>favorite_phrases</code></td><td>Фирменные фразы</td><td>JSONB, массив строк</td><td>Нет</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Связи: 1 : 1 с <code>author_profiles</code>.</p>
+
+  <h3>Остальные таблицы целевой схемы</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Таблица</th><th>Назначение</th><th>Ключевые поля и правила</th></tr></thead>
+      <tbody>
+        <tr><td><code>posts</code></td><td>Архив опубликованных постов — источник профиля стиля по реальной истории</td><td><code>author_id</code>, <code>content_type</code> (зависит от площадки), <code>text</code>, <code>external_id</code> + <code>external_url</code> — уникальная пара с автором для дедупликации при импорте, <code>published_at</code></td></tr>
+        <tr><td><code>drafts</code></td><td>Черновики постов: ручные или собранные Narrative Engine</td><td><code>source_notes</code>, <code>text</code>, <code>origin</code> (author / narrative_engine), <code>status</code> (draft / on_check / ready / published), <code>published_post_id</code> — уникальное, при удалении поста обнуляется</td></tr>
+        <tr><td><code>lint_reports</code></td><td>Отчёты AntiCringe, неизменяемые после создания</td><td><code>draft_id</code>, <code>generation_run_id</code> (пустой для правилового движка без AI), <code>score</code> 0—100, <code>issues</code> в JSONB: type, quote, start, end, explanation, suggestion, severity</td></tr>
+        <tr><td><code>sources</code></td><td>Отслеживаемые площадки для CommentRadar</td><td><code>source_type</code>, <code>source_url</code>, <code>is_active</code>, время и результат последнего сканирования</td></tr>
+        <tr><td><code>comments</code></td><td>Найденные обсуждения и комментарии</td><td><code>source_id</code>, <code>external_id</code> — уникален в рамках источника, добавленные вручную помечаются <code>manual:&lt;номер&gt;</code>, <code>commenter_name</code>, <code>text</code></td></tr>
+        <tr><td><code>generated_responses</code></td><td>Варианты ответа на комментарий</td><td><code>response_text</code> неизменяем, <code>edited_text</code> — редактируемая копия, <code>status</code>: generated / pending_approval / approved / rejected / sent, <code>approved_at</code>, <code>sent_at</code></td></tr>
+        <tr><td><code>knowledge_base</code></td><td>Факты автора для RAG, чтобы AI не придумывала</td><td><code>author_id</code>, <code>title</code>, <code>content</code></td></tr>
+        <tr><td><code>embeddings</code></td><td>Векторные представления текстов для поиска</td><td>вектор <code>pgvector(N)</code>, привязан ровно к одному из <code>post_id</code> / <code>knowledge_id</code>, <code>chunk_index</code>, <code>chunk_text</code>, <code>model</code>; <code>N</code> задаёт выбранная модель эмбеддингов</td></tr>
+        <tr><td><code>generation_runs</code></td><td>Журнал каждого вызова AI-модели и расходов</td><td><code>task_type</code>, <code>model</code>, <code>tokens</code>, <code>cost</code>, <code>status</code>, <code>error_message</code>; переживает удаление автора — ссылка обнуляется</td></tr>
+        <tr><td><code>golden_dataset</code></td><td>Эталонные тексты с разметкой — только админ</td><td><code>text</code>, <code>labels</code> (JSONB), <code>platform</code></td></tr>
+        <tr><td><code>eval_results</code></td><td>Результат сравнения прогона с эталоном</td><td><code>precision</code>, <code>recall</code>, <code>matched</code> / <code>missed</code> / <code>false_positive</code> в JSONB; уникальная пара <code>generation_run_id</code> + <code>golden_id</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Общие правила схемы</h3>
+  <ul class="plain">
+    <li><strong>Удаление.</strong> По умолчанию каскадное. Обнуление (SET NULL) — всегда для ссылок на <code>generation_runs</code> и для <code>drafts.published_post_id</code>, чтобы журнал расходов и черновики не терялись вместе с родителем.</li>
+    <li><strong>Идентификаторы.</strong> Во всех таблицах поле <code>id</code> типа bigint, назначает база.</li>
+    <li><strong>Файлы и записи о них.</strong> Контент текстовый, бинарных файлов в схеме нет — хранятся сами тексты и их векторы.</li>
+    <li><strong>Лимиты по площадкам.</strong> Telegram → <code>post</code> до 4096 знаков; Instagram → <code>caption</code> до 2200 и <code>reels_script</code>; YouTube → <code>video_script</code> и <code>video_description</code> до 5000.</li>
+    <li><strong>Размерность вектора.</strong> <code>N</code> в <code>embeddings</code> — не произвольное число: его задаёт выбранная модель эмбеддингов, а в pgvector размерность колонки фиксируется при создании таблицы. Поэтому <code>N</code> фиксируется вместе с выбором модели (раздел 10) и до первого наполнения таблицы. Ориентиры: <code>text-embedding-3-small</code> — 1536, <code>text-embedding-3-large</code> — 3072, открытые многоязычные модели — 768 или 1024. Поле <code>model</code> обязательно, чтобы при смене модели было видно, какие векторы пересчитывать; векторы разных моделей в одной колонке не смешиваются. <span class="chip chip--ask">Нужно уточнить</span> модель эмбеддингов и значение <code>N</code>.</li>
+    <li><strong>Индексы.</strong> Все внешние ключи, пары «владелец + дата создания» для списков, HNSW по косинусному расстоянию для векторов.</li>
+  </ul>
+
+  <p>Готовая схема базы приложена отдельным файлом: <code>BlogOS_database_schema_v2.pdf</code> и документ «Структура базы данных и методы сервиса» вместе с его ревью.</p>
+</section>
+
+<!-- ======================= 8 ======================= -->
+<section id="s8">
+  <h2 class="sec"><span class="n">08</span>Методы и внешние сервисы</h2>
+
+  <p>Текущий прототип — <strong>локальная программа без HTTP</strong>: все вычисления выполняются в браузере чистыми функциями из <code>src/engine/</code>. Внешнего веб-API нет, сеть не используется. Полные запросы, ответы и коды состояния на этом этапе не проектируются.</p>
+
+  <p>Планируемый серверный API — <strong>59 методов в 11 группах</strong>:</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Группа</th><th>Методы</th><th>Что делает</th></tr></thead>
+      <tbody>
+        <tr><td>Вход и пользователь</td><td><code>POST /auth/telegram</code>; <code>GET</code>, <code>PATCH</code>, <code>DELETE /users/me</code></td><td>Вход через Telegram, профиль пользователя</td></tr>
+        <tr><td>Каналы</td><td><code>GET</code>, <code>POST /author-profiles</code>; <code>GET</code>, <code>PATCH</code>, <code>DELETE /author-profiles/{id}</code>; <code>GET …/usage</code></td><td>Управление каналами автора и его расходами</td></tr>
+        <tr><td>Стиль</td><td><code>GET</code>, <code>PUT /author-profiles/{id}/tov</code>; <code>POST …/tov/analyze</code></td><td>Хранение и AI-анализ профиля стиля</td></tr>
+        <tr><td>Посты</td><td>CRUD; <code>POST …/posts/import</code></td><td>Архив публикаций, импорт с дедупликацией</td></tr>
+        <tr><td>Черновики</td><td>CRUD; <code>POST …/drafts/generate</code>; <code>POST /drafts/{id}/publish</code></td><td>Narrative Engine на сервере</td></tr>
+        <tr><td>Проверка</td><td><code>POST /drafts/{id}/lint</code>; <code>GET …/lint-reports</code>; <code>GET /lint-reports/{id}</code></td><td>AntiCringe на сервере</td></tr>
+        <tr><td>Источники</td><td>CRUD; <code>PATCH</code> — включить или выключить отслеживание</td><td>Настройка CommentRadar</td></tr>
+        <tr><td>Комментарии</td><td>CRUD; <code>POST …/comments/scan</code></td><td>Сканирование обсуждений</td></tr>
+        <tr><td>Варианты ответа</td><td>CRUD; <code>POST …/responses/generate</code></td><td>Черновики комментариев на сервере</td></tr>
+        <tr><td>База знаний</td><td>CRUD; <code>GET …/search</code></td><td>RAG-поиск по фактам автора</td></tr>
+        <tr><td>Служебные</td><td><code>GET /generation-runs</code>; CRUD <code>golden-dataset</code>; <code>POST /evals/run</code>; <code>GET /evals/runs</code></td><td>Контроль расходов и качества. <code>GET /generation-runs</code> доступен автору, но только по своим вызовам; остальные три — только админ</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>Права</strong> — по разделу 2. <strong>Общие правила списочных методов:</strong> <code>limit</code> по умолчанию 50 и максимум 200, <code>cursor</code> для страниц, сортировка по <code>created_at desc</code>, фильтры по статусу, типу и диапазону дат.</p>
+
+  <h3>Внешние связи</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>С чем связываемся</th><th>Для какой функции</th><th>Что передаём и получаем</th><th>Что при недоступности</th></tr></thead>
+      <tbody>
+        <tr><td>Внешних сервисов нет — текущий прототип</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr><td>Telegram <span class="chip chip--plan">план</span></td><td>Авторизация пользователя</td><td>Получаем <code>telegram_id</code> и имя для создания учётной записи</td><td>Одна повторная попытка, затем явное сообщение «вход сейчас недоступен». Новый вход невозможен, открытая сессия продолжает работать, данные в базе не меняются</td></tr>
+        <tr><td>Площадка Telegram <span class="chip chip--plan">план</span> первая</td><td>Импорт постов, сканирование обсуждений</td><td>Читаем публикации и комментарии; автоматически ничего не публикуем</td><td>Одна повторная попытка, затем источник помечается недоступным (<code>sources</code>: время и результат последнего сканирования); ранее найденные обсуждения остаются, автор видит дату последнего успешного сканирования</td></tr>
+        <tr><td>Instagram и YouTube <span class="chip chip--plan">план</span> не подтверждено</td><td>Импорт постов и сканирование обсуждений на этих площадках</td><td>То же, что для Telegram</td><td>Не проектируется до проверки условий: нужно подтвердить, что Instagram Graph API и YouTube Data API дают доступ к публикациям и комментариям автора в нужном объёме и в рамках своих правил. До результата площадки остаются в замысле, но не в плане работ</td></tr>
+        <tr><td>Поставщик AI-модели (LLM) <span class="chip chip--plan">план</span></td><td>Генерация черновиков, AI-анализ стиля, ответы на комментарии</td><td>Передаём текст заметок, черновиков и прошлых постов вместе с профилем стиля и найденными фактами из базы знаний; получаем сгенерированный текст</td><td>Одна повторная попытка, затем автоматический откат на правиловый движок с видимой пометкой «проверено без AI»: сборка поста и проверка текста работают, AI-анализ стиля и генерация ответов — нет. Неудачный вызов записывается в <code>generation_runs</code> со статусом ошибки</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>Ответственные за доступы распределены:</strong> Миша — Telegram Bot API и клиентская часть; Лиза — хостинг базы данных, ключи провайдера LLM и серверная часть. <strong>Значения секретных ключей в документ не вставляются.</strong></p>
+
+  <h3>Нейросеть: где используется и как подключается</h3>
+
+  <p>В текущем прототипе <strong>нейросети нет вообще</strong>: весь разбор текста выполняют правила — 81 словарное правило и 14 алгоритмических проверок — прямо в браузере, без сети, ключей и оплаты. Нейросеть подключается на следующем этапе и работает <strong>во всех трёх модулях</strong>.</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Модуль</th><th>Что делает нейросеть</th><th>Серверный метод</th><th>Состояние</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Narrative Engine</strong></td><td>Собирает черновик поста из заметок с учётом профиля стиля — вместо правилового распределения фрагментов по слотам</td><td><code>POST /author-profiles/{id}/drafts/generate</code></td><td><span class="chip chip--plan">Планируется</span></td></tr>
+        <tr><td><strong>AntiCringe</strong></td><td>Проверяет текст вторым слоем после правил: смысл и логику, а не только словарь клише</td><td><code>POST /drafts/{id}/lint</code></td><td><span class="chip chip--plan">Планируется</span></td></tr>
+        <tr><td><strong>CommentRadar</strong></td><td>Пишет варианты ответа на комментарий в стиле автора</td><td><code>POST /comments/{id}/responses/generate</code></td><td><span class="chip chip--plan">Планируется</span></td></tr>
+        <tr><td><strong>Профиль Tone of Voice</strong></td><td>Разбирает прошлые посты и описывает стиль автора словами</td><td><code>POST /author-profiles/{id}/tov/analyze</code></td><td><span class="chip chip--plan">Планируется</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Как подключается</h4>
+  <ul class="plain">
+    <li><strong>Через API провайдера нейросети.</strong> Серверная часть отправляет HTTP-запрос с текстом — заметки, черновик, профиль стиля, найденные факты из базы знаний — и получает готовый текст в ответ. Передаются только данные самого автора.</li>
+    <li><strong>Тексты автора покидают сервис при каждом AI-вызове.</strong> Это прямое следствие серверной генерации: заметки, черновики, прошлые посты и профиль стиля уходят внешнему поставщику модели, а фрагменты базы знаний — поставщику модели эмбеддингов. Поэтому требования зафиксированы заранее: выбирается только провайдер, условия которого запрещают обучение на переданных данных; срок хранения запросов на стороне провайдера выясняется до подключения и записывается в раздел 11; перед первым AI-вызовом автор видит явное предупреждение и может продолжать работать на правиловом движке без AI.</li>
+    <li><strong>Обращается только сервер, не браузер.</strong> Ключ доступа не попадает в клиентский код: он хранится в переменных окружения сервера, не в репозитории и не в этом документе.</li>
+    <li><strong>Каждый вызов записывается в <code>generation_runs</code>:</strong> тип задачи, модель, число токенов, стоимость, статус и текст ошибки. Отсюда берётся учёт расходов по каждому каналу — <code>monthly_cost_limit</code>.</li>
+    <li><strong>Правила остаются первым слоем.</strong> Работающий правиловый движок не выбрасывается: интерфейс функции <code>lint(text, profile)</code> не меняется, а нейросеть становится вторым источником замечаний. Поэтому при недоступности нейросети проверка текста продолжает работать, пусть и в меньшем объёме.</li>
+    <li><strong>База знаний и RAG.</strong> Перед обращением к нейросети сервер ищет подходящие факты автора по векторам (<code>embeddings</code>, pgvector) и передаёт их в запросе — чтобы нейросеть опиралась на факты автора, а не придумывала их.</li>
+  </ul>
+
+  <p><strong>Уже решено:</strong> при ошибке или недоступности нейросети — одна повторная попытка, затем откат на правиловый движок с пометкой «проверено без AI» (подробности — в таблице внешних связей выше).</p>
+  <p><span class="chip chip--ask">Нужно уточнить</span> какого провайдера и какую модель использовать (отдельно — модель эмбеддингов и вместе с ней размерность вектора <code>N</code> из раздела 7), сколько стоит вызов и что происходит при превышении месячного лимита расходов.</p>
+</section>
+
+<!-- ======================= 9 ======================= -->
+<section id="s9">
+  <h2 class="sec"><span class="n">09</span>Архитектура</h2>
+
+  <h3>Текущая архитектура <span class="chip chip--good">Работает</span></h3>
+  <div class="panel">
+<pre>[Автор, браузер]
+      │  вводит текст, заметки, нажимает кнопки
+      ▼
+<b>[Интерфейс: App.jsx + components/*]</b>   React, всё состояние в одном компоненте
+      ▲▼  вызов чистых функций / результат
+<b>[Движки: src/engine/*.js]</b>
+      text · styleProfile · narrative · anticringe · radar · rules · demoData
+      ▲▼  прочитать / сохранить состояние целиком
+<b>[localStorage браузера]</b>   ключ blogos.state.v1</pre>
+  </div>
+  <p>Один браузер выполняет и роль интерфейса, и всю логику: сервера и сети нет вообще. Вся содержательная логика живёт в чистых функциях, которые не знают про React и DOM, — компоненты только отображают их результат. Зависимости между движками однонаправленные, без циклов: <code>text.js</code> не зависит ни от кого, <code>styleProfile</code> — от <code>text</code>, остальные — от обоих.</p>
+
+  <h3>Целевая архитектура <span class="chip chip--plan">Планируется</span></h3>
+  <div class="panel">
+<pre>[Автор]
+      │  действия в интерфейсе + вход через Telegram
+      ▼
+<b>[Интерфейс: тот же React-клиент]</b>
+      ▲▼  HTTP-запросы к 59 методам API / ответы
+<b>[Серверная часть]</b>
+      правиловый AntiCringe как первый слой · вызовы LLM для генерации
+      ▲▼  прочитать / сохранить
+<b>[PostgreSQL + pgvector]</b>   14 таблиц, база знаний, векторный поиск
+      ▲▼  импорт постов / сканирование обсуждений
+<b>[Внешние площадки]</b>   Telegram (первая) · Instagram и YouTube — после проверки условий их API
+<b>[Поставщик LLM]</b>   генерация текста, учёт стоимости</pre>
+  </div>
+  <p>Git — рабочий инструмент хранения истории изменений кода, ИИ-помощник разработки — рабочий инструмент написания кода. В работу самого приложения они не входят: прототип к ним не обращается.</p>
+</section>
+
+<!-- ======================= 10 ======================= -->
+<section id="s10">
+  <h2 class="sec"><span class="n">10</span>Технологии и среда</h2>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Часть / задача</th><th>Технология</th><th>Почему выбран</th><th>Где работает и как связан</th><th>Состояние</th></tr></thead>
+      <tbody>
+        <tr><td>Интерфейс</td><td>React 18.3.1</td><td>Простой стек для прототипа; использованы только <code>useState</code>, <code>useEffect</code>, <code>useMemo</code></td><td>В браузере; всё состояние — в <code>App.jsx</code></td><td><span class="chip chip--good">Настроено</span></td></tr>
+        <tr><td>Сборка</td><td>Vite 8.3.1 + plugin-react 6.1.1</td><td>Версия 8 выбрана осознанно: в версиях до 6 была уязвимость dev-сервера esbuild</td><td>Собирает <code>dist/</code> для публикации</td><td><span class="chip chip--good">Настроено</span></td></tr>
+        <tr><td>Стили</td><td>Обычный CSS с переменными, <code>src/styles.css</code></td><td>UI-библиотека не нужна для прототипа такого размера</td><td>Тёмная тема, один акцентный цвет, четыре цвета состояния</td><td><span class="chip chip--good">Настроено</span></td></tr>
+        <tr><td>Хранение</td><td><code>localStorage</code> браузера</td><td>Не требует сервера для проверки гипотезы</td><td>Ключ <code>blogos.state.v1</code></td><td><span class="chip chip--good">Настроено</span></td></tr>
+        <tr><td>Тесты</td><td>Свой раннер <code>scripts/test-engine.mjs</code></td><td>Легче, чем подключать Vitest или Jest для 49 тестов чистых функций</td><td>Проверяет все движки перед показом</td><td><span class="chip chip--good">Настроено</span></td></tr>
+        <tr><td>Среда запуска</td><td>Node.js 18 и новее</td><td>Требование Vite</td><td>Локальная машина разработчика</td><td><span class="chip chip--good">Настроено</span></td></tr>
+        <tr><td>Хостинг статики</td><td>Netlify, перетаскивание сборки</td><td>Бесплатный простой хостинг для статического приложения</td><td>Готовая папка «Перетащить в Netlify»</td><td><span class="chip chip--ask">Нужно подготовить</span></td></tr>
+        <tr><td>Сервер <span class="chip chip--plan">план</span></td><td>Не выбран</td><td>—</td><td>Будет обрабатывать 59 методов API</td><td><span class="chip chip--ask">Нужно уточнить</span></td></tr>
+        <tr><td>База данных <span class="chip chip--plan">план</span></td><td>PostgreSQL + pgvector</td><td>Нужен и реляционный учёт, и векторный поиск по базе знаний</td><td>Хранит все 14 целевых таблиц</td><td><span class="chip chip--ask">Нужно подготовить</span></td></tr>
+        <tr><td>Вход <span class="chip chip--plan">план</span></td><td>Telegram как провайдер идентификации</td><td>Целевая аудитория уже сидит в Telegram-каналах</td><td><code>users.telegram_id</code></td><td><span class="chip chip--ask">Нужно уточнить</span></td></tr>
+        <tr><td>Нейросеть <span class="chip chip--plan">план</span></td><td>Провайдер и модель не выбраны</td><td>Нужна для сборки поста, проверки текста и ответов на комментарии; резерв — работающий правиловый движок</td><td>Вызывается с сервера через API провайдера; <code>generation_runs</code> фиксирует модель и стоимость каждого вызова</td><td><span class="chip chip--ask">Нужно уточнить</span></td></tr>
+        <tr><td>Модель эмбеддингов <span class="chip chip--plan">план</span></td><td>Не выбрана</td><td>Нужна для векторного поиска по базе знаний (RAG); может быть у того же провайдера, что нейросеть, или отдельной, в том числе локальной</td><td>Задаёт размерность вектора <code>N</code> в таблице <code>embeddings</code> — без этого выбора схема базы не фиксируется</td><td><span class="chip chip--ask">Нужно уточнить</span> блокирует схему <code>embeddings</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Версии указаны по файлу <code>package.json</code> проекта, а не предположительно. Для внешних сервисов условия доступа и стоимость ещё нужно проверить. Реальные пароли и ключи в документ не вставляются.</p>
+</section>
+
+<!-- ======================= 11 ======================= -->
+<section id="s11">
+  <h2 class="sec"><span class="n">11</span>Безопасность и условия работы</h2>
+
+  <ul class="plain">
+    <li><strong>Где пользуемся.</strong> Любой современный браузер на компьютере или ноутбуке; проверено на ширине 390, 768, 1024 и 1440 пикселей. Текущему прототипу сеть не нужна — всё работает локально; планируемой серверной версии нужен интернет.</li>
+    <li><strong>Какие данные защищаем.</strong> Личные тексты автора — заметки, черновики — и профиль стиля. В прототипе они не покидают браузер пользователя. В планируемой версии <em>внутри сервиса</em> их видит только сам автор; администратор работает со служебными данными (<code>golden_dataset</code>, Evals), а не с личными записями авторов.</li>
+    <li><strong>Что выходит за пределы сервиса.</strong> Как только включается AI-генерация, тексты автора перестают быть только нашими: заметки, черновики, прошлые посты и профиль стиля передаются внешнему поставщику модели, а фрагменты базы знаний — поставщику модели эмбеддингов. Поэтому: выбирается провайдер, условия которого запрещают обучение на переданных данных; срок хранения запросов на его стороне выясняется до подключения и фиксируется здесь — сейчас он неизвестен, потому что провайдер не выбран (<span class="chip chip--ask">Нужно уточнить</span>); перед первым AI-вызовом автор получает явное предупреждение и может работать без AI на правиловом движке; в запрос передаются только данные самого автора. Пока нейросеть не подключена, наружу не уходит ничего.</li>
+    <li><strong>Секретные настройки.</strong> В прототипе секретов нет вообще: ни ключей, ни сети. В планируемой версии ключи Telegram Bot API и провайдера LLM хранятся в переменных окружения сервера, не в документах и не в репозитории. Конкретный механизм <span class="chip chip--ask">нужно уточнить</span> при выборе хостинга.</li>
+    <li><strong>При ошибке или недоступности сервиса.</strong> Прототип не может получить сетевую ошибку в принципе. При недостатке данных нужный шаг просто остаётся недоступным, а уже введённое сохраняется в <code>localStorage</code>. Для планируемых внешних вызовов принято общее правило: одна повторная попытка, затем явная ошибка в интерфейсе вместо тихого сбоя, данные не теряются. Нейросеть — откат на правиловый движок с пометкой «проверено без AI»; Telegram — новый вход невозможен, открытая сессия работает; площадка — источник помечается недоступным, найденные обсуждения остаются. Подробности — в разделе 8.</li>
+    <li><strong>Ограничения.</strong> Минимум 180 символов материала для профиля стиля; лимиты длины текста по площадкам — 4096, 2200 и 5000 знаков; страница списочных методов — 50 записей, максимум 200. Платного доступа в прототипе нет. Для AI-генерации предусмотрен <code>monthly_cost_limit</code> на канал; что именно происходит при его превышении — порог предупреждения, уведомление автора, способ повышения лимита — <span class="chip chip--ask">нужно уточнить</span>. Технически откат при блокировке AI-вызовов тот же, что при недоступности нейросети: работа продолжается на правиловом движке, поэтому превышение лимита не оставляет автора без проверки текста.</li>
+    <li><strong>Восстановление удалённых данных.</strong> В прототипе не предусмотрено: <code>localStorage</code> без истории версий, отмены действий нет. Резервные копии не обещаются. В планируемой версии удаление большинства записей каскадное; исключение — записи, связанные с <code>generation_runs</code> и <code>drafts.published_post_id</code>: при удалении родителя ссылка обнуляется, а сама запись остаётся.</li>
+  </ul>
+
+  <p>Проверка ролей и прав — по разделу 2. Проверки важных условий — в разделе 12.</p>
+</section>
+
+<!-- ======================= 12 ======================= -->
+<section id="s12">
+  <h2 class="sec"><span class="n">12</span>Проверки и приёмка</h2>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Функция / правило</th><th>Что пробуем</th><th>Какой результат должен получиться</th></tr></thead>
+      <tbody>
+        <tr><td>Профиль на достаточном тексте</td><td>Загрузить демо-автора и построить профиль</td><td>Профиль строится, видны все метрики</td></tr>
+        <tr><td>Профиль на коротком тексте</td><td>Вставить текст короче 180 символов</td><td>Профиль не строится, следующие шаги остаются заблокированы</td></tr>
+        <tr><td>Сборка поста из заметок</td><td>Ввести несколько строк заметок, нажать «Собрать пост»</td><td>Связный пост; все заметки распределены по ролям без потерь</td></tr>
+        <tr><td>Переключение сюжетной арки</td><td>Выбрать другую арку вручную</td><td>Пост пересобирается под новую структуру</td></tr>
+        <tr><td>Проверка чистого текста</td><td>Прогнать через AntiCringe аккуратный демо-пост</td><td class="num">Оценка около 86, вердикт «Можно публиковать»</td></tr>
+        <tr><td>Проверка намеренно плохого текста</td><td>Прогнать заготовленный плохой черновик, затем применить все автоправки</td><td class="num">Оценка около 16, вердикт «Переписать»; после правок — рост примерно до 29 на контрольном примере</td></tr>
+        <tr><td>Автоправка не портит грамотность</td><td>Применить автоправку к обращению «вы» → «ты»</td><td>Замена только в косвенных падежах, текст остаётся грамотным</td></tr>
+        <tr><td>CommentRadar не выдумывает факты</td><td>Открыть черновик комментария и не заполнить пропуск</td><td>Кнопка «Одобрить» остаётся заблокированной</td></tr>
+        <tr><td>Сохранение состояния</td><td>Заполнить все шаги и перезагрузить страницу</td><td>Все данные, кроме текущей вкладки и шага, восстанавливаются</td></tr>
+        <tr><td>Пустые и некорректные данные</td><td>Пустые поля, приватный режим браузера, текст короче минимума — 11 сценариев чек-листа</td><td>Приложение не падает и явно показывает нехватку данных</td></tr>
+        <tr><td>Адаптивность</td><td>Открыть на ширине 390, 768, 1024 и 1440 пикселей</td><td>Макет остаётся читаемым на всех размерах</td></tr>
+        <tr><td>Автотесты движков</td><td><code>npm run test:engine</code></td><td class="num">Все 49 тестов проходят: граничные значения 9, профиль стиля 7, Narrative Engine 13, AntiCringe 13, CommentRadar 7</td></tr>
+        <tr><td>Сборка без ошибок</td><td><code>npm run build</code></td><td>Сборка завершается без ошибок, уязвимостей в зависимостях нет</td></tr>
+        <tr><td>Отказ нейросети <span class="chip chip--plan">план</span></td><td>Отключить доступ к провайдеру LLM и запустить проверку текста</td><td>Одна повторная попытка, затем результат правилового движка с пометкой «проверено без AI»; текст и оценка не теряются, неудачный вызов записан в <code>generation_runs</code></td></tr>
+        <tr><td>Предупреждение о передаче текста наружу <span class="chip chip--plan">план</span></td><td>Впервые вызвать любую AI-функцию у нового автора</td><td>Автор видит явное предупреждение, что текст уходит внешнему поставщику модели, и может отказаться — тогда работает правиловый движок, AI-вызов не выполняется</td></tr>
+        <tr><td>Журнал расходов — своё и чужое <span class="chip chip--plan">план</span></td><td>Запросить <code>GET /generation-runs</code> от имени другого автора</td><td>В ответе только свои вызовы, чужие записи не видны</td></tr>
+        <tr><td>Права доступа <span class="chip chip--plan">план</span></td><td>Запрос к методу над чужими данными</td><td>Отказ в доступе без изменения данных — проверить при появлении сервера</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <dl class="kv">
+    <div>
+      <dt>Кто проверяет результат</dt>
+      <dd>Авторы проекта — Миша и Лиза, затем преподаватель на занятии. В сценарии демонстрации — также незнакомый человек из аудитории: это ключевая проверка гипотезы.</dd>
+    </div>
+    <div>
+      <dt>Как решаем, что работа готова</dt>
+      <dd>Пройти чек-лист перед показом: прогнать тесты, собрать проект без ошибок, очистить <code>localStorage</code>, пройти контрольный сценарий и получить ожидаемую оценку, проверить пустую консоль браузера, держать наготове заготовленный плохой текст, проверить масштаб на проекторе. Ожидаемые и реальные результаты каждой проверки фиксируются отдельно — в документе «06 — Журнал решений и исправленных ошибок».</dd>
+    </div>
+  </dl>
+</section>
+
+<!-- ======================= 13 ======================= -->
+<section id="s13">
+  <h2 class="sec"><span class="n">13</span>Запуск и передача результата</h2>
+
+  <dl class="kv">
+    <div><dt>Где находится проект и история</dt><dd>Локальный git-репозиторий в папке «BlogOS код» внутри общей папки проекта <code>blog.OS</code>.</dd></div>
+    <div><dt>Что подготовить для запуска</dt><dd>Node.js 18 или новее. Ключей, аккаунтов и сетевых доступов для текущего прототипа не требуется.</dd></div>
+  </dl>
+
+  <div class="panel">
+    <h4>Как запустить и открыть приложение</h4>
+<pre>cd "BlogOS код"
+npm install
+npm run dev            <b>→ http://localhost:5173</b>
+
+npm run build          продакшен-сборка в dist/
+npm run preview        посмотреть собранную версию
+npm run test:engine    49 автотестов движков</pre>
+  </div>
+
+  <dl class="kv">
+    <div><dt>Где будет доступен результат</dt><dd>Сейчас — локально на компьютере разработчика. Готовая статическая сборка лежит в папке «Публикация в интернете / Перетащить в Netlify», но публичная ссылка пока не создана — <span class="chip chip--ask">ненастроенный запуск</span>, ближайшая задача недели 1.</dd></div>
+    <div><dt>Что передаём</dt><dd>Исходный код с git-историей, это ТЗ, документ о структуре базы данных и его ревью, техническую документацию 00—06, инструкции по запуску из VS Code и на Windows, результаты автотестов и чек-листа демонстрации.</dd></div>
+  </dl>
+
+  <p><strong>Серверная часть — база данных и API — не настроена и не передаётся:</strong> она помечена как планируемая, а не готовая к запуску.</p>
+</section>
+
+<!-- ======================= 14 ======================= -->
+<section id="s14">
+  <h2 class="sec"><span class="n">14</span>Этапы разработки</h2>
+
+  <h3>Что уже сделано</h3>
+  <p>По занятиям курса, а не по неделям: исследование ниши и конкурентов (Buffer, Hootsuite, Jasper, Grammarly, Taplio, Hypefury, FeedHive) → формализация идеи и гипотезы → проектирование архитектуры, движков и структуры базы данных → реализация клиентского прототипа с тестами → документирование: бриф, шесть разделов техдокументации, структура базы с ревью → подготовка сборки для Netlify и материалов к выступлению.</p>
+
+  <h3>Дальнейший план на три недели</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th class="num">Неделя</th><th>Что делаем</th><th>От чего зависит</th><th>Что покажем и проверим</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="num">1</td>
+          <td>Опубликовать статическую сборку на Netlify и получить живую ссылку; собрать обратную связь на занятии по главному вопросу гипотезы</td>
+          <td>Готовая сборка — уже есть</td>
+          <td>Рабочая публичная ссылка; ответы аудитории на вопрос «какой из шагов вы бы оставили»</td>
+        </tr>
+        <tr>
+          <td class="num">2</td>
+          <td>Спроектировать и согласовать настройку правил AntiCringe пользователем — отключение групп, свои клише; начать проектирование серверной части: выбор хостинга базы, провайдера LLM и модели эмбеддингов вместе с размерностью вектора; проверить условия официальных API Instagram и YouTube — до любого проектирования импорта и сканера</td>
+          <td>Обратная связь недели 1; разделы 7—8 этого ТЗ</td>
+          <td>Макет настройки правил; выбранный стек для сервера; письменный ответ по условиям API Instagram и YouTube — можно или нет и на каких условиях</td>
+        </tr>
+        <tr>
+          <td class="num">3</td>
+          <td>Реализовать минимальный сервер хотя бы для входа через Telegram и хранения профиля стиля — <code>users</code>, <code>author_profiles</code>, <code>tov_profiles</code>; исправить найденное на демонстрациях.<br><strong>План Б,</strong> если вход не успеваем: серверное хранение профиля <em>без входа</em> — профиль привязывается к временному ключу устройства вместо <code>telegram_id</code>, вход через Telegram переезжает на следующий этап. Схема таблиц при этом не меняется, <code>users.telegram_id</code> заполняется позже</td>
+          <td>Выбор стека недели 2. Хостинг выбирается только на неделе 2, поэтому запаса по времени нет — отсюда план Б</td>
+          <td>Основной план: работающий вход и сохранение профиля на сервере вместо <code>localStorage</code>. План Б: профиль сохраняется и читается с сервера без входа. В обоих случаях — обновлённый журнал решений</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Функции со статусом «планируется», не попавшие в таблицу — полный импорт постов, реальный сканер CommentRadar, LLM с RAG, прогоны Evals — выходят за рамки трёх недель и требуют отдельного обсуждения сроков с преподавателем. <strong>Молча из замысла они не удаляются.</strong> Git используется для истории изменений на всех этапах.</p>
+</section>
+
+<!-- ======================= open questions ======================= -->
+<section id="q">
+  <h2 class="sec"><span class="n">—</span>Открытые вопросы и решения</h2>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Вопрос</th><th>На что влияет</th><th>Как выясним</th><th>Решение / статус</th></tr></thead>
+      <tbody>
+        <tr><td>Какой хостинг и провайдер базы данных для серверной части</td><td>Разделы 9—10, сроки недель 2—3</td><td>Обсуждение с преподавателем и в команде; выбор за Лизой</td><td><span class="chip chip--ask">Нужно уточнить</span></td></tr>
+        <tr><td>Какую нейросеть использовать: провайдер, модель, стоимость вызова</td><td>Разделы 3, 8, 10</td><td>Сравнение стоимости и качества на своих текстах</td><td><span class="chip chip--ask">Нужно уточнить</span></td></tr>
+        <tr><td>Какая модель эмбеддингов и, следовательно, размерность вектора <code>N</code> в <code>embeddings</code></td><td>Разделы 7, 10 — блокирует фиксацию схемы базы</td><td>Выбирается вместе с провайдером нейросети; размерность берётся из документации модели и фиксируется до наполнения таблицы</td><td><span class="chip chip--ask">Нужно уточнить</span></td></tr>
+        <tr><td>Срок хранения переданных текстов у поставщика нейросети и запрет обучения на них</td><td>Разделы 8, 11 — приватность текстов автора</td><td>Прочитать условия использования выбранного провайдера до подключения</td><td><span class="chip chip--ask">Нужно уточнить</span> требование уже зафиксировано: только провайдер без обучения на данных</td></tr>
+        <tr><td>Позволяют ли официальные API Instagram и YouTube читать публикации и комментарии автора на нужных условиях</td><td>Разделы 3, 8 — объём проекта: вторая и третья площадки</td><td>Проверка условий Instagram Graph API и YouTube Data API на неделе 2, до проектирования импорта и сканера</td><td><span class="chip chip--ask">Нужно уточнить</span> до ответа работаем только с Telegram</td></tr>
+        <tr><td>Что происходит при превышении <code>monthly_cost_limit</code></td><td>Раздел 11</td><td>Решить при проектировании учёта расходов</td><td><span class="chip chip--ask">Нужно уточнить</span> откат на правиловый движок технически тот же, что при отказе нейросети; открыты порог предупреждения и способ повышения лимита</td></tr>
+        <tr><td>Формат и ограничения файла для <code>/posts/import</code></td><td>Раздел 6</td><td>Уточнить при реализации импорта</td><td><span class="chip chip--ask">Нужно уточнить</span></td></tr>
+        <tr><td>Интерфейс настройки правил AntiCringe автором</td><td>Раздел 3</td><td>Отдельный дизайн-эскиз</td><td><span class="chip chip--ask">Нужно уточнить</span></td></tr>
+        <tr><td>Календарные даты трёх этапов</td><td>Раздел 14</td><td>Вопрос преподавателю</td><td><span class="chip chip--ask">Нужно уточнить</span></td></tr>
+        <tr><td>Поведение при недоступности Telegram, площадок и LLM</td><td>Разделы 8, 11</td><td>—</td><td><span class="chip chip--good">Решено 19.10.2026</span> одна повторная попытка, затем явная ошибка; для нейросети — откат на правиловый движок с пометкой «проверено без AI». Проверяется в разделе 12</td></tr>
+        <tr><td>Кто отвечает за доступы: Telegram Bot API, ключи LLM, хостинг базы</td><td>Разделы 8, 11</td><td>—</td><td><span class="chip chip--good">Решено 19.10.2026</span> Миша — Telegram Bot API и клиентская часть; Лиза — хостинг базы, ключи LLM и серверная часть</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= appendix ======================= -->
+<section id="app">
+  <h2 class="sec"><span class="n">—</span>Приложения и история документа</h2>
+
+  <p><strong>Исходные материалы:</strong> бриф проекта; техническая документация 01—06 — общее описание и MVP, архитектура, движки и алгоритмы, правила AntiCringe, запуск и демонстрация, журнал решений; документ «Структура базы данных и методы сервиса» и его ревью; схема базы <code>BlogOS_database_schema_v2.pdf</code>; исходный код <code>src/engine</code> и <code>src/components</code>; README проекта; материалы занятий по исследованию ниши и общему описанию проекта; папка «Выступление».</p>
+  <p>Секреты и чужие личные данные в документ не копируются.</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Версия и дата</th><th>Что изменили</th><th>Почему</th></tr></thead>
+      <tbody>
+        <tr><td class="num">v1.0 · 16.10.2026</td><td>Первая версия ТЗ по шаблону курса: разделы 1—14, открытые вопросы, приложения</td><td>Собрано из существующей документации и кода проекта; для каждой функции отмечено состояние — работает, планируется или нужно уточнить</td></tr>
+        <tr><td class="num">v1.1 · 19.10.2026</td><td>Правки по внешнему ревью: размерность вектора переведена из <code>1536</code> в <code>vector(N)</code> с правилом фиксации вместе с моделью (разделы 7, 10); добавлена честная картина приватности при AI-вызовах с требованиями к провайдеру и предупреждением автору (разделы 8, 11, 12); зафиксировано поведение при отказе Telegram, площадок и нейросети плюс три новые проверки в разделе 12; Telegram назначен первой и единственной подтверждённой площадкой, Instagram и YouTube поставлены за проверку условий их API (разделы 3, 8, 14); у недели 3 появился план Б — серверное хранение профиля без входа; распределены ответственные за доступы; уточнена область видимости <code>GET /generation-runs</code> (разделы 2, 8)</td><td>Ревью указало на четыре расхождения внутри документа — размерность без выбранной модели, приватность против заявления «видит только автор», лимит расходов без поведения, импорт площадок без проверки их API, — на отсутствие запаса по неделе 3 и на то, что часть «нужно уточнить» закрывается решением по умолчанию уже сейчас</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= AI check ======================= -->
+<section id="ai">
+  <h2 class="sec"><span class="n">—</span>Проверка понимания с ИИ</h2>
+
+  <p>Одна функция своими словами — <strong>проверка текста (AntiCringe)</strong>:</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Вопрос</th><th>Ответ</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Что вводим</strong></td><td>Готовый текст поста — из сборки Narrative Engine или из режима «Черновик» — и профиль стиля автора</td></tr>
+        <tr><td><strong>Что происходит</strong></td><td>Правиловый движок сравнивает текст со словарём клише и с логическими и стилистическими шаблонами: 81 словарное правило и 14 алгоритмических проверок по четырём группам. Считает плотность нарушений на 100 слов и переводит её в оценку 0—100</td></tr>
+        <tr><td><strong>Кому можно</strong></td><td>Любому, у кого есть текст для проверки: в прототипе — любой гость, в планах — только владелец канала</td></tr>
+        <tr><td><strong>Где данные</strong></td><td>В прототипе не уходят из браузера — чистая функция <code>lint()</code> в <code>src/engine/anticringe.js</code>; в планах уходят в запросе к серверу, результат сохраняется в <code>lint_reports</code>; при включённой AI-проверке текст дополнительно уходит внешнему поставщику модели — раздел 11</td></tr>
+        <tr><td><strong>Что получаем</strong></td><td>Оценку, список замечаний с цитатами и объяснением и возможность применить автоправку, которая не испортит грамотность текста</td></tr>
+        <tr><td><strong>Как проверяем</strong></td><td>Контрольные тексты с известной ожидаемой оценкой — чистый демо-пост около 86, намеренно плохой черновик около 16, после автоправок около 29 — и 13 автотестов AntiCringe из общего набора 49</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Почему движок правиловый, а не на модели: результат воспроизводим без ключей, сети и оплаты, покрыт тестами — и эти тесты уже работают как проверки качества. Когда проверку заменит LLM с RAG, правила останутся первым слоем, а интерфейс функции <code>lint(text, profile)</code> не изменится.</p>
+</section>
+
+<footer class="doc">
+  <span>ТЗ BlogOS · v1.1 · 19.10.2026</span>
+  <span>Миша и Лиза</span>
+  <span>WMT Kids Senior</span>
+</footer>
+
+</div>
