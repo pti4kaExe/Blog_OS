@@ -19,7 +19,7 @@ Tone of Voice, находит обсуждения для ответов и по
 | AI | только правила | правила всегда и бесплатно, LLM — второй слой: `mock` / `deepseek` / `openai`, лимит расходов на канал |
 | RAG | нет | база знаний автора, векторы 1536 и HNSW-поиск |
 | Внешние площадки | демо-данные | адаптеры Telegram / Instagram / YouTube: импорт постов и сканирование комментариев |
-| Качество | 49 тестов движков | те же 49 тестов + тесты API на PGlite + Evals по `golden_dataset` |
+| Качество | 49 тестов движков | те же 49 тестов + 93 теста API + 57 e2e-проверок + ревизия схемы и контракта + Evals по `golden_dataset` |
 | Запуск | `npm run dev` | PGlite без Docker и сети; Docker или Neon для настоящего PostgreSQL |
 | Публикация | статика | Neon → Render → Vercel; плюс `Dockerfile` для любого контейнерного хостинга |
 
@@ -65,9 +65,17 @@ npm run dev:web            # 3. терминал 2 — клиент, http://loca
 каких переменных не хватает. Повторный `npm run db:migrate` безопасен: уже
 применённые файлы пропускаются по таблице `_migrations`.
 
-`npm run dev:api` запускает сервер через `node --watch` (автоперезапуск). В
-ограниченных средах, где запрещён запуск дочерних процессов, используйте
-`node apps/api/src/server.ts` — тот же сервер без автоперезапуска.
+`npm run dev:api` запускает сервер напрямую (`node apps/api/src/server.ts`), без
+автоперезапуска — так команда работает в любой среде. Если нужен автоперезапуск
+при правках кода, есть `npm run dev:watch` (`node --watch`); ему требуется
+разрешение на запуск дочерних процессов, которого в ограниченных средах нет.
+
+Сквозная проверка того же сценария по HTTP, без браузера (нужен запущенный API
+и демо-база после `npm run db:seed`):
+
+```bash
+node scripts/smoke-http.mjs
+```
 
 Что попробовать:
 
@@ -123,7 +131,7 @@ npm run dev:api
 | `db/sql/` | SQL-миграции — единственный источник схемы: `001_schema.sql` (14 таблиц, 17 внешних ключей, триггеры, HNSW-индекс) и последующие уточняющие файлы, например `002_align_17_relations.sql`. Применяются по порядку имён через `npm run db:migrate`. |
 | `scripts/` | `build-web.mjs`, `dev-web.mjs` — штатные обёртки Vite (единая точка входа для npm-скриптов, CI и Vercel). |
 | `docs/` | [docs/API.md](docs/API.md) и [docs/openapi.yaml](docs/openapi.yaml) — контракт 59 методов; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — устройство; [docs/DECISIONS.md](docs/DECISIONS.md) — журнал решений; [docs/DB-REVIEW.md](docs/DB-REVIEW.md) — ревизия схемы; [docs/RUNBOOK.md](docs/RUNBOOK.md) — развёртывание. |
-| `.github/workflows/ci.yml` | CI: установка, миграции на PGlite, тесты движков и API, typecheck, сборка клиента. |
+| `.github/workflows/ci.yml` | CI: установка, миграции на PGlite, тесты движков и API, ревизия схемы БД, проверка контракта, сквозные проверки API, typecheck, сборка клиента. |
 | корень | `render.yaml` (API на Render), `vercel.json` (клиент на Vercel), `Dockerfile` + `.dockerignore`, `docker-compose.yml`, `.env.example`. |
 
 ## Переменные окружения
@@ -232,9 +240,12 @@ npm run dev:api
 | `npm run build` | Сборка клиента в `apps/web/dist`, затем `tsc` для API в `apps/api/dist`. |
 | `npm run build:web` | Только клиент (обёртка `scripts/build-web.mjs`). |
 | `npm run start` | Запуск собранного API из `apps/api/dist/server.js`. |
-| `npm run test` | Все автотесты: движки + API. |
+| `npm run test` | Быстрые автотесты: движки + API. Полный набор — `test:db`, `test:contract`, `test:e2e`. |
 | `npm run test:engine` | 49 тестов чистых движков (`node:test`, без браузера и базы). |
-| `npm run test:api` | Тесты API через `app.inject()` на PGlite в памяти: группы методов, права, 404 на чужое, неизменяемость отчётов, 402 при лимите, откат LLM, пагинация. |
+| `npm run test:api` | Тесты API через `app.inject()` на PGlite в памяти: группы методов, права, 404 на чужое, неизменяемость отчётов, 402 при лимите, откат LLM, пагинация (93 теста). |
+| `npm run test:e2e` | Сквозные проверки API по HTTP: 57 проверок на PGlite в памяти — главный сценарий и негативные случаи. Запускать только через npm-скрипт: в нём `--test-isolation=none`. |
+| `npm run test:db` | Ревизия схемы на живой базе: 14 таблиц, 17 внешних ключей, каскады, триггеры, HNSW. |
+| `npm run test:contract` | Проверка контракта: 59 методов в корне и под `/api/v1`, структурная проверка `docs/openapi.yaml` (59 операций). |
 | `npm run typecheck` | `tsc --noEmit` для API в строгом режиме. |
 | `npm run db:migrate` | Применяет `db/sql/*.sql` по порядку, отмечает применённое в `_migrations`; идемпотентно. |
 | `npm run db:seed` | Демо-данные: администратор, каналы, стиль, посты, черновики, источники, комментарии, база знаний, эталоны. |
@@ -377,11 +388,25 @@ curl -s https://<ваш-сервис>.onrender.com/health
 
 | Проверка | Команда | Результат |
 |---|---|---|
-| Миграции на PGlite | `npm run db:migrate` | 14 таблиц; повторный запуск идемпотентен |
+| Миграции на PGlite | `npm run db:migrate` | файлы `001` + `002`, 14 таблиц; повторный запуск идемпотентен |
+| Сброс и пересоздание схемы | `npm run db:reset` | схема пересоздана, 14 таблиц |
+| Демо-данные | `npm run db:seed` | 2 пользователя, 4 канала, 10 эталонов, посты, комментарии, векторы |
 | Тесты движков | `npm run test:engine` | 49 из 49 |
-| Сборка клиента | `npm run build -w @blogos/web` | `apps/web/dist` (index.html + assets) |
-| Запуск API | `node apps/api/src/server.ts` | `GET /health` → 200, `db: ok`; `GET /` → `methods: 59` |
-| Конфигурации | статическая проверка YAML/JSON | синтаксис, ключи и пути сверены с репозиторием |
+| Тесты API | `npm run test:api` | 93 из 93 на PGlite в памяти (11 групп, права, ошибки, лимиты, пагинация) |
+| Все тесты | `npm run test` | 142 из 142 (49 + 93) |
+| Сквозные проверки API | `npm run test:e2e` | 57 из 57 по HTTP на PGlite в памяти |
+| Ревизия схемы БД | `npm run test:db` | 14 таблиц, 17 внешних ключей, каскады/триггеры/HNSW |
+| Контракт API | `npm run test:contract` | 11 проверок, включая 59 операций OpenAPI |
+| Проверка типов API | `npm run typecheck` | без ошибок (strict, `erasableSyntaxOnly`) |
+| Сборка | `npm run build` | `apps/web/dist` + `apps/api/dist` |
+| Сборка клиента отдельно | `npm run build -w @blogos/web` | `index.html` + хешированные `assets/` |
+| Запуск собранного API | `npm run start` | `GET /health` → 200, `db: ok` |
+| Облачный API на PGlite | `node apps/api/src/server.ts` + запросы | dev-вход, `/users/me`, `/author-profiles`, `usage`, алиас `/api/v1/...`, `golden-dataset` → 200 |
+| Конфигурации | статическая проверка YAML/JSON и Dockerfile | структура и ключи корректны, пути `COPY` существуют, табов нет |
+
+`npm run dev:api` в среде подготовки не запускался: `node --watch` там запрещён
+(EPERM на дочерний процесс). Проверен эквивалентный запуск
+`node apps/api/src/server.ts`; в обычном окружении `npm run dev:api` работает.
 
 Не проверялось в среде подготовки (нет внешней сети и Docker-демона): реальный
 деплой на Render/Vercel, сборка Docker-образа и работа с живыми ключами

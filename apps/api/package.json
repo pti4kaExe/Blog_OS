@@ -8,7 +8,8 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "dev": "node --watch src/server.ts",
+    "dev": "node src/server.ts",
+    "dev:watch": "node --watch src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",

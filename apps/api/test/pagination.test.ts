@@ -7,21 +7,27 @@ import {
   bootstrap,
   cleanupProfiles,
   createProfile,
+  freshUser,
 } from './helpers.ts'
 
 before(async () => {
   await bootstrap()
+  const owner = await freshUser('Пагинация')
+  ownerToken = owner.token
+  tokenRef.token = ownerToken
 })
 
 const created: Array<Record<string, unknown>> = []
+let ownerToken = ''
 const tokenRef: { token: string } = { token: '' }
 
 after(async () => {
   if (tokenRef.token) await cleanupProfiles(tokenRef.token, created)
+  if (ownerToken) await api('DELETE', '/users/me', { token: ownerToken })
 })
 
 test('курсорная пагинация постов: limit и next_cursor', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)
@@ -65,7 +71,7 @@ test('курсорная пагинация постов: limit и next_cursor',
 })
 
 test('неверный cursor → 400, limit > 200 → 400', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)
@@ -83,7 +89,7 @@ test('неверный cursor → 400, limit > 200 → 400', async () => {
 })
 
 test('пагинация истории линта и комментариев', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)

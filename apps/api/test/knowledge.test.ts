@@ -13,18 +13,23 @@ import {
 
 before(async () => {
   await bootstrap()
+  const owner = await freshUser('База знаний')
+  ownerToken = owner.token
+  tokenRef.token = ownerToken
 })
 
 const created: Array<Record<string, unknown>> = []
+let ownerToken = ''
 const tokenRef: { token: string } = { token: '' }
 
 after(async () => {
   process.env.EMBEDDINGS_PROVIDER = 'mock'
   if (tokenRef.token) await cleanupProfiles(tokenRef.token, created)
+  if (ownerToken) await api('DELETE', '/users/me', { token: ownerToken })
 })
 
 async function makeProfile(): Promise<{ token: string; profile: Record<string, unknown> }> {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)

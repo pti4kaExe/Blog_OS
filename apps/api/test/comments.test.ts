@@ -9,23 +9,29 @@ import {
   createProfile,
   installFetchMock,
   textResponse,
+  freshUser,
 } from './helpers.ts'
 import { resetScanRateLimits } from '../src/services/rateLimit.ts'
 
 before(async () => {
   await bootstrap()
+  const owner = await freshUser('Комментарии')
+  ownerToken = owner.token
+  tokenRef.token = ownerToken
 })
 
 const created: Array<Record<string, unknown>> = []
+let ownerToken = ''
 const tokenRef: { token: string } = { token: '' }
 
 after(async () => {
   resetScanRateLimits()
   if (tokenRef.token) await cleanupProfiles(tokenRef.token, created)
+  if (ownerToken) await api('DELETE', '/users/me', { token: ownerToken })
 })
 
 async function makeProfile(): Promise<{ token: string; profile: Record<string, unknown> }> {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)

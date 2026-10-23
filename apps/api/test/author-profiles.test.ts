@@ -13,17 +13,22 @@ import {
 
 before(async () => {
   await bootstrap()
+  const owner = await freshUser('Каналы')
+  ownerToken = owner.token
+  tokenRef.token = ownerToken
 })
 
+let ownerToken = ''
 const created: Array<Record<string, unknown>> = []
 const tokenRef: { token: string } = { token: '' }
 
 after(async () => {
   if (tokenRef.token) await cleanupProfiles(tokenRef.token, created)
+  if (ownerToken) await api('DELETE', '/users/me', { token: ownerToken })
 })
 
 test('POST /author-profiles создаёт канал с настройками', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const response = await api<Record<string, unknown>>('POST', '/author-profiles', {
     token,
@@ -47,7 +52,7 @@ test('POST /author-profiles создаёт канал с настройками'
 })
 
 test('GET /author-profiles фильтрует по platform', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   const profile = await createProfile(token, 'instagram')
   created.push(profile)
   const response = await api<{ items: Array<{ platform: string }> }>('GET', '/author-profiles', {
@@ -60,7 +65,7 @@ test('GET /author-profiles фильтрует по platform', async () => {
 })
 
 test('GET /author-profiles/{id} отдаёт счётчики', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   const profile = await createProfile(token)
   created.push(profile)
   const response = await api<{
@@ -75,7 +80,7 @@ test('GET /author-profiles/{id} отдаёт счётчики', async () => {
 })
 
 test('PATCH /author-profiles/{id} частично обновляет', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   const profile = await createProfile(token)
   created.push(profile)
   const response = await api<Record<string, unknown>>(
@@ -92,7 +97,7 @@ test('PATCH /author-profiles/{id} частично обновляет', async ()
 })
 
 test('валидация: min > max в target_length и отрицательный лимит → 400/422', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   const badTarget = await api('POST', '/author-profiles', {
     token,
     body: {
@@ -138,7 +143,7 @@ test('лимит 20 каналов на пользователя → 422', async
 })
 
 test('GET /author-profiles/{id}/usage отдаёт расходы за месяц', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   const profile = await createProfile(token)
   created.push(profile)
   const response = await api<{
@@ -162,7 +167,7 @@ test('GET /author-profiles/{id}/usage отдаёт расходы за меся�
 })
 
 test('DELETE /author-profiles/{id} → 204 и 404 после удаления', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   const profile = await createProfile(token)
   const removed = await api('DELETE', `/author-profiles/${String(profile.id)}`, { token })
   assert.equal(removed.status, 204)

@@ -2,8 +2,9 @@ name: CI
 
 # Проверки на каждый push и pull request:
 #  - миграции схемы на PGlite (14 таблиц, без Docker и сети);
-#  - 49 тестов движков;
-#  - проверка типов и тесты API;
+#  - 49 тестов движков и 93 теста API;
+#  - ревизия схемы БД и проверка контракта (59 методов, OpenAPI);
+#  - 57 сквозных проверок API по HTTP;
 #  - сборка статики клиента.
 #
 # Node 22.18 обязателен: сервер исполняет TypeScript напрямую (type stripping),
@@ -61,6 +62,15 @@ jobs:
 
       - name: Тесты API
         run: npm run test:api
+
+      - name: Ревизия схемы БД
+        run: npm run test:db
+
+      - name: Контракт API (59 методов и OpenAPI)
+        run: npm run test:contract
+
+      - name: Сквозные проверки API по HTTP
+        run: npm run test:e2e
 
       - name: Сборка клиента
         run: npm run build -w @blogos/web

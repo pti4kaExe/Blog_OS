@@ -698,8 +698,12 @@ paths:
       summary: AntiCringe — правиловый слой всегда, LLM вторым слоем
       description: |
         Пустой текст → `422`. Отчёт неизменяем: повторная проверка создаёт
-        новую запись (история — цепочка). Превышение лимита канала → `402`,
-        но проверка выполняется правилами с `verified_without_ai: true`.
+        новую запись (история — цепочка). `strict_ai` — режим строгого AI
+        (по умолчанию `false`): если `true` и месячный лимит канала исчерпан,
+        метод отвечает `402 ai_budget_exceeded` и **не выполняет** проверку;
+        если `false` — проверка идёт на правилах и отвечает `201` с
+        `verified_without_ai: true` и `ai_skipped_reason: "budget_exceeded"`
+        (DECISIONS №7: автор без проверки не остаётся).
       parameters:
         - $ref: '#/components/parameters/IdPath'
       requestBody:
@@ -707,7 +711,7 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/LintInput' }
-            example: { use_llm: true }
+            example: { use_llm: true, strict_ai: false }
       responses:
         '201':
           description: Новый отчёт проверки
@@ -1616,7 +1620,11 @@ components:
               message: Профиль стиля не построен
               details: { reason: too_short, length: 96 }
     BudgetExceeded:
-      description: '`402 ai_budget_exceeded` — достигнут `monthly_cost_limit`; AI не вызывается, `details.fallback = "rules"`'
+      description: |
+        `402 ai_budget_exceeded` — достигнут `monthly_cost_limit` канала и запрос
+        требует AI явно (`strict_ai: true`): вызов не выполняется,
+        `details.fallback = "rules"`. Без `strict_ai` метод отвечает `200` с
+        откатом на правила (docs/API.md, таблица ошибок).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -2245,7 +2253,18 @@ components:
       type: object
       additionalProperties: false
       properties:
-        use_llm: { type: boolean, default: true }
+        use_llm:
+          type: boolean
+          default: true
+          description: Просить второй слой у модели (по умолчанию true)
+        strict_ai:
+          type: boolean
+          default: false
+          description: |
+            Режим строгого AI. `true` + исчерпанный `monthly_cost_limit` → `402
+            ai_budget_exceeded`, проверка не выполняется. `false` (по умолчанию) →
+            проверка на правилах, `201` с `verified_without_ai: true` и
+            `ai_skipped_reason: "budget_exceeded"`
     LintResponse:
       type: object
       required: [lint_report, groups, verdict, verified_without_ai]

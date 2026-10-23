@@ -30,7 +30,7 @@
 | 404 | `not_found` | Запись не существует **или** чужая (не различаем: не раскрываем существование) |
 | 409 | `conflict` | Нарушение уникальности: `tov_profiles.author_id`, `(author_id, external_id)`, `(source_id, external_id)`, `(generation_run_id, golden_id)` |
 | 422 | `unprocessable` | Данные валидны по форме, но неприменимы: профиль стиля без 180 символов, статус `approved` без `approved_at`, публикация черновика с пропусками `[дополните: …]` |
-| 402 | `ai_budget_exceeded` | Достигнут `monthly_cost_limit` канала: AI-вызов не выполняется, `details.fallback` = `"rules"` |
+| 402 | `ai_budget_exceeded` | Достигнут `monthly_cost_limit` канала и запрос требует AI явно (`strict_ai: true`): вызов не выполняется, `details.fallback` = `"rules"`. Без `strict_ai` метод отвечает `200` с откатом на правила |
 | 429 | `rate_limited` | Слишком частые сканирования: `POST …/comments/scan` |
 | 500 | `internal` | Непредвиденная ошибка. Текст исключения наружу не отдаётся, попадает в лог |
 
@@ -208,20 +208,31 @@
 
 ## 5. Черновики — 7 методов
 
+Формы ответов: методы одного ресурса (`POST`, `GET`, `PATCH`) возвращают сам
+черновик плоским объектом; составные операции (`generate`, `publish`) — конверт
+с ним внутри.
+
 ### `GET /author-profiles/{id}/drafts` — `?status=draft&origin=author&limit=&cursor=`
+Ответ — `{ items, next_cursor }`, элементы как у `GET /drafts/{id}` без `latest_lint_report`.
+
 ### `POST /author-profiles/{id}/drafts`
 ```json
 { "title": "Черновик", "source_notes": "заметка 1\nзаметка 2", "text": "", "origin": "author" }
 ```
-`201`.
+`201`, тело — созданный черновик: `id, author_id, title, source_notes, text,
+origin, status, arc, published_post_id, created_at, updated_at`.
+Пустой `text` допустим при создании (черновик — заготовка); пустота проверяется
+на `lint` и `publish` → `422 empty_text`.
 
-### `GET /drafts/{id}` → `200`, включает `latest_lint_report` (последний отчёт или `null`)
+### `GET /drafts/{id}` → `200`
+Поля черновика плюс `user_id`, `platform` (владелец канала) и
+`latest_lint_report` — последний отчёт или `null`.
 
 ### `PATCH /drafts/{id}`
 ```json
 { "text": "…", "title": "…", "status": "on_check", "source_notes": "…", "arc": "story_case" }
 ```
-`200`. Смена `status` проверяется по переходам: `draft → on_check → ready → published`. Обратные переходы разрешены, кроме ухода из `published` (нужен `DELETE …/publish`, метода нет → `422`).
+`200`, тело — обновлённый черновик. Смена `status` проверяется по переходам: `draft → on_check → ready → published`. Обратные переходы разрешены, кроме ухода из `published` (`422 published_immutable`), а публикация — только через `POST /drafts/{id}/publish` (`422 use_publish_endpoint`).
 
 ### `DELETE /drafts/{id}` → `204`; `lint_reports` уходят каскадом
 
@@ -266,8 +277,14 @@ Narrative Engine на сервере: из заметок — связный п�
 ### `POST /drafts/{id}/lint`
 AntiCringe: правиловый слой всегда, LLM — второй слой при доступности.
 ```json
-{ "use_llm": true }
+{ "use_llm": true, "strict_ai": false }
 ```
+- `use_llm` — просить второй слой у модели (по умолчанию `true`).
+- `strict_ai` — режим строгого AI (по умолчанию `false`). Если `true` и месячный
+  лимит канала исчерпан, метод отвечает `402 ai_budget_exceeded` и **не выполняет**
+  проверку. Если `false` — проверка выполняется на правилах, ответ `200` с
+  `verified_without_ai: true` и `ai_skipped_reason: "budget_exceeded"`
+  (поведение по умолчанию, DECISIONS № 7: автор без проверки не остаётся).
 Ответ `201`:
 ```json
 {

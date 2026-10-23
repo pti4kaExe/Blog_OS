@@ -14,14 +14,19 @@ import {
 
 before(async () => {
   await bootstrap()
+  const owner = await freshUser('Проверка')
+  ownerToken = owner.token
+  tokenRef.token = ownerToken
 })
 
 const created: Array<Record<string, unknown>> = []
+let ownerToken = ''
 const tokenRef: { token: string } = { token: '' }
 
 after(async () => {
   process.env.LLM_MOCK_FAIL = '0'
   if (tokenRef.token) await cleanupProfiles(tokenRef.token, created)
+  if (ownerToken) await api('DELETE', '/users/me', { token: ownerToken })
 })
 
 const TEXT_WITH_ISSUES =
@@ -33,7 +38,7 @@ async function makeDraft(text = TEXT_WITH_ISSUES): Promise<{
   profile: Record<string, unknown>
   draft: Record<string, unknown>
 }> {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)
@@ -43,7 +48,7 @@ async function makeDraft(text = TEXT_WITH_ISSUES): Promise<{
     { token, body: { title: 'Проверка', text } },
   )
   assert.equal(draft.status, 201)
-  return { token, profile, draft }
+  return { token, profile, draft: draft.body }
 }
 
 test('POST /drafts/{id}/lint: правила + LLM (mock), оценка и группы', async () => {
@@ -194,7 +199,7 @@ test('GET /lint-reports/{id} чужого отчёта → 404', async () => {
 })
 
 test('лимит 100%: strict AI → 402 ai_budget_exceeded, иначе откат на правила', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token, 'telegram', { monthly_cost_limit: 1 })
   created.push(profile)

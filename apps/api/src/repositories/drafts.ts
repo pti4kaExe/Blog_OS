@@ -64,10 +64,10 @@ export async function list(
 }
 
 export async function create(authorId: number, input: CreateDraftInput): Promise<Row> {
-  // Схема объявляет text NOT NULL CHECK (length(text) > 0), а контракт
-  // допускает создание черновика с text: "". Храним один пробел: «пустой текст»
-  // проверяется через trim (422 empty_text при публикации/проверке).
-  const text = input.text && input.text.length > 0 ? input.text : ' '
+  // Схема допускает пустой текст при создании (drafts.text NOT NULL DEFAULT ''),
+  // потому что черновик сначала создают, а текст появляется позже. Пустота
+  // проверяется не здесь, а на проверке и публикации: 422 empty_text.
+  const text = input.text ?? ''
   const row = await queryOne<Row>(
     `INSERT INTO drafts (author_id, title, source_notes, text, origin, arc)
      VALUES ($1, $2, $3, $4, $5, $6)

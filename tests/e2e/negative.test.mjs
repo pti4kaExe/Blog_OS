@@ -222,6 +222,58 @@ test('Негативные сценарии: коды ошибок и права
     })
   })
 
+  await t.test('503 — адаптеры Instagram/YouTube без ключей; telegram — фактическое поведение', async (t) => {
+    const author = await makeAuthor(app, 'QA Площадки')
+
+    // Instagram и YouTube без ключей обязаны отвечать 503 not_configured.
+    for (const platform of ['instagram', 'youtube']) {
+      const res = await api.post(app, `/author-profiles/${author.channelId}/posts/import`, {
+        token: author.token,
+        body: { platform, source_url: 'https://example.com/channel', limit: 5 },
+      })
+      assertError(res, 503, 'not_configured', `import ${platform} без ключей`, (details) => {
+        if (details.reason !== 'not_configured') {
+          return `ожидался details.reason="not_configured", получен ${JSON.stringify(details)}`
+        }
+        return null
+      })
+    }
+
+    const instagramSource = await api.post(app, `/author-profiles/${author.channelId}/sources`, {
+      token: author.token,
+      body: {
+        name: 'Instagram',
+        source_type: 'instagram',
+        source_url: 'https://instagram.com/p/example',
+      },
+    })
+    assertStatus(instagramSource, 201, 'создание instagram-источника')
+    const scan = await api.post(app, `/sources/${instagramSource.json.id}/comments/scan`, {
+      token: author.token,
+      body: { limit: 5 },
+    })
+    assertError(scan, 503, 'not_configured', 'сканирование Instagram без ключей')
+
+    // Telegram-адаптер работает по публичной веб-версии без ключа бота: сеть
+    // может отсутствовать — тогда 502; при доступной странице — 200.
+    const telegramImport = await api.post(app, `/author-profiles/${author.channelId}/posts/import`, {
+      token: author.token,
+      body: { platform: 'telegram', source_url: 'https://t.me/s/durov', limit: 5 },
+    })
+    t.diagnostic(`telegram import: HTTP ${telegramImport.status} ${telegramImport.text.slice(0, 300)}`)
+    if (telegramImport.status === 200) {
+      for (const key of ['imported', 'skipped_duplicates', 'skipped_invalid', 'errors', 'checked']) {
+        assert.ok(key in telegramImport.json, `в ответе импорта есть ${key}`)
+      }
+    } else if (telegramImport.status === 502) {
+      assertError(telegramImport, 502, 'upstream_unavailable', 'telegram import при недоступной сети')
+    } else {
+      assert.fail(
+        `telegram import: договор допускает 200 или 502, получен ${telegramImport.status}: ${telegramImport.text}`,
+      )
+    }
+  })
+
   await t.test('422 — лимит 20 каналов на пользователя', async () => {
     const author = await login(app, nextTelegramId(), 'QA Лимит каналов')
     let created = 0

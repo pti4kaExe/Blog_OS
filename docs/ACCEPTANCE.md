@@ -17,9 +17,9 @@ PostgreSQL 16 + pgvector в WASM).
 | Что | Команда | Факт |
 |---|---|---|
 | Автотесты движков | `npm run test:engine` | **49 пройдено, 0 провалено** |
-| E2E-приёмка API | `node --test --test-isolation=none --test-reporter=spec "tests/e2e/*.test.mjs"` | **56 пройдено, 0 провалено** (4 файла, 52 подтеста) |
-| Ревизия БД | `node tests/db/review.mjs` | **23 проверки, 23 пройдено, 0 провалено** |
-| Валидация OpenAPI | `node tests/db/openapi-structure.mjs` | **11 проверок, 11 пройдено** |
+| E2E-приёмка API | `npm run test:e2e` (та же команда: `node --test --test-isolation=none --test-reporter=spec "tests/e2e/*.test.mjs"`) | **57 пройдено, 0 провалено** (4 файла, 53 подтеста) |
+| Ревизия БД | `npm run test:db` (`node tests/db/review.mjs` + `node scripts/check-schema.mjs`) | **23 проверки, 23 пройдено, 0 провалено** |
+| Контракт (API + OpenAPI) | `npm run test:contract` (`node scripts/check-api.mjs` + `node tests/db/openapi-structure.mjs`) | **59 методов в API и OpenAPI; 11 проверок OpenAPI, 11 пройдено** |
 | Сборка клиента | `npm run build -w @blogos/web` | **успешно**, `apps/web/dist` собран |
 | Сборка сервера | `npm run build -w @blogos/api` | **успешно**, `apps/api/dist` собран |
 | Типы сервера | `npm run typecheck -w @blogos/api` | **без ошибок** |
@@ -62,9 +62,9 @@ PostgreSQL 16 + pgvector в WASM).
 
 ## 2. E2E-приёмка: что именно покрыто
 
-`tests/e2e/*.test.mjs` — 4 файла, **56 тестов, все пройдены**:
+`tests/e2e/*.test.mjs` — 4 файла, **57 тестов, все пройдены**:
 `main-flow.test.mjs` (главный сценарий, 31 подтест), `negative.test.mjs`
-(14 подтестов), `pagination.test.mjs` (4), `budget-fallback.test.mjs` (3).
+(15 подтестов), `pagination.test.mjs` (4), `budget-fallback.test.mjs` (3).
 
 Главный сценарий проходит по HTTP весь конвейер: dev-вход → алиас `/api/v1` →
 `GET/PATCH /users/me` → создание канала → анализ стиля → черновик → Narrative
@@ -84,11 +84,19 @@ Engine → переключение арки → lint (оценка, замеч�
   (ключ бота не нужен); у тестового канала нет постов, поэтому найдено 0. Это
   допустимое контрактом поведение (docs/API.md: `200` при рабочем адаптере);
   `502`/`503` не понадобились.
-- **Лимит `monthly_cost_limit=0`**: явный AI-запрос с `strict_ai: true` → `402
-  ai_budget_exceeded`, `details.fallback="rules"`; тот же запрос без `strict_ai`
-  → `200`, `verified_without_ai=true`, `ai_skipped_reason="budget_exceeded"`
+- **Импорт постов Telegram** (`POST …/posts/import`, `platform=telegram`) в этом
+  окружении вернул `200`: `{imported:5, skipped_duplicates:0, skipped_invalid:0,
+  errors:[], checked:5}` — реально прочитана публичная страница `t.me/s/durov`
+  без ключа бота. **Instagram и YouTube без ключей** отвечают `503
+  not_configured` и на импорте, и на сканировании — как требует docs/API.md.
+- **Лимит `monthly_cost_limit=0`** (закреплено в docs/API.md, группа 6): явный
+  AI-запрос `POST /drafts/{id}/lint` с `strict_ai: true` → `402
+  ai_budget_exceeded`, `details.fallback="rules"`, проверка **не выполняется**;
+  тот же запрос со `strict_ai: false` (по умолчанию) → `201`,
+  `verified_without_ai=true`, `ai_skipped_reason="budget_exceeded"`
   (соответствует DECISIONS №7: lint/generate не оставляют автора без проверки).
-  `strict_ai` — серверное расширение, в docs/API.md не описан (см. дефекты).
+  Оба варианта проверены e2e (`negative.test.mjs`, `budget-fallback.test.mjs`),
+  поле `strict_ai` описано в `docs/API.md` и в `docs/openapi.yaml`.
 - **Пороги 80/100 %** проверены через `GET …/usage`: при `limit_ratio ≥ 0.8`
   `warning=true`, `blocked=false`; при `≥ 1` — `warning=true`, `blocked=true`.
   Нулевой cost mock-провайдера не позволяет накопить расход обычными вызовами,
@@ -122,9 +130,11 @@ Engine → переключение арки → lint (оценка, замеч�
 ## 4. OpenAPI
 
 `docs/openapi.yaml` — OpenAPI 3.1: **59 операций** (11 групп, 33 пути),
-86 схем, `security` bearer глобально, все коды 400/401/402/403/404/409/422/429/
+86+ схем, `security` bearer глобально, все коды 400/401/402/403/404/409/422/429/
 500/502/503, пагинация `limit`/`cursor`/`next_cursor`, примеры запросов и
-ответов, конверт `ErrorEnvelope {error:{code,message,details}}`.
+ответов, конверт `ErrorEnvelope {error:{code,message,details}}`. Схема
+`LintInput` содержит `strict_ai` (boolean, default `false`), ответ `402` описан
+как достижимый при `strict_ai: true` — синхронно с docs/API.md.
 
 Проверки `node tests/db/openapi-structure.mjs` (11/11): все path+method из
 docs/API.md присутствуют и наоборот, дублей нет, 11 тегов = 11 групп, у каждой
@@ -139,7 +149,7 @@ docs/API.md присутствуют и наоборот, дублей нет, 1
 |---|---|
 | Адаптивность 390/768/1024/1440 px | В окружении QA нет браузера; проверены только CSS-брейкпоинты (940 и 660 px) |
 | Клики по интерфейсу (сохранение состояния, блокировки кнопок) | Нет браузера; подтверждено чтением кода компонентов |
-| Реальные Telegram/Instagram/YouTube API, DeepSeek/OpenAI, модель эмбеддингов | Нет ключей и внешней сети; проверены mock-провайдеры и путь отказа (LLM недоступна), адаптеры площадок — на публичной странице Telegram (найдено 0 записей) |
+| Реальные Telegram/Instagram/YouTube API, DeepSeek/OpenAI, модель эмбеддингов | Ключей нет. Telegram проверен на публичной веб-версии `t.me/s/durov` (импорт 5 постов, `200`); Instagram/YouTube живьём не проверялись — без ключей они обязаны и отвечают `503 not_configured`. DeepSeek/OpenAI не вызывались: работали `LLM_PROVIDER=mock` и путь отказа LLM; модель эмбеддингов — mock |
 | PostgreSQL вне PGlite (Neon/Docker) | Нет Docker и внешней сети; PGlite — тот же PostgreSQL 16 + pgvector, но managed-хостинг не проверялся |
 | Деплой на Render/Vercel/Netlify, cold start | Вне рамок QA-окружения (platform-engineer) |
 | 80% порог на реальных расходах | mock-провайдер бесплатный; порог проверен фикстурой `generation_runs` |
@@ -152,7 +162,7 @@ docs/API.md присутствуют и наоборот, дублей нет, 1
 | QA-2 | Схема: `lint_reports.generation_run_id ON DELETE SET NULL` конфликтовал с триггером неизменяемости → DELETE прогона падал с P0001 | **ИСПРАВЛЕНО** Lead (разрешено только обнуление ссылки), три сценария повторно проверены |
 | QA-3 | `apps/api/src/services/llm/openaiCompatible.ts` и `services/adapters/types.ts`: TypeScript parameter properties → Node 24 (`strip-only`) не могла загрузить сервер: `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`. Ломало и e2e, и `npm run dev/start`. | **ИСПРАВЛЕНО** api-engineer; импорт, e2e, typecheck и build проходят |
 | QA-4 | `apps/api/src/repositories/authorProfiles.ts:101`: `TS2345 Argument of type 'unknown' is not assignable to parameter of type 'QueryParam'` — падал `npm run typecheck` | **ИСПРАВЛЕНО**; `npm run typecheck -w @blogos/api` чист |
-| QA-5 | Документация: `docs/API.md` не описывает поле `strict_ai`, хотя документированный код `402 ai_budget_exceeded` достижим только с ним; без `strict_ai` сервер отдаёт `200` + откат на правила (по DECISIONS №7) | **ОТКРЫТ** (мелкое расхождение документации; `docs/API.md` вне зоны записи QA) |
+| QA-5 | Документация: `docs/API.md` не описывал поле `strict_ai`, хотя документированный код `402 ai_budget_exceeded` достижим только с ним; без `strict_ai` сервер отдаёт `200` + откат на правила (по DECISIONS №7) | **ЗАКРЫТО**: Lead дополнил `docs/API.md` (тело lint `{use_llm, strict_ai}` и таблица ошибок 402), QA добавил `strict_ai` в `docs/openapi.yaml`; поведение проверено e2e |
 
 Код приложения QA не менял: правки только в `tests/**`, `docs/openapi.yaml`,
 `docs/ACCEPTANCE.md`, `docs/DB-REVIEW.md`.

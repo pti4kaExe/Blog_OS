@@ -16,12 +16,20 @@ before(async () => {
   await bootstrap()
 })
 
+let ownerToken = ''
+
+before(async () => {
+  const owner = await freshUser('Сквозные')
+  ownerToken = owner.token
+})
+
 const extraProfiles: Array<{ token: string; profile: Record<string, unknown> }> = []
 
 after(async () => {
   for (const item of extraProfiles) {
     await cleanupProfiles(item.token, [item.profile])
   }
+  if (ownerToken) await api('DELETE', '/users/me', { token: ownerToken })
 })
 
 test('зарегистрировано ровно 59 доменных методов (корень и /api/v1)', async () => {
@@ -56,7 +64,7 @@ test('401 без токена на маршрутах разных групп', 
 })
 
 test('403 на админ-методы golden-dataset и evals для роли user', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   for (const [method, url] of [
     ['GET', '/golden-dataset'],
     ['POST', '/golden-dataset'],
@@ -72,7 +80,7 @@ test('403 на админ-методы golden-dataset и evals для роли u
 })
 
 test('404 на чужую запись (не 403): канал, пост, черновик, источник', async () => {
-  const owner = await authorToken()
+  const owner = ownerToken
   const profile = await createProfile(owner)
   extraProfiles.push({ token: owner, profile })
 
@@ -115,7 +123,7 @@ test('404 на чужую запись (не 403): канал, пост, чер�
 })
 
 test('409 на дубли: источник с тем же source_url и пост с external_id', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   const profile = await createProfile(token)
   extraProfiles.push({ token, profile })
   const profileUrl = `/author-profiles/${String(profile.id)}`
@@ -143,7 +151,7 @@ test('409 на дубли: источник с тем же source_url и пос�
 })
 
 test('алиас /api/v1 повторяет корневые маршруты (на примере каналов)', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   const root = await api<{ items: unknown[] }>('GET', '/author-profiles', { token })
   const alias = await api<{ items: unknown[] }>('GET', '/api/v1/author-profiles', { token })
   assert.equal(alias.status, 200)

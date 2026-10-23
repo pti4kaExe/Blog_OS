@@ -107,7 +107,7 @@ npm run db:seed
 
 1. Render → **New** → **Blueprint** → подключите GitHub-репозиторий.
 2. Render прочитает `render.yaml` и предложит сервис `blogos-api` (runtime
-   `node`, plan `free`, rootDir — корень монорепо, `buildCommand: npm ci`,
+   `node`, plan `free`, rootDir — корень монорепо, `buildCommand: npm ci --include=dev`,
    `startCommand: node apps/api/src/server.ts`, `healthCheckPath: /health`).
 3. Заполните переменные, помеченные `sync: false`:
    - `DATABASE_URL` — **pooled**-строка Neon с `?sslmode=require`;
@@ -330,18 +330,30 @@ curl -s "<api-url>/generation-runs?limit=5" -H "Authorization: Bearer <token>"
 
 ## 13. Что проверено, а что нет
 
-Проверено локально в среде подготовки:
+Проверено локально в среде подготовки (PGlite, без Docker и сети):
 
-- `npm run db:migrate` на PGlite — 14 таблиц, повторный запуск идемпотентен;
+- `npm run db:migrate` — файлы `001` + `002`, 14 таблиц, повторный запуск идемпотентен;
+- `npm run db:reset` — схема пересоздана, 14 таблиц;
+- `npm run db:seed` — демо-данные (2 пользователя, 4 канала, 10 эталонов, посты, комментарии, векторы);
 - `npm run test:engine` — 49 из 49;
-- `npm run build -w @blogos/web` — `apps/web/dist`;
-- запуск `node apps/api/src/server.ts`, `GET /health` → 200 (`db: ok`), `GET /` → `methods: 59`;
-- синтаксис и ключи `render.yaml`, `vercel.json`, `ci.yml`, `Dockerfile` — статическая проверка.
+- `npm run test:api` — 93 из 93 на PGlite в памяти;
+- `npm run test:e2e` — 57 из 57 по HTTP на PGlite в памяти;
+- `npm run test:db` — 14 таблиц, 17 внешних ключей, каскады/триггеры/HNSW;
+- `npm run test:contract` — 11 проверок, включая 59 операций OpenAPI;
+- `npm run typecheck` — без ошибок;
+- `npm run build` — `apps/web/dist` и `apps/api/dist`;
+- `npm run start` — запуск собранного API, `GET /health` → 200 (`db: ok`);
+- облачный API на PGlite: dev-вход, `/users/me`, `/author-profiles`,
+  `author-profiles/{id}/usage`, алиас `/api/v1/...`, `golden-dataset` → 200;
+- `render.yaml`, `vercel.json`, `.github/workflows/ci.yml`, `Dockerfile` —
+  статическая проверка структуры/ключей и путей (YAML разобран, JSON валиден,
+  источники `COPY` существуют).
 
 Не проверено (нет внешней сети/Docker-демона в среде подготовки): реальный деплой
 Render/Vercel, сборка `Dockerfile`, работа с живыми ключами Neon/Telegram/LLM и
-площадок. Эти шаги выполняются по инструкции выше; результаты проверок
-фиксируйте в issue/отчёте, а не в README.
+площадок, а также `node --watch` (в песочнице запрещён запуск дочернего процесса —
+использован прямой `node apps/api/src/server.ts`). Эти шаги выполняются по
+инструкции выше; результаты проверок фиксируйте в issue/отчёте, а не в README.
 
 ## 14. Справочные ограничения бесплатных тарифов
 

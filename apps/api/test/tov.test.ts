@@ -7,17 +7,24 @@ import {
   bootstrap,
   cleanupProfiles,
   createProfile,
+  freshUser,
+  loginDev,
 } from './helpers.ts'
 
 before(async () => {
   await bootstrap()
+  const owner = await freshUser('Стиль')
+  ownerToken = owner.token
+  tokenRef.token = ownerToken
 })
 
+let ownerToken = ''
 const created: Array<Record<string, unknown>> = []
 const tokenRef: { token: string } = { token: '' }
 
 after(async () => {
   if (tokenRef.token) await cleanupProfiles(tokenRef.token, created)
+  if (ownerToken) await api('DELETE', '/users/me', { token: ownerToken })
 })
 
 const TOV_TEXT_1 =
@@ -28,7 +35,7 @@ const TOV_TEXT_2 =
   'За две недели я переписал шесть постов из восьми, и ни один не жалко.'
 
 test('GET /tov до построения профиля → 404', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)
@@ -37,7 +44,7 @@ test('GET /tov до построения профиля → 404', async () => {
 })
 
 test('PUT /tov сохраняет профиль, повторный PUT идемпотентен', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)
@@ -64,7 +71,7 @@ test('PUT /tov сохраняет профиль, повторный PUT иде�
 })
 
 test('PUT /tov: неверный tone → 400', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)
@@ -76,7 +83,7 @@ test('PUT /tov: неверный tone → 400', async () => {
 })
 
 test('POST /tov/analyze: меньше 180 символов → 422 too_short с length', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)
@@ -93,7 +100,7 @@ test('POST /tov/analyze: меньше 180 символов → 422 too_short с 
 })
 
 test('POST /tov/analyze: правила строят карточку, LLM дополняет (mock)', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)
@@ -118,7 +125,7 @@ test('POST /tov/analyze: правила строят карточку, LLM до�
 })
 
 test('POST /tov/analyze с use_llm=false → только правила, verified_without_ai=true', async () => {
-  const token = await authorToken()
+  const token = ownerToken
   tokenRef.token = token
   const profile = await createProfile(token)
   created.push(profile)
@@ -137,15 +144,16 @@ test('POST /tov/analyze с use_llm=false → только правила, verifi
 })
 
 test('POST /tov/analyze по архиву постов канала', async () => {
-  const token = await authorToken()
-  tokenRef.token = token
+  const { token } = await loginDev(200600, 'Демо-автор')
   // Демо-канал автора с постами из сида
-  const list = await api<{ items: Array<{ id: number; platform: string }> }>(
+  const list = await api<{ items: Array<{ id: number; platform: string; name?: string }> }>(
     'GET',
     '/author-profiles',
     { token, query: { platform: 'telegram', limit: 200 } },
   )
-  const seeded = list.body.items.find((item) => item.platform === 'telegram')
+  const seeded = list.body.items.find(
+    (item) => item.name === 'Заметки разработчика',
+  )
   assert.ok(seeded, 'демо-канал автора должен существовать')
   const response = await api<{
     analysis: { posts_used: number }
