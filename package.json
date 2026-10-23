@@ -9,12 +9,13 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   },
   "scripts": {
     "dev:api": "npm run dev -w @blogos/api",
     "dev:web": "npm run dev -w @blogos/web",
     "build": "npm run build -w @blogos/web && npm run build -w @blogos/api",
+    "build:web": "node scripts/build-web.mjs",
     "start": "npm run start -w @blogos/api",
     "test": "npm run test:engine && npm run test:api",
     "test:engine": "npm run test -w @blogos/engine",

@@ -10,5 +10,10 @@ npm-debug.log*
 Thumbs.db
 coverage/
 .vite/
-apps/api/prisma/*.db
+
+# Локальный кэш npm: на этой машине он живёт внутри проекта (см. .npmrc).
+.npm-cache/
+# Локальная база PGlite: данные восстановимы командами db:migrate + db:seed.
+.pglite-data/
+# Рабочие черновики и временные скрипты.
 _scratch/
