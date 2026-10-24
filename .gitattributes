@@ -1,0 +1,16 @@
+# Единые окончания строк: GitHub и Linux-среды ожидают LF.
+# Файлы, где CRLF обязателен (Windows-скрипты), указаны отдельно.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.pdf binary
+*.xlsx binary
+*.zip binary
+
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
