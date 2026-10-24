@@ -35,18 +35,25 @@ env:
 
 jobs:
   test:
-    name: Тесты и сборка (Node 22.18)
+    name: Тесты и сборка (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    # Две версии Node: 22.18 — та, что стоит на Render (типы стираются средствами
+    # Node), 24 — текущая LTS-линейка. Так CI ловит различия рантайма заранее.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22.18", "24"]
 
     steps:
       - name: Получить код
         uses: actions/checkout@v4
 
-      - name: Node.js 22.18
+      - name: Node.js ${{ matrix.node }}
         uses: actions/setup-node@v4
         with:
-          node-version: "22.18"
+          node-version: ${{ matrix.node }}
 
       - name: Установка зависимостей монорепо
         run: npm ci --ignore-scripts
