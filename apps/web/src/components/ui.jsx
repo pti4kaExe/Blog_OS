@@ -1,5 +1,7 @@
 /** Мелкие переиспользуемые элементы интерфейса. */
 import { useEffect, useState } from 'react'
+import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
+import { canPlayIntro } from '../lib/motion.js'
 import { apiErrorMessage, isOffline, labelOf, toneOf } from '../lib/format.js'
 
 export function Tag({ children, kind }) {
@@ -32,30 +34,63 @@ export function Metric({ value, label }) {
 
 const TONE_COLOR = { good: 'var(--good)', ok: 'var(--ok)', warn: 'var(--warn)', bad: 'var(--bad)' }
 
+/**
+ * Кольцо итоговой оценки.
+ *
+ * Дуга набирается, а число догоняет её: это главный результат проверки,
+ * и он должен появляться как результат, а не возникать готовым. Пружина
+ * без перелёта — оценка не «пролетает» мимо своего значения.
+ *
+ * При prefers-reduced-motion кольцо сразу показывает итог.
+ */
 export function ScoreRing({ score, tone = 'ok' }) {
   const r = 38
   const c = 2 * Math.PI * r
-  const filled = Math.max(0, Math.min(100, score)) / 100
+  const target = Math.max(0, Math.min(100, Number(score) || 0))
+  const reduced = useReducedMotion()
+
+  /* Стартуем с итога: если вступление сыграть нельзя, значение уже верное. */
+  const progress = useMotionValue(target)
+  const dash = useTransform(progress, (v) => `${(c * v) / 100} ${c}`)
+  const shown = useTransform(progress, (v) => Math.round(v))
+
+  useEffect(() => {
+    if (reduced || !canPlayIntro()) {
+      progress.set(target)
+      return undefined
+    }
+    progress.set(0)
+    const controls = animate(progress, target, { type: 'spring', bounce: 0, duration: 0.9 })
+    return () => controls.stop()
+  }, [target, reduced, progress])
+
   return (
-    <div className="ring">
+    <div className="ring" role="img" aria-label={`Оценка ${target} из 100`}>
       <svg width="92" height="92" viewBox="0 0 92 92" aria-hidden="true">
-        <circle cx="46" cy="46" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="7" />
-        <circle
-          cx="46" cy="46" r={r} fill="none" stroke={TONE_COLOR[tone] || 'var(--accent)'}
+        <circle cx="46" cy="46" r={r} fill="none" stroke="var(--surface-overlay)" strokeWidth="7" />
+        <motion.circle
+          cx="46" cy="46" r={r} fill="none" stroke={TONE_COLOR[tone] || 'var(--tint)'}
           strokeWidth="7" strokeLinecap="round"
-          strokeDasharray={`${c * filled} ${c}`}
+          strokeDasharray={dash}
         />
       </svg>
-      <div className="ring-val">{score}</div>
+      <motion.div className="ring-val" aria-hidden="true">{shown}</motion.div>
     </div>
   )
 }
 
 export function Bar({ value, tone = 'accent' }) {
-  const color = TONE_COLOR[tone] || 'var(--accent)'
+  const color = TONE_COLOR[tone] || 'var(--tint)'
+  const reduced = useReducedMotion()
+  const width = Math.max(2, Math.min(100, value))
   return (
     <div className="bar">
-      <i style={{ width: `${Math.max(2, Math.min(100, value))}%`, background: color }} />
+      <motion.i
+        initial={reduced || !canPlayIntro() ? false : { width: '0%' }}
+        animate={{ width: `${width}%` }}
+        transition={{ type: 'spring', bounce: 0, duration: 0.7 }}
+        style={{ background: color, display: 'block', height: '100%', borderRadius: 'var(--r-full)' }}
+      />
     </div>
   )
 }
