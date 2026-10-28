@@ -8,7 +8,12 @@ import './styles.css'
 const FoundationShowcase = lazy(() => import('./components/FoundationShowcase.jsx'))
 const showFoundation = new URLSearchParams(window.location.search).has('фундамент')
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+/* Корень создаётся один раз: при горячей перезагрузке модуль выполняется
+   заново, и повторный createRoot на том же узле роняет предупреждение. */
+const container = document.getElementById('root')
+const root = (window.__blogosRoot ||= ReactDOM.createRoot(container))
+
+root.render(
   <React.StrictMode>
     {showFoundation
       ? <Suspense fallback={null}><FoundationShowcase /></Suspense>
