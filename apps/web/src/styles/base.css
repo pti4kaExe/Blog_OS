@@ -1,0 +1,170 @@
+/**
+ * BlogOS — база.
+ *
+ * Сброс, поведение корневых элементов, типографические классы и фокус.
+ * Всё значимое берётся из tokens.css; собственных значений здесь нет.
+ */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  font-size: 100%;               /* уважаем размер текста, выставленный пользователем */
+  -webkit-text-size-adjust: 100%;
+}
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--surface-base);
+  color: var(--label-primary);
+  font-family: var(--font-sans);
+  font-size: var(--t-body-size);
+  line-height: var(--t-body-lh);
+  letter-spacing: var(--t-body-ls);
+  font-weight: var(--t-body-fw);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+}
+
+button, input, textarea, select {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+button { cursor: pointer; }
+
+/* Фокус — только с клавиатуры. Кольцо с отступом от самого элемента,
+   чтобы читалось и на тёмной карточке, и на tint-подложке. */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+::selection {
+  background: var(--tint-soft);
+  color: var(--label-primary);
+}
+
+/* ─── Типографические классы ──────────────────────────────────────────────
+   Размер, интерлиньяж, трекинг и насыщенность всегда применяются вместе —
+   поодиночке они ломают шкалу. */
+
+.t-display  { font-size: var(--t-display-size);  line-height: var(--t-display-lh);  letter-spacing: var(--t-display-ls);  font-weight: var(--t-display-fw); }
+.t-title1   { font-size: var(--t-title1-size);   line-height: var(--t-title1-lh);   letter-spacing: var(--t-title1-ls);   font-weight: var(--t-title1-fw); }
+.t-title2   { font-size: var(--t-title2-size);   line-height: var(--t-title2-lh);   letter-spacing: var(--t-title2-ls);   font-weight: var(--t-title2-fw); }
+.t-title3   { font-size: var(--t-title3-size);   line-height: var(--t-title3-lh);   letter-spacing: var(--t-title3-ls);   font-weight: var(--t-title3-fw); }
+.t-headline { font-size: var(--t-headline-size); line-height: var(--t-headline-lh); letter-spacing: var(--t-headline-ls); font-weight: var(--t-headline-fw); }
+.t-body     { font-size: var(--t-body-size);     line-height: var(--t-body-lh);     letter-spacing: var(--t-body-ls);     font-weight: var(--t-body-fw); }
+.t-callout  { font-size: var(--t-callout-size);  line-height: var(--t-callout-lh);  letter-spacing: var(--t-callout-ls);  font-weight: var(--t-callout-fw); }
+.t-subhead  { font-size: var(--t-subhead-size);  line-height: var(--t-subhead-lh);  letter-spacing: var(--t-subhead-ls);  font-weight: var(--t-subhead-fw); }
+.t-footnote { font-size: var(--t-footnote-size); line-height: var(--t-footnote-lh); letter-spacing: var(--t-footnote-ls); font-weight: var(--t-footnote-fw); }
+.t-caption  { font-size: var(--t-caption-size);  line-height: var(--t-caption-lh);  letter-spacing: var(--t-caption-ls);  font-weight: var(--t-caption-fw); }
+
+.t-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.t-nums { font-variant-numeric: tabular-nums; }
+
+.label-secondary { color: var(--label-secondary); }
+.label-tertiary  { color: var(--label-tertiary); }
+
+/* ─── Материалы ───────────────────────────────────────────────────────────
+   Полупрозрачный слой со светлой кромкой сверху. Кладётся точечно —
+   модалки, поповеры, плавающая шапка. */
+
+.material {
+  background: var(--material-regular-bg);
+  backdrop-filter: var(--material-regular-filter);
+  -webkit-backdrop-filter: var(--material-regular-filter);
+  border-top: 1px solid var(--material-edge);
+  box-shadow: var(--shadow-2);
+}
+
+.material-thick {
+  background: var(--material-thick-bg);
+  backdrop-filter: var(--material-thick-filter);
+  -webkit-backdrop-filter: var(--material-thick-filter);
+  border-top: 1px solid var(--material-edge);
+  box-shadow: var(--shadow-3);
+}
+
+/* ─── Отклик на нажатие ───────────────────────────────────────────────────
+   Реакция приходит на нажатие, а не на отпускание: иначе интерфейс
+   кажется мёртвым. Только transform — свойство композитора. */
+
+.pressable {
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.pressable:active:not(:disabled):not([aria-disabled='true']) {
+  transform: scale(0.97);
+}
+
+/* ─── Пониженная подвижность ──────────────────────────────────────────────
+   Это не «выключить анимацию», а заменить движение на мягкое угасание:
+   смысл перехода сохраняется, вестибулярная нагрузка уходит. */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--dur-fast) !important;
+    transition-property: opacity, color, background-color, border-color !important;
+    scroll-behavior: auto !important;
+  }
+  .pressable:active:not(:disabled) { transform: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Мост на старые имена переменных.
+
+   Экраны ещё не переписаны под новые токены — пока они читают старые имена.
+   Этот блок переводит их на новую палитру: ни один экран не ломается,
+   но все сразу получают выверенный цвет. Блок удаляется по мере того,
+   как экраны переходят на токены напрямую.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg: var(--surface-base);
+  --bg-soft: var(--surface-input);
+  --surface: var(--surface-raised);
+  --surface-2: var(--surface-overlay);
+  --line: var(--hairline-strong);
+  --line-soft: var(--hairline);
+  --text: var(--label-primary);
+  --text-dim: var(--label-secondary);
+  --text-faint: var(--label-tertiary);
+  --accent: var(--tint);
+  --accent-dim: var(--tint-soft);
+  --good: var(--success);
+  --ok: var(--caution);
+  --warn: var(--warning);
+  --bad: var(--danger);
+  --radius: var(--r-md);
+  --radius-sm: var(--r-sm);
+  --shadow: var(--shadow-3);
+  --mono: var(--font-mono);
+  --sans: var(--font-sans);
+}
+
+/* ─── Переключение темы ───────────────────────────────────────────────────
+   Класс висит на <html> только во время смены темы: резкий скачок яркости
+   читается как вспышка, поэтому цвет переводится коротким переходом.
+   Трансформы и прочий моушен сюда не попадают — только цвет. */
+
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: background-color var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out),
+              fill var(--dur-base) var(--ease-out),
+              box-shadow var(--dur-base) var(--ease-out) !important;
+}

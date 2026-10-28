@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import LocalApp from './components/LocalApp.jsx'
+import ThemeSwitch from './components/ui/ThemeSwitch.jsx'
 import CloudApp from './components/cloud/CloudApp.jsx'
 
 const MODE_KEY = 'blogos.mode.v1'
@@ -62,6 +63,8 @@ export default function App() {
             В облаке
           </button>
         </div>
+
+        <ThemeSwitch />
       </header>
 
       {mode === 'local'

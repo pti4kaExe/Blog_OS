@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BlogOS — пост в вашем стиле, проверенный до публикации</title>
     <meta name="description" content="BlogOS: собирает пост из сырых заметок в авторском стиле и проверяет черновик на клише, логические ошибки и отклонения от Tone of Voice." />
+    <script>
+      /* Тема до первого кадра: иначе светлая тема моргнёт тёмным.
+         Держать в синхронном inline-скрипте — он выполняется до отрисовки. */
+      (function () {
+        try {
+          var stored = localStorage.getItem('blogos.theme.v1');
+          var pref = ['system', 'light', 'dark'].indexOf(stored) >= 0 ? stored : 'system';
+          var resolved = pref === 'system'
+            ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+            : pref;
+          document.documentElement.setAttribute('data-theme', resolved);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

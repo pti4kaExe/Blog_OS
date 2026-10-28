@@ -1,0 +1,94 @@
+/**
+ * BlogOS — примитивы.
+ *
+ * Стили маленьких переиспользуемых кусков: скелетоны, служебные классы.
+ * Экранных стилей здесь нет.
+ */
+
+/* ─── Только для скринридера ──────────────────────────────────────────────*/
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ─── Скелетоны ───────────────────────────────────────────────────────────
+   Плашка цвета вложенного слоя плюс блик, который проезжает по ней.
+   Блик двигается transform'ом: кадр собирает композитор, основной поток
+   не трогается. */
+
+.skeleton {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-overlay);
+  isolation: isolate;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.055) 50%,
+    transparent 100%
+  );
+  animation: blogos-shimmer 1.6s var(--ease-in-out) infinite;
+}
+
+@keyframes blogos-shimmer {
+  to { transform: translateX(100%); }
+}
+
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+}
+
+/* Блик — украшение, а не смысл: при пониженной подвижности он уходит,
+   плашка остаётся. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { display: none; }
+}
+
+/* ─── Переключатель темы ──────────────────────────────────────────────────
+   Иконки без подписей, поэтому кнопка квадратная и с одинаковым
+   оптическим весом в любом состоянии. */
+
+.theme-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--label-tertiary);
+  transition: color var(--dur-fast) var(--ease-out),
+              background-color var(--dur-fast) var(--ease-out);
+}
+.theme-btn:hover { color: var(--label-primary); }
+.theme-btn[data-active='true'] {
+  background: var(--surface-elevated);
+  color: var(--label-primary);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
