@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import api from '../../api/client.js'
 import { apiErrorMessage } from '../../lib/format.js'
 import { InlineError, Loading, Notice } from '../ui.jsx'
+import ProgressRail from '../ui/ProgressRail.jsx'
+import StepTransition from '../ui/StepTransition.jsx'
 import CloudStyleStep from './CloudStyleStep.jsx'
 import CloudNotesStep from './CloudNotesStep.jsx'
 import CloudDraftStep from './CloudDraftStep.jsx'
@@ -20,6 +22,14 @@ const STEPS = [
  */
 export default function CloudPipeline({ channel, onUseLocal }) {
   const [step, setStep] = useState(1)
+  const [direction, setDirection] = useState(1)
+
+  /* Все переходы идут через это: сторона перехода запоминается, чтобы
+     вход и выход шли по одному пути. */
+  const goStep = (n) => {
+    setDirection(n >= step ? 1 : -1)
+    setStep(n)
+  }
 
   const [tov, setTov] = useState(null)
   const [tovState, setTovState] = useState('loading') // loading | ready | empty | error
@@ -91,7 +101,7 @@ export default function CloudPipeline({ channel, onUseLocal }) {
       setNotes(body.source_notes || '')
       setArc(body.arc || (result.build && result.build.arc) || null)
       setSaveError(null)
-      setStep(3)
+      goStep(3)
       return true
     } catch (error) {
       setGenerateError(error)
@@ -129,7 +139,7 @@ export default function CloudPipeline({ channel, onUseLocal }) {
       setSaveError(null)
       if (loaded.source_notes) setNotes(loaded.source_notes)
       if (loaded.arc) setArc(loaded.arc)
-      setStep(3)
+      goStep(3)
     } catch (error) {
       setLoadDraftError(error)
     } finally {
@@ -161,31 +171,22 @@ export default function CloudPipeline({ channel, onUseLocal }) {
 
   return (
     <>
-      <p className="lead" style={{ marginBottom: 16 }}>
-        Профиль стиля, черновики и история проверок сохраняются на сервере для канала
-        «{channel.name}». Все четыре шага работают через API; локальный режим остаётся в переключателе.
-      </p>
+      <header className="stage-head">
+        <p className="lead">
+          Профиль стиля, черновики и история проверок сохраняются на сервере для канала
+          «{channel.name}». Все четыре шага работают через API; локальный режим остаётся
+          в переключателе.
+        </p>
+      </header>
 
-      <nav className="steps">
-        {STEPS.map((item) => (
-          <button
-            type="button"
-            className="step"
-            key={item.n}
-            data-state={stepState(item.n)}
-            disabled={!stepAvailable(item.n)}
-            onClick={() => setStep(item.n)}
-            title={!stepAvailable(item.n) ? 'Сначала пройдите предыдущие шаги' : undefined}
-          >
-            <span className="step-num">{item.n}</span>
-            <span>
-              <span className="step-label">{item.label}</span>
-              <span className="step-hint" style={{ display: 'block' }}>{item.hint}</span>
-            </span>
-          </button>
-        ))}
-      </nav>
+      <ProgressRail
+        steps={STEPS}
+        current={step}
+        available={stepAvailable}
+        onGo={goStep}
+      />
 
+      <StepTransition step={step} direction={direction}>
       {step === 1 && (
         <CloudStyleStep
           channel={channel}
@@ -196,7 +197,7 @@ export default function CloudPipeline({ channel, onUseLocal }) {
           verifiedWithoutAi={tovVerified}
           onRetry={reloadTov}
           onAnalyze={analyzeStyle}
-          onNext={() => setStep(2)}
+          onNext={() => goStep(2)}
           onUseLocal={onUseLocal}
         />
       )}
@@ -231,8 +232,8 @@ export default function CloudPipeline({ channel, onUseLocal }) {
           saving={saving}
           saveError={saveError}
           onSave={saveDraft}
-          onStep={setStep}
-          onDrafts={() => { setDraftsRefreshKey((key) => key + 1); setStep(2) }}
+          onStep={goStep}
+          onDrafts={() => { setDraftsRefreshKey((key) => key + 1); goStep(2) }}
         />
       )}
 
@@ -242,11 +243,12 @@ export default function CloudPipeline({ channel, onUseLocal }) {
           tov={tov}
           draft={draft}
           setDraft={setDraft}
-          onBack={() => setStep(3)}
+          onBack={() => goStep(3)}
           onUseLocal={onUseLocal}
           onPublished={() => setDraftsRefreshKey((key) => key + 1)}
         />
       )}
+      </StepTransition>
 
       {generateError && step !== 2 && (
         <div style={{ marginTop: 14 }}>

@@ -6,6 +6,8 @@ import CheckStep from './CheckStep.jsx'
 import RadarView from './RadarView.jsx'
 import { buildPost } from '../engine/narrative.js'
 import { Tag } from './ui.jsx'
+import ProgressRail from './ui/ProgressRail.jsx'
+import StepTransition from './ui/StepTransition.jsx'
 
 /** Состояние прототипа: тот же ключ, что и до появления облачного режима. */
 const STORAGE_KEY = 'blogos.state.v1'
@@ -38,6 +40,14 @@ export default function LocalApp() {
 
   const [view, setView] = useState('pipeline')
   const [step, setStep] = useState(saved?.profile ? 2 : 1)
+  const [direction, setDirection] = useState(1)
+
+  /* Любой переход между шагами идёт через это: запоминаем сторону,
+     чтобы вход и выход шли по одному пути. */
+  const goStep = (n) => {
+    setDirection(n >= step ? 1 : -1)
+    setStep(n)
+  }
   const [samples, setSamples] = useState(saved?.samples || ['', '', ''])
   const [profile, setProfile] = useState(saved?.profile || null)
   const [mode, setMode] = useState(saved?.mode || 'notes')
@@ -61,7 +71,7 @@ export default function LocalApp() {
 
   // профиль сбросили — сбрасываем и зависящие от него шаги
   useEffect(() => {
-    if (!profile && step > 1) setStep(1)
+    if (!profile && step > 1) goStep(1)
   }, [profile, step])
 
   const buildFromNotes = (key) => {
@@ -71,7 +81,7 @@ export default function LocalApp() {
     setArcKey(key || null)
     setDraft(result.text)
     setBaseline(null)
-    setStep(3)
+    goStep(3)
   }
 
   const rebuild = (key) => {
@@ -87,7 +97,7 @@ export default function LocalApp() {
     setPost(null)
     setDraft(rawDraft)
     setBaseline(null)
-    setStep(4)
+    goStep(4)
   }
 
   const stepState = (n) => {
@@ -129,40 +139,30 @@ export default function LocalApp() {
 
       {view === 'pipeline' ? (
         <>
-          <h1>Пост в вашем голосе — и проверка до публикации</h1>
-          <p className="lead">
+          <header className="stage-head">
+            <h1>Пост в вашем голосе — и проверка до публикации</h1>
+            <p className="lead">
             Один конвейер вместо трёх инструментов: система разбирает ваш стиль по прошлым постам,
             собирает из сырых заметок связную историю и проверяет текст на клише, логические
-            ошибки и отклонения от вашего Tone of Voice. Всё считается локально в браузере.
-          </p>
+              ошибки и отклонения от вашего Tone of Voice. Всё считается локально в браузере.
+            </p>
+          </header>
 
-          <nav className="steps">
-            {STEPS.map((s) => (
-              <button
-                type="button"
-                className="step"
-                key={s.n}
-                data-state={stepState(s.n)}
-                disabled={!stepAvailable(s.n)}
-                onClick={() => setStep(s.n)}
-                title={!stepAvailable(s.n) ? 'Сначала пройдите предыдущие шаги' : undefined}
-              >
-                <span className="step-num">{s.n}</span>
-                <span>
-                  <span className="step-label">{s.label}</span>
-                  <span className="step-hint" style={{ display: 'block' }}>{s.hint}</span>
-                </span>
-              </button>
-            ))}
-          </nav>
+          <ProgressRail
+            steps={STEPS}
+            current={step}
+            available={stepAvailable}
+            onGo={goStep}
+          />
 
+          <StepTransition step={step} direction={direction}>
           {step === 1 && (
             <StyleStep
               samples={samples}
               setSamples={setSamples}
               profile={profile}
               setProfile={setProfile}
-              onNext={() => setStep(2)}
+              onNext={() => goStep(2)}
             />
           )}
 
@@ -186,8 +186,8 @@ export default function LocalApp() {
               post={post}
               arcKey={arcKey}
               onRebuild={rebuild}
-              onCheck={() => setStep(4)}
-              onBack={() => setStep(2)}
+              onCheck={() => goStep(4)}
+              onBack={() => goStep(2)}
             />
           )}
 
@@ -198,15 +198,16 @@ export default function LocalApp() {
               profile={profile}
               baseline={baseline}
               setBaseline={setBaseline}
-              onBack={() => setStep(post ? 3 : 2)}
+              onBack={() => goStep(post ? 3 : 2)}
             />
           )}
+          </StepTransition>
         </>
       ) : (
         <RadarView profile={profile} approved={approved} setApproved={setApproved} />
       )}
 
-      <footer style={{ marginTop: 34, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <footer className="stage-foot">
         <Tag>MVP-прототип</Tag>
         <Tag>без внешних API</Tag>
         <Tag kind="demo">лента CommentRadar — демо-данные</Tag>
