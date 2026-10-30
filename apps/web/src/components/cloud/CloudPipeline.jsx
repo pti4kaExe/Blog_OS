@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import api from '../../api/client.js'
+import { useRegisterCommands } from '../../lib/commands.jsx'
 import { apiErrorMessage } from '../../lib/format.js'
 import { InlineError, Loading, Notice } from '../ui.jsx'
 import ProgressRail from '../ui/ProgressRail.jsx'
@@ -37,6 +38,7 @@ export default function CloudPipeline({ channel, onUseLocal }) {
   const [tovReloadKey, setTovReloadKey] = useState(0)
   const [tovAnalysis, setTovAnalysis] = useState(null)
   const [tovVerified, setTovVerified] = useState(null)
+  const [stopWordsRestored, setStopWordsRestored] = useState(0)
 
   const [mode, setMode] = useState('notes')
   const [notes, setNotes] = useState('')
@@ -80,13 +82,42 @@ export default function CloudPipeline({ channel, onUseLocal }) {
     return () => { alive = false }
   }, [channel.id, tovReloadKey])
 
+  /**
+   * Разбор стиля по текстам канала.
+   *
+   * `POST /tov/analyze` перезаписывает профиль целиком и ставит
+   * `stop_words: []` — ручные правила автора при повторном разборе
+   * пропадали бы. Пока сервер их не сохраняет, возвращаем их сами
+   * отдельным `PUT` и говорим об этом автору.
+   */
   const analyzeStyle = async (body) => {
+    const keptStopWords = Array.isArray(tov?.stop_words) ? tov.stop_words : []
     const result = await api.tov.analyze(channel.id, body)
-    setTov(result.tov_profile || null)
+    let profile = result.tov_profile || null
+
+    const lostStopWords = keptStopWords.length > 0
+      && (!profile || !Array.isArray(profile.stop_words) || profile.stop_words.length === 0)
+
+    if (lostStopWords && profile) {
+      try {
+        profile = await api.tov.put(channel.id, {
+          tone: profile.tone,
+          slang: Array.isArray(profile.slang) ? profile.slang : [],
+          stop_words: keptStopWords,
+          favorite_phrases: Array.isArray(profile.favorite_phrases) ? profile.favorite_phrases : [],
+          metrics: profile.metrics ?? null,
+        })
+      } catch {
+        /* вернуть не вышло — профиль всё равно построен, скажем об этом ниже */
+      }
+    }
+
+    setTov(profile)
     setTovState('ready')
     setTovAnalysis(result.analysis || null)
     setTovVerified(result.verified_without_ai)
     setTovError(null)
+    setStopWordsRestored(lostStopWords ? keptStopWords.length : 0)
     return result
   }
 
@@ -161,6 +192,17 @@ export default function CloudPipeline({ channel, onUseLocal }) {
     return false
   }
 
+  /* Шаги конвейера в палитре ⌘K: прямой переход на нужный шаг,
+     минуя клики по полосе прогресса. */
+  useRegisterCommands('cloud-pipeline', () => STEPS.map((item) => ({
+    id: `pipeline:step:${item.n}`,
+    group: 'Шаги',
+    title: `Шаг ${item.n} · ${item.label}`,
+    hint: item.hint,
+    disabled: !stepAvailable(item.n) || step === item.n,
+    run: () => goStep(item.n),
+  })))
+
   if (tovState === 'loading' && step === 1) {
     return (
       <section className="card">
@@ -171,14 +213,6 @@ export default function CloudPipeline({ channel, onUseLocal }) {
 
   return (
     <>
-      <header className="stage-head">
-        <p className="lead">
-          Профиль стиля, черновики и история проверок сохраняются на сервере для канала
-          «{channel.name}». Все четыре шага работают через API; локальный режим остаётся
-          в переключателе.
-        </p>
-      </header>
-
       <ProgressRail
         steps={STEPS}
         current={step}
@@ -195,8 +229,10 @@ export default function CloudPipeline({ channel, onUseLocal }) {
           tovError={tovError}
           analysis={tovAnalysis}
           verifiedWithoutAi={tovVerified}
+          stopWordsRestored={stopWordsRestored}
           onRetry={reloadTov}
           onAnalyze={analyzeStyle}
+          onTovSaved={(saved) => { setTov(saved); setTovState('ready') }}
           onNext={() => goStep(2)}
           onUseLocal={onUseLocal}
         />
