@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import api from '../../api/client.js'
 import { apiErrorMessage, isOffline } from '../../lib/format.js'
 import { Field, InlineError, Loading, Notice, Tag, TextInput } from '../ui.jsx'
+import VoiceMark from '../ui/VoiceMark.jsx'
+import { Reveal, Stagger } from '../ui/Motion.jsx'
 
 /**
  * Экран входа в облачный режим.
@@ -12,7 +14,7 @@ import { Field, InlineError, Loading, Notice, Tag, TextInput } from '../ui.jsx'
  * при `DEV_AUTH=1` (docs/DECISIONS.md, № 12).
  */
 export default function LoginScreen({ onLogin, onUseLocal }) {
-  const [telegramId, setTelegramId] = useState('100500')
+  const [telegramId, setTelegramId] = useState('200600')
   const [name, setName] = useState('Демо-автор')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -65,7 +67,23 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
   }
 
   return (
-    <div className="grid-2">
+    <>
+      {/* Бренд-зона — единственное место, где движение работает на
+          впечатление, а не на действие. Она живёт до входа и не отодвигает
+          форму: продукт начинается сразу под ней. */}
+      <Stagger className="brand-zone">
+        <Reveal offset={14}>
+          <VoiceMark size="hero" />
+        </Reveal>
+        <Reveal className="brand-zone-text" offset={14}>
+          <h1 className="brand-zone-title">BlogOS</h1>
+          <p className="brand-zone-lead">
+            Пост в вашем голосе — собранный из сырых заметок и проверенный до публикации.
+          </p>
+        </Reveal>
+      </Stagger>
+
+      <div className="grid-2">
       <section className="card">
         <div className="card-head">
           <div>
@@ -85,13 +103,17 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
 
         <form onSubmit={submit}>
           <div className="form-grid">
-            <Field label="telegram_id" hint="Число из Telegram. Для демо подойдёт 100500." htmlFor="login-telegram-id">
+            <Field
+              label="Ваш ID в Telegram"
+              hint="Это dev-вход для разработки. Внутри Telegram вход происходит сам, без этой формы. Для демо подойдёт 200600."
+              htmlFor="login-telegram-id"
+            >
               <TextInput
                 id="login-telegram-id"
                 inputMode="numeric"
                 value={telegramId}
                 onChange={(event) => setTelegramId(event.target.value)}
-                placeholder="100500"
+                placeholder="200600"
                 autoComplete="off"
               />
             </Field>
@@ -149,6 +171,7 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           с <code>DEV_AUTH=1</code>.
         </div>
       </section>
-    </div>
+      </div>
+    </>
   )
 }

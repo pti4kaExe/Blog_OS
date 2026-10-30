@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react'
 import { CATEGORIES, applyFixes, isFixable, lint, scoreText } from '../engine/anticringe.js'
-import { Bar, CopyButton, Notice, ScoreRing, plural } from './ui.jsx'
+import { Bar, CharCounter, CopyButton, DownloadButton, Notice, ScoreRing, plural } from './ui.jsx'
+import { AnimatePresence } from 'motion/react'
+import { Reveal, Stagger } from './ui/Motion.jsx'
+
+/* Локальный режим не знает про каналы и площадки, поэтому ориентир —
+   Telegram: первая и пока единственная площадка целевой версии (ТЗ, раздел 3). */
+const TELEGRAM_POST_LIMIT = 4096
 
 /**
  * Шаг 4. AntiCringe: отчёт по черновику и применение правок.
@@ -112,10 +118,14 @@ export default function CheckStep({ text, setText, profile, baseline, setBaselin
           </div>
           <div className="spacer" />
           <div className="btn-row">
+            {/* Лимит Telegram — та же подсказка, что в облачном режиме:
+                привычка не должна зависеть от выбранного режима. */}
+            <CharCounter value={text} limit={TELEGRAM_POST_LIMIT} />
             <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing((v) => !v)}>
               {editing ? 'Готово' : 'Править вручную'}
             </button>
             <CopyButton text={text} />
+            <DownloadButton text={text} filename="Пост BlogOS" />
           </div>
         </div>
 
@@ -161,9 +171,14 @@ export default function CheckStep({ text, setText, profile, baseline, setBaselin
             Чисто. Текст прошёл все четыре проверки.
           </div>
         ) : (
-          <div className="issue-list">
-            {visible.map((issue) => (
-              <div
+          <Stagger className="issue-list">
+            <AnimatePresence initial={false}>
+            {visible.map((issue, index) => (
+              <Reveal
+                layout
+                index={index}
+                offset={8}
+                exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.18 } }}
                 key={issue.id}
                 className="issue"
                 data-sev={issue.severity}
@@ -207,9 +222,10 @@ export default function CheckStep({ text, setText, profile, baseline, setBaselin
                     Скрыть
                   </button>
                 </div>
-              </div>
+              </Reveal>
             ))}
-          </div>
+            </AnimatePresence>
+          </Stagger>
         )}
 
         {report.tovDeltas.length > 0 && (

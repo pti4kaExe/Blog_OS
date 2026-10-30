@@ -118,6 +118,32 @@ export function tovTags(tov) {
   return { topics, phrases }
 }
 
+/** Обращение к читателю: поле `tone` сервера или `address` из метрик. */
+export function tovAddress(tov) {
+  if (tov && typeof tov.tone === 'string' && tov.tone.trim()) return tov.tone.trim()
+  return pickString(metricsSource(tov), 'address')
+}
+
+/** Человеческая строка «как вы пишете» — её считает движок при разборе. */
+export function tovSummary(tov) {
+  const source = metricsSource(tov)
+  const value = source && source.summary
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+/** Строка «разобрано постов / слов / начало поста». */
+export function tovStats(tov) {
+  const source = metricsSource(tov)
+  if (!source) return null
+  const stats = source.stats && typeof source.stats === 'object' ? source.stats : null
+  const parts = []
+  if (stats && stats.posts) parts.push(`разобрано постов: ${stats.posts}`)
+  if (stats && stats.words) parts.push(`слов: ${stats.words.toLocaleString('ru-RU')}`)
+  const opening = pickString(source, 'openingStyle')
+  if (opening) parts.push(`начало поста обычно — ${opening}`)
+  return parts.length ? parts.join(' · ') : null
+}
+
 /** Сводка «что разобрано» из ответа analyze. */
 export function analysisSummary(analysis) {
   if (!analysis) return ''
@@ -128,4 +154,43 @@ export function analysisSummary(analysis) {
   if (analysis.chars) parts.push(`${analysis.chars.toLocaleString('ru-RU')} символов`)
   if (analysis.source) parts.push(`источник: ${analysis.source === 'rules' ? 'правила' : analysis.source}`)
   return parts.join(' · ')
+}
+
+/**
+ * Ритм текста для карточки стиля.
+ *
+ * Это декоративная интерпретация двух реальных характеристик профиля —
+ * средней длины предложения и разброса длин, — а не новая метрика.
+ * Числами её подписывать нельзя: движок таких значений не считает,
+ * и выдавать рисунок за измерение значило бы врать пользователю.
+ *
+ * Форма детерминированная: один и тот же профиль всегда рисует одну и ту
+ * же волну. Случайность здесь читалась бы как «данные меняются сами».
+ *
+ * @returns {{bars: number[], long: boolean} | null} доли от 0.18 до 1
+ */
+export function tovRhythm(tov, count = 18) {
+  const source = metricsSource(tov)
+  if (!source) return null
+  const length = pickNumber(source, 'avgSentenceLen')
+  if (length === null) return null
+
+  /* Разброс приходит не всегда: без него волна просто ровнее. */
+  const spread = pickNumber(source, 'sentenceLenSpread') ?? length * 0.3
+
+  /* Короткая фраза — низкая волна, длинная — высокая; разброс длин
+     задаёт размах. Границы подобраны так, чтобы рисунок читался и у
+     рубленого стиля в 6 слов, и у развёрнутого в 20. */
+  const base = 0.3 + Math.min(1, length / 22) * 0.48
+  const swing = 0.14 + Math.min(1, spread / 12) * 0.3
+
+  /* Фаза берётся из самих чисел: это и есть «детерминированный шум».
+     Два несоизмеримых множителя не дают волне зациклиться на глаз. */
+  const seed = length * 7.13 + spread * 3.47
+  const bars = []
+  for (let i = 0; i < count; i += 1) {
+    const wave = Math.sin(seed + i * 0.78) * 0.6 + Math.sin(seed * 0.5 + i * 1.91) * 0.4
+    bars.push(Math.max(0.16, Math.min(1, base + wave * swing)))
+  }
+  return { bars, long: length >= 14 }
 }

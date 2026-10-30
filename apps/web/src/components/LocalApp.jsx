@@ -6,6 +6,14 @@ import CheckStep from './CheckStep.jsx'
 import RadarView from './RadarView.jsx'
 import { buildPost } from '../engine/narrative.js'
 import { Tag } from './ui.jsx'
+import ProgressRail from './ui/ProgressRail.jsx'
+import AppShell from './ui/AppShell.jsx'
+import ThemeSwitch from './ui/ThemeSwitch.jsx'
+import { SideBrand, SideFoot, SideGroup, SideItem } from './ui/SideNav.jsx'
+import { PALETTE_HINT } from './ui/CommandPalette.jsx'
+import { Cloud, Command, Radar, Workflow } from 'lucide-react'
+import { useRegisterCommands } from '../lib/commands.jsx'
+import StepTransition from './ui/StepTransition.jsx'
 
 /** Состояние прототипа: тот же ключ, что и до появления облачного режима. */
 const STORAGE_KEY = 'blogos.state.v1'
@@ -33,11 +41,19 @@ function loadState() {
  * данные живут в localStorage (`blogos.state.v1`). Этот режим нельзя ломать:
  * он остаётся демонстрацией, когда API недоступен.
  */
-export default function LocalApp() {
+export default function LocalApp({ onUseCloud }) {
   const saved = useMemo(loadState, [])
 
   const [view, setView] = useState('pipeline')
   const [step, setStep] = useState(saved?.profile ? 2 : 1)
+  const [direction, setDirection] = useState(1)
+
+  /* Любой переход между шагами идёт через это: запоминаем сторону,
+     чтобы вход и выход шли по одному пути. */
+  const goStep = (n) => {
+    setDirection(n >= step ? 1 : -1)
+    setStep(n)
+  }
   const [samples, setSamples] = useState(saved?.samples || ['', '', ''])
   const [profile, setProfile] = useState(saved?.profile || null)
   const [mode, setMode] = useState(saved?.mode || 'notes')
@@ -61,7 +77,7 @@ export default function LocalApp() {
 
   // профиль сбросили — сбрасываем и зависящие от него шаги
   useEffect(() => {
-    if (!profile && step > 1) setStep(1)
+    if (!profile && step > 1) goStep(1)
   }, [profile, step])
 
   const buildFromNotes = (key) => {
@@ -71,7 +87,7 @@ export default function LocalApp() {
     setArcKey(key || null)
     setDraft(result.text)
     setBaseline(null)
-    setStep(3)
+    goStep(3)
   }
 
   const rebuild = (key) => {
@@ -87,7 +103,7 @@ export default function LocalApp() {
     setPost(null)
     setDraft(rawDraft)
     setBaseline(null)
-    setStep(4)
+    goStep(4)
   }
 
   const stepState = (n) => {
@@ -105,64 +121,101 @@ export default function LocalApp() {
     return false
   }
 
+  /* Команды палитры ⌘K для локального режима: те же шаги и вкладки,
+     что в облаке, чтобы привычка работала в обоих режимах. */
+  useRegisterCommands('local', () => [
+    {
+      id: 'local:view:pipeline',
+      group: 'Экраны',
+      title: 'Конвейер поста',
+      disabled: view === 'pipeline',
+      run: () => setView('pipeline'),
+    },
+    {
+      id: 'local:view:radar',
+      group: 'Экраны',
+      title: 'CommentRadar',
+      disabled: view === 'radar' || !profile,
+      run: () => setView('radar'),
+    },
+    ...STEPS.map((item) => ({
+      id: `local:step:${item.n}`,
+      group: 'Шаги',
+      title: `Шаг ${item.n} · ${item.label}`,
+      hint: item.hint,
+      disabled: view !== 'pipeline' ? false : !stepAvailable(item.n) || step === item.n,
+      run: () => { setView('pipeline'); goStep(item.n) },
+    })),
+  ])
+
   return (
-    <>
-      <div className="view-tabs">
-        <div className="tabs" role="tablist">
-          <button
-            type="button" className="tab" role="tab"
-            aria-selected={view === 'pipeline'} onClick={() => setView('pipeline')}
-          >
-            Конвейер поста
-          </button>
-          <button
-            type="button" className="tab" role="tab"
-            aria-selected={view === 'radar'} onClick={() => setView('radar')}
-          >
-            CommentRadar
-            {approved.length > 0 && <span className="dot" />}
-          </button>
-        </div>
-        <div className="spacer" />
-        <Tag>Локальный режим · без сети</Tag>
-      </div>
+    <AppShell
+      title={view === 'pipeline' ? 'Локально · Конвейер поста' : 'Локально · CommentRadar'}
+      sidebar={(
+        <>
+          <SideBrand subtitle="локальный режим" />
+
+          <SideGroup label="Разделы">
+            <SideItem
+              icon={Workflow}
+              label="Конвейер поста"
+              active={view === 'pipeline'}
+              onClick={() => setView('pipeline')}
+            />
+            <SideItem
+              icon={Radar}
+              label="CommentRadar"
+              badge={approved.length || undefined}
+              active={view === 'radar'}
+              onClick={() => setView('radar')}
+            />
+          </SideGroup>
+
+          <SideFoot>
+            <SideItem
+              icon={Command}
+              label="Команды"
+              badge={PALETTE_HINT}
+              onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+            />
+            <SideItem
+              icon={Cloud}
+              label="Войти в облако"
+              onClick={onUseCloud}
+              title="Аккаунт, каналы, архив и история на сервере"
+            />
+            <div className="side-theme"><ThemeSwitch /></div>
+          </SideFoot>
+        </>
+      )}
+    >
 
       {view === 'pipeline' ? (
         <>
-          <h1>Пост в вашем голосе — и проверка до публикации</h1>
-          <p className="lead">
+          <header className="stage-head">
+            <h1>Пост в вашем голосе — и проверка до публикации</h1>
+            <p className="lead">
             Один конвейер вместо трёх инструментов: система разбирает ваш стиль по прошлым постам,
             собирает из сырых заметок связную историю и проверяет текст на клише, логические
-            ошибки и отклонения от вашего Tone of Voice. Всё считается локально в браузере.
-          </p>
+              ошибки и отклонения от вашего Tone of Voice. Всё считается локально в браузере.
+            </p>
+          </header>
 
-          <nav className="steps">
-            {STEPS.map((s) => (
-              <button
-                type="button"
-                className="step"
-                key={s.n}
-                data-state={stepState(s.n)}
-                disabled={!stepAvailable(s.n)}
-                onClick={() => setStep(s.n)}
-                title={!stepAvailable(s.n) ? 'Сначала пройдите предыдущие шаги' : undefined}
-              >
-                <span className="step-num">{s.n}</span>
-                <span>
-                  <span className="step-label">{s.label}</span>
-                  <span className="step-hint" style={{ display: 'block' }}>{s.hint}</span>
-                </span>
-              </button>
-            ))}
-          </nav>
+          <ProgressRail
+            steps={STEPS}
+            current={step}
+            available={stepAvailable}
+            onGo={goStep}
+          />
 
+          <StepTransition step={step} direction={direction}>
           {step === 1 && (
             <StyleStep
               samples={samples}
               setSamples={setSamples}
               profile={profile}
               setProfile={setProfile}
-              onNext={() => setStep(2)}
+              onNext={() => goStep(2)}
             />
           )}
 
@@ -186,8 +239,8 @@ export default function LocalApp() {
               post={post}
               arcKey={arcKey}
               onRebuild={rebuild}
-              onCheck={() => setStep(4)}
-              onBack={() => setStep(2)}
+              onCheck={() => goStep(4)}
+              onBack={() => goStep(2)}
             />
           )}
 
@@ -198,20 +251,26 @@ export default function LocalApp() {
               profile={profile}
               baseline={baseline}
               setBaseline={setBaseline}
-              onBack={() => setStep(post ? 3 : 2)}
+              onBack={() => goStep(post ? 3 : 2)}
             />
           )}
+          </StepTransition>
         </>
       ) : (
         <RadarView profile={profile} approved={approved} setApproved={setApproved} />
       )}
 
-      <footer style={{ marginTop: 34, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Tag>MVP-прототип</Tag>
+      <footer className="stage-foot">
         <Tag>без внешних API</Tag>
         <Tag kind="demo">лента CommentRadar — демо-данные</Tag>
-        <span className="faint">Ваши тексты никуда не отправляются и хранятся только в этом браузере.</span>
+        {/* Переключатель «Локально / В облаке» в шапке нигде не объяснён:
+            подсказка висела только в `title`, которого нет на тач-экранах. */}
+        <span className="faint">
+          Локальный режим: тексты никуда не отправляются и хранятся только в этом
+          браузере. «В облаке» — вход, сохранение на сервере, архив постов, база
+          знаний и доступ с другого устройства.
+        </span>
       </footer>
-    </>
+    </AppShell>
   )
 }

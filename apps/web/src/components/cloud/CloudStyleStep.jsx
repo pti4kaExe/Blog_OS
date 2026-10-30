@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DEMO_AUTHOR } from '../../engine/demoData.js'
 import { getAiConsent, useAiConsent } from '../../lib/aiConsent.jsx'
-import {
-  analysisSummary, tovMetricRows, tovTags,
-} from '../../lib/tov.js'
+import { analysisSummary } from '../../lib/tov.js'
 import { fmtDateTime, isOffline, plural } from '../../lib/format.js'
 import {
-  AiBadge, ErrorState, InlineError, Metric, Notice, Tag, Toggle,
+  AiBadge, ErrorState, InlineError, Notice, Toggle,
 } from '../ui.jsx'
+import TovCard from '../TovCard.jsx'
+import TovEditor from './TovEditor.jsx'
+import { ResultReveal } from '../ui/Motion.jsx'
+import VoiceMark from '../ui/VoiceMark.jsx'
 
 const MIN_CHARS = 180
 
@@ -16,16 +18,31 @@ const MIN_CHARS = 180
  * `POST /author-profiles/{id}/tov/analyze`; правиловый слой работает всегда,
  * AI — только с согласия автора. Отказ ⇒ `use_llm: false` и
  * индикатор «проверено без AI».
+ *
+ * Ввод и результат не делят экран колонками. Три текстареи слева и карточка
+ * профиля справа почти никогда не совпадают по высоте — либо ввод торчит
+ * длинным столбцом над коротким результатом, либо наоборот. Вместо этого
+ * экран последователен: сначала во всю ширину — ввод, после разбора —
+ * во всю ширину результат. Вернуться к текстам можно в любой момент —
+ * это не шаг назад, а свёрнутая форма, которую можно снова развернуть.
  */
 export default function CloudStyleStep({
-  channel, tov, tovState, tovError, analysis, verifiedWithoutAi,
-  onRetry, onAnalyze, onNext, onUseLocal,
+  channel, tov, tovState, tovError, analysis, verifiedWithoutAi, stopWordsRestored,
+  onRetry, onAnalyze, onTovSaved, onNext, onUseLocal,
 }) {
   const [samples, setSamples] = useState(['', '', ''])
   const [useLlm, setUseLlm] = useState(getAiConsent() === 'granted')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [showInput, setShowInput] = useState(!tov)
   const consent = useAiConsent()
+
+  /* Профиль мог прийти из уже сохранённого состояния (перезагрузка
+     страницы) — тогда сразу открываем результат, а не пустой ввод. */
+  useEffect(() => {
+    if (tov && tovState === 'ready') setShowInput(false)
+  }, [tov, tovState])
 
   const setSample = (index, value) => {
     const next = samples.slice()
@@ -76,6 +93,7 @@ export default function CloudStyleStep({
           use_llm: granted,
         })
         setError(null)
+        setShowInput(false)
       } catch (analyzeError) {
         setError(analyzeError)
         if (analyzeError.code === 'ai_budget_exceeded') setUseLlm(false)
@@ -88,80 +106,81 @@ export default function CloudStyleStep({
   const rulesOnly = verifiedWithoutAi !== null && verifiedWithoutAi !== undefined
     ? verifiedWithoutAi
     : (tov && 'generation_run_id' in tov ? tov.generation_run_id === null : null)
-  const metricRows = tovMetricRows(tov)
-  const tags = tovTags(tov)
   const slang = Array.isArray(tov?.slang) ? tov.slang : []
   const stopWords = Array.isArray(tov?.stop_words) ? tov.stop_words : []
   const favoritePhrases = Array.isArray(tov?.favorite_phrases) ? tov.favorite_phrases : []
 
-  return (
-    <div className="grid-2">
-      <section className="card">
-        <div className="card-head">
-          <div>
-            <h2>Ваши прошлые посты</h2>
-            <p>2–3 текста, которые вы считаете «своими по голосу». Они сохраняются в вашем канале.</p>
-          </div>
-          {tov && <AiBadge withoutAi={rulesOnly} />}
-        </div>
+  /* Пока профиля нет, выбора вообще не стоит — показываем ввод. */
+  const inputVisible = showInput || !tov
 
-        {samples.map((value, index) => (
-          <div className="sample-row" key={index}>
-            <div className="sample-n">{index + 1}</div>
-            <textarea
-              className="ta"
-              value={value}
-              onChange={(event) => setSample(index, event.target.value)}
-              placeholder={index === 0 ? 'Вставьте сюда свой пост целиком…' : 'Ещё один пост (необязательно)'}
+  return (
+    <div className="stage-narrow">
+      {inputVisible && (
+        <section className="card">
+          <div className="card-head">
+            <div>
+              <h2>Ваши прошлые посты</h2>
+              <p>2–3 текста, которые вы считаете «своими по голосу». Они сохраняются в вашем канале.</p>
+            </div>
+            {tov && <AiBadge withoutAi={rulesOnly} />}
+          </div>
+
+          {samples.map((value, index) => (
+            <div className="sample-row" key={index}>
+              <div className="sample-n">{index + 1}</div>
+              <textarea
+                className="ta"
+                value={value}
+                onChange={(event) => setSample(index, event.target.value)}
+                placeholder={index === 0 ? 'Вставьте сюда свой пост целиком…' : 'Ещё один пост (необязательно)'}
+              />
+            </div>
+          ))}
+
+          <InlineError error={error} />
+
+          <div style={{ margin: '14px 0 0' }}>
+            <Toggle
+              id="style-use-llm"
+              checked={useLlm}
+              onChange={toggleLlm}
+              label="Дополнить профиль AI-анализом"
+              hint="Модель получит тексты постов. Без согласия профиль строится правилами — так же точно, но без AI."
             />
           </div>
-        ))}
 
-        <InlineError error={error} />
-
-        <div style={{ margin: '14px 0 0' }}>
-          <Toggle
-            id="style-use-llm"
-            checked={useLlm}
-            onChange={toggleLlm}
-            label="Дополнить профиль AI-анализом"
-            hint="Модель получит тексты постов. Без согласия профиль строится правилами — так же точно, но без AI."
-          />
-        </div>
-
-        <div className="btn-row" style={{ marginTop: 14 }}>
-          <button type="button" className="btn btn-primary" onClick={analyze} disabled={busy}>
-            {busy ? 'Разбираем…' : 'Разобрать стиль'}
-          </button>
-          <button type="button" className="btn btn-ghost" onClick={loadDemo} disabled={busy}>
-            Взять демо-автора
-          </button>
-          {(chars > 0 || tov) && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={reset} disabled={busy}>
-              Очистить
+          <div className="btn-row" style={{ marginTop: 14 }}>
+            <button type="button" className="btn btn-primary" onClick={analyze} disabled={busy}>
+              {busy ? 'Разбираем…' : 'Разобрать стиль'}
             </button>
-          )}
-          <span className="faint">
-            {chars} из {MIN_CHARS} символов · {filled.length} {plural(filled.length, 'пост', 'поста', 'постов')}
-          </span>
-        </div>
-      </section>
-
-      <section className="card">
-        <div className="card-head">
-          <div>
-            <h2>Профиль Tone of Voice</h2>
-            <p>То, что система будет защищать в ваших текстах.</p>
+            <button type="button" className="btn btn-ghost" onClick={loadDemo} disabled={busy}>
+              Взять демо-автора
+            </button>
+            {(chars > 0 || tov) && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={reset} disabled={busy}>
+                Очистить
+              </button>
+            )}
+            {tov && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowInput(false)} disabled={busy}>
+                К профилю
+              </button>
+            )}
+            <span className="faint">
+              {chars} из {MIN_CHARS} символов · {filled.length} {plural(filled.length, 'пост', 'поста', 'постов')}
+            </span>
           </div>
-          <div className="spacer" />
-          {tovState === 'ready' && (
-            <span className="faint">обновлён {fmtDateTime(tov?.analyzed_at || tov?.updated_at)}</span>
-          )}
-        </div>
+        </section>
+      )}
 
-        {tovState === 'loading' && <div className="loading"><span className="spinner" aria-hidden="true" /><span>Загружаем профиль…</span></div>}
+      {tovState === 'loading' && (
+        <section className="card">
+          <div className="loading"><span className="spinner" aria-hidden="true" /><span>Загружаем профиль…</span></div>
+        </section>
+      )}
 
-        {tovState === 'error' && (
+      {tovState === 'error' && (
+        <section className="card">
           <ErrorState error={tovError} onRetry={onRetry}>
             {isOffline(tovError) && (
               <button type="button" className="btn btn-sm btn-ghost" onClick={onUseLocal}>
@@ -169,21 +188,39 @@ export default function CloudStyleStep({
               </button>
             )}
           </ErrorState>
-        )}
+        </section>
+      )}
 
-        {tovState !== 'loading' && !tov && tovState !== 'error' && (
-          <div className="state">
-            <div className="state-icon" aria-hidden="true">·</div>
-            <div className="state-title">Профиль ещё не построен</div>
-            <div className="state-text">
-              Вставьте 2–3 своих поста и нажмите «Разобрать стиль». Профиль понадобится
-              для сборки черновика и проверки Tone of Voice.
+      {!inputVisible && tov && (
+        <ResultReveal replay={tov.analyzed_at || tov.updated_at || 'tov'}>
+          <section className="card">
+            <div className="card-head">
+              <div>
+                <h2>Профиль Tone of Voice</h2>
+                <p>То, что система будет защищать в ваших текстах.</p>
+                {tovState === 'ready' && (
+                  <p className="faint" style={{ marginTop: 4, marginBottom: 0 }}>
+                    обновлён {fmtDateTime(tov?.analyzed_at || tov?.updated_at)}
+                  </p>
+                )}
+              </div>
+              <div className="spacer" />
+              <button type="button" className="btn btn-sm" onClick={() => setEditorOpen(true)}>
+                Править правила
+              </button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setShowInput(true)}>
+                Разобрать заново
+              </button>
             </div>
-          </div>
-        )}
 
-        {tov && (
-          <>
+            {stopWordsRestored > 0 && (
+              <Notice kind="warn">
+                Разбор стиля перезаписывает профиль целиком — ваши стоп-слова
+                ({stopWordsRestored}) вернулись на место автоматически. Проверьте список
+                в «Править правила».
+              </Notice>
+            )}
+
             {analysis && (
               <p className="faint" style={{ marginTop: 0 }}>
                 Разобрано: {analysisSummary(analysis)}
@@ -191,53 +228,13 @@ export default function CloudStyleStep({
               </p>
             )}
 
-            <div className="metrics" style={{ marginBottom: 14 }}>
-              {metricRows.slice(0, 6).map((row) => (
-                <Metric key={row.key} value={row.value} label={row.label} />
-              ))}
-              {metricRows.length === 0 && (
-                <>
-                  <Metric value={tov.tone || '—'} label="обращение" />
-                  <Metric value={slang.length} label="сленговых слов" />
-                  <Metric value={stopWords.length} label="стоп-слов" />
-                  <Metric value={favoritePhrases.length} label="фирменных фраз" />
-                </>
-              )}
-            </div>
-
-            <h3>Тон и лексика</h3>
-            <div className="tags" style={{ marginBottom: 12 }}>
-              {tov.tone && <Tag kind="accent">обращение: {tov.tone}</Tag>}
-              {slang.map((word) => <Tag key={`slang-${word}`}>{word}</Tag>)}
-              {favoritePhrases.map((phrase) => <Tag key={`phrase-${phrase}`}>{phrase}</Tag>)}
-            </div>
-
-            {stopWords.length > 0 && (
-              <>
-                <h3>Стоп-слова</h3>
-                <div className="tags" style={{ marginBottom: 12 }}>
-                  {stopWords.map((word) => <Tag key={`stop-${word}`} kind="warn">{word}</Tag>)}
-                </div>
-              </>
-            )}
-
-            {tags.topics.length > 0 && (
-              <>
-                <h3>Ваши темы</h3>
-                <div className="tags" style={{ marginBottom: 12 }}>
-                  {tags.topics.map((topic) => <Tag key={topic} kind="accent">{topic}</Tag>)}
-                </div>
-              </>
-            )}
-
-            {tags.phrases.length > 0 && (
-              <>
-                <h3>Фирменные фразы</h3>
-                <div className="tags" style={{ marginBottom: 12 }}>
-                  {tags.phrases.map((phrase) => <Tag key={phrase}>{phrase}</Tag>)}
-                </div>
-              </>
-            )}
+            <TovCard
+              profile={tov}
+              tone={tov.tone}
+              slang={slang}
+              stopWords={stopWords}
+              phrases={favoritePhrases}
+            />
 
             {rulesOnly && (
               <Notice>
@@ -251,9 +248,30 @@ export default function CloudStyleStep({
                 Дальше: заметки →
               </button>
             </div>
-          </>
-        )}
-      </section>
+          </section>
+        </ResultReveal>
+      )}
+
+      {!inputVisible && !tov && tovState !== 'loading' && tovState !== 'error' && (
+        <section className="card">
+          <div className="state state-illustrated">
+            <VoiceMark size="spot" />
+            <div className="state-title">Профиль ещё не построен</div>
+            <div className="state-text">
+              Вставьте 2–3 своих поста и нажмите «Разобрать стиль». Профиль понадобится
+              для сборки черновика и проверки Tone of Voice.
+            </div>
+          </div>
+        </section>
+      )}
+
+      <TovEditor
+        open={editorOpen}
+        channel={channel}
+        tov={tov}
+        onClose={() => setEditorOpen(false)}
+        onSaved={onTovSaved}
+      />
 
       {consent.modal}
     </div>
