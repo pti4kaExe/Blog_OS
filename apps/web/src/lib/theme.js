@@ -53,6 +53,17 @@ export function applyTheme(resolved, { animate = false } = {}) {
   root.setAttribute('data-theme', resolved)
 }
 
+/* Подписчики на смену темы.
+   Хук вызывается из нескольких мест (переключатель в шапке и палитра
+   команд), и каждому нужно одно и то же значение. Без общего оповещения
+   экземпляры расходятся: тема меняется, а переключатель показывает старый
+   выбор. Контекст ради одного значения здесь избыточен. */
+const listeners = new Set()
+
+function broadcast(preference) {
+  for (const listener of listeners) listener(preference)
+}
+
 /**
  * Хук темы.
  *
@@ -61,6 +72,15 @@ export function applyTheme(resolved, { animate = false } = {}) {
 export function useTheme() {
   const [preference, setPreferenceState] = useState(readPreference)
   const [resolved, setResolved] = useState(() => resolveTheme())
+
+  useEffect(() => {
+    const listener = (next) => {
+      setPreferenceState(next)
+      setResolved(resolveTheme(next))
+    }
+    listeners.add(listener)
+    return () => { listeners.delete(listener) }
+  }, [])
 
   /* Пока выбрана «система» — слушаем ОС и ходим за ней. */
   useEffect(() => {
@@ -86,6 +106,7 @@ export function useTheme() {
     const nextResolved = resolveTheme(value)
     setResolved(nextResolved)
     applyTheme(nextResolved, { animate: true })
+    broadcast(value)
   }, [])
 
   return { preference, resolved, setPreference }

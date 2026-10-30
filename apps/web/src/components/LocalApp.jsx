@@ -7,6 +7,12 @@ import RadarView from './RadarView.jsx'
 import { buildPost } from '../engine/narrative.js'
 import { Tag } from './ui.jsx'
 import ProgressRail from './ui/ProgressRail.jsx'
+import AppShell from './ui/AppShell.jsx'
+import ThemeSwitch from './ui/ThemeSwitch.jsx'
+import { SideBrand, SideFoot, SideGroup, SideItem } from './ui/SideNav.jsx'
+import { PALETTE_HINT } from './ui/CommandPalette.jsx'
+import { Cloud, Command, Radar, Workflow } from 'lucide-react'
+import { useRegisterCommands } from '../lib/commands.jsx'
 import StepTransition from './ui/StepTransition.jsx'
 
 /** Состояние прототипа: тот же ключ, что и до появления облачного режима. */
@@ -35,7 +41,7 @@ function loadState() {
  * данные живут в localStorage (`blogos.state.v1`). Этот режим нельзя ломать:
  * он остаётся демонстрацией, когда API недоступен.
  */
-export default function LocalApp() {
+export default function LocalApp({ onUseCloud }) {
   const saved = useMemo(loadState, [])
 
   const [view, setView] = useState('pipeline')
@@ -115,27 +121,74 @@ export default function LocalApp() {
     return false
   }
 
+  /* Команды палитры ⌘K для локального режима: те же шаги и вкладки,
+     что в облаке, чтобы привычка работала в обоих режимах. */
+  useRegisterCommands('local', () => [
+    {
+      id: 'local:view:pipeline',
+      group: 'Экраны',
+      title: 'Конвейер поста',
+      disabled: view === 'pipeline',
+      run: () => setView('pipeline'),
+    },
+    {
+      id: 'local:view:radar',
+      group: 'Экраны',
+      title: 'CommentRadar',
+      disabled: view === 'radar' || !profile,
+      run: () => setView('radar'),
+    },
+    ...STEPS.map((item) => ({
+      id: `local:step:${item.n}`,
+      group: 'Шаги',
+      title: `Шаг ${item.n} · ${item.label}`,
+      hint: item.hint,
+      disabled: view !== 'pipeline' ? false : !stepAvailable(item.n) || step === item.n,
+      run: () => { setView('pipeline'); goStep(item.n) },
+    })),
+  ])
+
   return (
-    <>
-      <div className="view-tabs">
-        <div className="tabs" role="tablist">
-          <button
-            type="button" className="tab" role="tab"
-            aria-selected={view === 'pipeline'} onClick={() => setView('pipeline')}
-          >
-            Конвейер поста
-          </button>
-          <button
-            type="button" className="tab" role="tab"
-            aria-selected={view === 'radar'} onClick={() => setView('radar')}
-          >
-            CommentRadar
-            {approved.length > 0 && <span className="dot" />}
-          </button>
-        </div>
-        <div className="spacer" />
-        <Tag>Локальный режим · без сети</Tag>
-      </div>
+    <AppShell
+      title={view === 'pipeline' ? 'Локально · Конвейер поста' : 'Локально · CommentRadar'}
+      sidebar={(
+        <>
+          <SideBrand subtitle="локальный режим" />
+
+          <SideGroup label="Разделы">
+            <SideItem
+              icon={Workflow}
+              label="Конвейер поста"
+              active={view === 'pipeline'}
+              onClick={() => setView('pipeline')}
+            />
+            <SideItem
+              icon={Radar}
+              label="CommentRadar"
+              badge={approved.length || undefined}
+              active={view === 'radar'}
+              onClick={() => setView('radar')}
+            />
+          </SideGroup>
+
+          <SideFoot>
+            <SideItem
+              icon={Command}
+              label="Команды"
+              badge={PALETTE_HINT}
+              onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+            />
+            <SideItem
+              icon={Cloud}
+              label="Войти в облако"
+              onClick={onUseCloud}
+              title="Аккаунт, каналы, архив и история на сервере"
+            />
+            <div className="side-theme"><ThemeSwitch /></div>
+          </SideFoot>
+        </>
+      )}
+    >
 
       {view === 'pipeline' ? (
         <>
@@ -208,11 +261,16 @@ export default function LocalApp() {
       )}
 
       <footer className="stage-foot">
-        <Tag>MVP-прототип</Tag>
         <Tag>без внешних API</Tag>
         <Tag kind="demo">лента CommentRadar — демо-данные</Tag>
-        <span className="faint">Ваши тексты никуда не отправляются и хранятся только в этом браузере.</span>
+        {/* Переключатель «Локально / В облаке» в шапке нигде не объяснён:
+            подсказка висела только в `title`, которого нет на тач-экранах. */}
+        <span className="faint">
+          Локальный режим: тексты никуда не отправляются и хранятся только в этом
+          браузере. «В облаке» — вход, сохранение на сервере, архив постов, база
+          знаний и доступ с другого устройства.
+        </span>
       </footer>
-    </>
+    </AppShell>
   )
 }
