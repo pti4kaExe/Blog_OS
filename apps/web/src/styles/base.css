@@ -31,6 +31,20 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Заголовки и числа — дисплейной гарнитурой. Это главное, что отличает
+   продукт от панели управления: интерфейсный текст нейтрален, а всё,
+   на что смотрят в первую очередь, набрано с характером. */
+h1, h2, h3, h4, .metric-val, .ring-val, .score-num, .stat-val {
+  font-family: var(--font-display);
+  font-feature-settings: 'onum' 0, 'lnum' 1;
+}
+
+/* Цифры везде выровнены по ширине: в метриках, счётчиках и таблицах
+   прыгающая ширина знака читается как дрожание. */
+.metric-val, .ring-val, .counter, .disc-score, .side-item-badge {
+  font-variant-numeric: tabular-nums;
+}
+
 button, input, textarea, select {
   font: inherit;
   letter-spacing: inherit;
