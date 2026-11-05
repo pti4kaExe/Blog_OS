@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Переменные окружения: загрузка .env, проверка схемой, значения по умолчанию.
  *
  * Правила проекта:
@@ -73,7 +73,21 @@ const schema = z.object({
 
   JWT_SECRET: z.string().min(16, 'JWT_SECRET короче 16 символов — небезопасно'),
   DEV_AUTH: bool(true),
+
+  // ─── Вход через Telegram-бота ──────────────────────────────────────────────
   TELEGRAM_BOT_TOKEN: z.string().optional().default(''),
+  TELEGRAM_BOT_USERNAME: z.string().optional().default(''),
+  // Секрет webhook: Telegram присылает его в заголовке X-Telegram-Bot-Api-Secret-Token.
+  TELEGRAM_WEBHOOK_SECRET: z.string().optional().default(''),
+  // Публичный адрес API — из него собирается URL webhook для Telegram.
+  PUBLIC_API_URL: z.string().optional().default(''),
+  // Публичный адрес клиента — бот присылает его человеку после входа.
+  PUBLIC_WEB_URL: z.string().optional().default(''),
+  // Сколько живёт код входа. Короткий срок — потому что код одноразовый.
+  LOGIN_CODE_TTL_MINUTES: int(10, 1, 120),
+  // Применять миграции при старте: нужно на бесплатном Render, где нет
+  // preDeployCommand. Для одного инстанса безопасно.
+  RUN_MIGRATIONS_ON_START: bool(false),
 
   LLM_PROVIDER: z.enum(['mock', 'deepseek', 'openai']).default('mock'),
   DEEPSEEK_API_KEY: z.string().optional().default(''),

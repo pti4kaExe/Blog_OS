@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: BlogOS API
   version: 2.0.0
-  summary: Серверное API BlogOS — 11 групп, 59 методов
+  summary: Серверное API BlogOS — 12 групп, 62 метода (59 по контракту + 3 входа через бота)
   description: |
     Машинночитаемое описание контракта [`docs/API.md`](./API.md) — единственного
     источника истины для сервера, клиента и тестов. ТЗ v1.1, разделы 8 и 12.
@@ -32,13 +32,15 @@ info:
 servers:
   - url: http://localhost:3000
     description: Локальный сервер (Node.js 24, Fastify 5)
-  - url: https://blogos-api.onrender.com
+  - url: https://blogos-api-shlm.onrender.com
     description: Демо-развёртывание (Render free; первый запрос после простоя — 30–60 с)
 security:
   - bearerAuth: []
 tags:
   - name: Вход и пользователь
     description: 4 метода — Telegram `initData` / dev-вход, профиль, удаление аккаунта
+  - name: Вход через Telegram-бота
+    description: 3 служебных метода — одноразовый код, опрос статуса, webhook бота
   - name: Каналы
     description: 6 методов — `author_profiles`, расходы AI по каналу
   - name: Стиль
@@ -105,6 +107,97 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/Internal' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /auth/telegram/start:
+    post:
+      tags: [Вход через Telegram-бота]
+      operationId: authTelegramStart
+      summary: Одноразовый код входа и ссылка на бота
+      description: |
+        Публичный метод, без токена. Ограничение — 10 запросов в минуту с одного IP.
+        Требует `TELEGRAM_BOT_TOKEN` и `TELEGRAM_BOT_USERNAME`, иначе 503 not_configured.
+      security: []
+      responses:
+        '201':
+          description: Код и ссылка t.me/…?start=login_<код>
+          content:
+            application/json:
+              example:
+                code: 0f3a9c1d7b2e4a56
+                bot_url: https://t.me/blogos_bot?start=login_0f3a9c1d7b2e4a56
+                bot_username: blogos_bot
+                expires_at: '2026-11-05T16:45:00.000Z'
+                ttl_minutes: 10
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/Internal' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /auth/telegram/status:
+    get:
+      tags: [Вход через Telegram-бота]
+      operationId: authTelegramStatus
+      summary: Статус кода входа
+      description: |
+        Публичный метод, без токена. Ограничение — 120 запросов в минуту с одного IP.
+        Пока человек не открыл бота, статус `pending`; после подтверждения приходят
+        JWT и пользователь; просроченный код отвечает `expired`.
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{16}$' }
+      responses:
+        '200':
+          description: Статус кода; в confirmed — токен и пользователь
+          content:
+            application/json:
+              examples:
+                pending: { value: { status: pending, expires_at: '2026-11-05T16:45:00.000Z' } }
+                expired: { value: { status: expired } }
+                confirmed:
+                  value:
+                    status: confirmed
+                    token: eyJhbGciOiJIUzI1NiJ9…
+                    expires_at: '2026-12-05T16:45:00.000Z'
+                    user: { id: 1, telegram_id: 200600, name: Демо-автор, role: user, created_at: '2026-10-23T21:34:31.000Z' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/Internal' }
+  /telegram/webhook:
+    post:
+      tags: [Вход через Telegram-бота]
+      operationId: telegramWebhook
+      summary: Webhook Telegram Bot API
+      description: |
+        Вызывает Telegram, не клиент. Требует заголовок
+        `X-Telegram-Bot-Api-Secret-Token`, равный `TELEGRAM_WEBHOOK_SECRET`;
+        иначе 401 (если секрет не задан — 503). Подтверждает код из
+        `/start login_<код>` и отвечает человеку в чат. Всегда возвращает 200,
+        кроме ошибки авторизации, — иначе Telegram повторяет доставку.
+      security: []
+      parameters:
+        - name: X-Telegram-Bot-Api-Secret-Token
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              update_id: 1
+              message:
+                message_id: 1
+                chat: { id: 200600, type: private }
+                from: { id: 200600, first_name: Мария }
+                text: /start login_0f3a9c1d7b2e4a56
+      responses:
+        '200':
+          description: Update обработан (или проигнорирован)
+          content:
+            application/json:
+              example: { ok: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /users/me:
     get:

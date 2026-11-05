@@ -1,11 +1,35 @@
-/** Группа 1. Вход и пользователь — 4 метода. */
-import type { FastifyInstance } from 'fastify'
+/**
+ * Группа 1. Вход и пользователь.
+ *
+ * Методы контракта (4): POST /auth/telegram, GET/PATCH/DELETE /users/me.
+ * Методы входа через бота (3, служебные): POST /auth/telegram/start,
+ * GET /auth/telegram/status, POST /telegram/webhook.
+ *
+ * Два способа входа:
+ *   1. initData — когда клиент открыт как Telegram Mini App (подпись проверяется HMAC);
+ *   2. код + бот — когда клиент открыт в обычном браузере: сайт выдаёт код,
+ *      человек подтверждает его в боте, сайт получает JWT.
+ * Dev-вход (telegram_id + имя) работает только при DEV_AUTH=1 и нужен
+ * для локальной проверки; на проде выключен.
+ */
+import { createHash, timingSafeEqual } from 'node:crypto'
+import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { env } from '../env.ts'
 import { requireUser, signToken, verifyTelegramInitData } from '../auth.ts'
-import { validationError } from '../errors.ts'
+import { unauthorized, validationError, notConfigured } from '../errors.ts'
 import { parseBody } from '../lib/query.ts'
 import * as users from '../repositories/users.ts'
+import { assertRateAllowed } from '../services/authRateLimit.ts'
+import { cleanupOldCodes, confirmCode, createCode, expireCode, getCode } from '../services/loginCodes.ts'
+import {
+  botUsername,
+  displayName,
+  sendMessage,
+  telegramLoginConfigured,
+  webhookSecret,
+  type TelegramUpdate,
+} from '../services/telegramBot.ts'
 
 const loginSchema = z
   .object({
@@ -23,10 +47,34 @@ const patchMeSchema = z.object({
   name: z.string().trim().min(1, 'Имя не может быть пустым'),
 })
 
+const statusQuerySchema = z.object({
+  code: z.string().regex(/^[0-9a-f]{16}$/, 'Код входа — 16 hex-символов'),
+})
+
 async function upsertUser(telegramId: number | string, name: string) {
   const existing = await users.findByTelegramId(telegramId)
   if (existing) return existing
   return users.create(telegramId, name)
+}
+
+/** IP для ограничителя частоты: за прокси берём первый адрес из X-Forwarded-For. */
+function clientIp(request: FastifyRequest): string {
+  const forwarded = request.headers['x-forwarded-for']
+  if (typeof forwarded === 'string' && forwarded.length > 0) return forwarded.split(',')[0]!.trim()
+  return request.ip
+}
+
+/** Постоянное время сравнения — чтобы секрет webhook нельзя было подобрать по таймингу. */
+function safeEqual(a: string, b: string): boolean {
+  const left = createHash('sha256').update(a).digest()
+  const right = createHash('sha256').update(b).digest()
+  return timingSafeEqual(left, right)
+}
+
+/** Внутри Telegram ссылка на клиент: Mini App или обычный браузер. */
+function webUrl(): string {
+  if (env.PUBLIC_WEB_URL.trim()) return env.PUBLIC_WEB_URL.trim()
+  return env.CORS_ORIGIN[0] ?? ''
 }
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
@@ -64,6 +112,129 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         created_at: user.created_at,
       },
     })
+  })
+
+  // ─── Вход через Telegram-бота ───────────────────────────────────────────────
+  // POST /auth/telegram/start — выдать одноразовый код и ссылку на бота.
+  app.post('/auth/telegram/start', async (request, reply) => {
+    if (!telegramLoginConfigured()) {
+      // Клиент по /health узнаёт, что вход через бота выключен, и не показывает кнопку.
+      throw notConfigured('Вход через Telegram-бота')
+    }
+    assertRateAllowed(`start:${clientIp(request)}`, 10, 60_000, 'Слишком много попыток входа')
+
+    const row = await createCode()
+    const username = botUsername()
+    return reply.status(201).send({
+      code: row.code,
+      bot_url: `https://t.me/${username}?start=login_${row.code}`,
+      bot_username: username,
+      expires_at: row.expires_at,
+      ttl_minutes: env.LOGIN_CODE_TTL_MINUTES,
+    })
+  })
+
+  // GET /auth/telegram/status?code=… — сайт опрашивает, подтвердил ли человек вход.
+  app.get('/auth/telegram/status', async (request, reply) => {
+    assertRateAllowed(`status:${clientIp(request)}`, 120, 60_000, 'Слишком частый опрос статуса')
+    const query = statusQuerySchema.parse(request.query)
+    const row = await getCode(query.code)
+    if (!row) throw validationError('Код входа не найден', { reason: 'code_not_found' })
+
+    if (row.status === 'pending' && new Date(row.expires_at).getTime() <= Date.now()) {
+      await expireCode(row.code)
+      return reply.status(200).send({ status: 'expired' })
+    }
+    if (row.status !== 'confirmed' || !row.user_id) {
+      return reply.status(200).send({
+        status: row.status,
+        expires_at: row.expires_at,
+      })
+    }
+
+    const user = await users.getById(row.user_id)
+    if (!user) throw unauthorized('Пользователь удалён')
+    const issued = await signToken(user)
+    return reply.status(200).send({
+      status: 'confirmed',
+      token: issued.token,
+      expires_at: issued.expires_at,
+      user: {
+        id: user.id,
+        telegram_id: user.telegram_id,
+        name: user.name,
+        role: user.role,
+        created_at: user.created_at,
+      },
+    })
+  })
+
+  // POST /telegram/webhook — Telegram присылает сюда сообщения бота.
+  app.post('/telegram/webhook', async (request, reply) => {
+    const secret = webhookSecret()
+    if (!secret) throw notConfigured('Webhook Telegram не настроен')
+    const provided = String(request.headers['x-telegram-bot-api-secret-token'] ?? '')
+    if (!provided || !safeEqual(provided, secret)) {
+      throw unauthorized('Неверный секрет webhook')
+    }
+
+    const update = request.body as TelegramUpdate | null
+    const message = update?.message
+    // Отвечаем 200 всегда, иначе Telegram будет повторять доставку.
+    if (!message?.text || !message.chat || !message.from) return reply.status(200).send({ ok: true })
+
+    const chatId = message.chat.id
+    const text = message.text.trim()
+    const link = webUrl()
+
+    if (!text.startsWith('/start')) {
+      await sendMessage(
+        chatId,
+        link ? `BlogOS: откройте сайт ${link} и нажмите «Войти через Telegram».` : 'BlogOS: начните вход на сайте.',
+      )
+      return reply.status(200).send({ ok: true })
+    }
+
+    const payload = text.slice('/start'.length).trim()
+    if (!payload.startsWith('login_')) {
+      await sendMessage(
+        chatId,
+        link
+          ? `Чтобы войти в BlogOS, откройте сайт и нажмите «Войти через Telegram»\n${link}`
+          : 'Чтобы войти в BlogOS, начните вход на сайте и перейдите по ссылке из браузера.',
+      )
+      return reply.status(200).send({ ok: true })
+    }
+
+    const code = payload.slice('login_'.length).trim()
+    const row = await getCode(code)
+    if (!row || row.status !== 'pending' || new Date(row.expires_at).getTime() <= Date.now()) {
+      await sendMessage(chatId, 'Код входа не найден или устарел. Начните вход на сайте заново.')
+      return reply.status(200).send({ ok: true })
+    }
+
+    const name = displayName(message.from)
+    const user = await upsertUser(message.from.id, name)
+    const confirmed = await confirmCode(code, {
+      telegramId: message.from.id,
+      name,
+      userId: user.id,
+    })
+    if (!confirmed) {
+      await sendMessage(chatId, 'Код уже использован или устарел. Начните вход на сайте заново.')
+      return reply.status(200).send({ ok: true })
+    }
+
+    // Периодически подчищаем старые коды: отдельного планировщика в проекте нет.
+    void cleanupOldCodes().catch(() => {})
+
+    await sendMessage(
+      chatId,
+      link
+        ? `Готово, ${name}! Вернитесь на сайт — вход выполнен.\n${link}`
+        : `Готово, ${name}! Вернитесь на сайт — вход выполнен.`,
+    )
+    return reply.status(200).send({ ok: true })
   })
 
   // GET /users/me

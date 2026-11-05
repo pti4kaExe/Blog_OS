@@ -12,6 +12,7 @@ import { env, isProd } from './env.ts'
 import { AppError, fromPostgresError, fromZodError } from './errors.ts'
 import { registerRoutes } from './routes/index.ts'
 import { pingDb } from './db.ts'
+import { botUsername, telegramLoginConfigured } from './services/telegramBot.ts'
 
 export interface RegisteredRoute {
   method: string
@@ -99,6 +100,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   })
 
   // Проверка живости: по ней Render и демонстрация прогревают холодный старт.
+  // Флаги входа отдаются клиенту, чтобы он показал только доступные способы.
   app.get('/health', async () => {
     const db = (await pingDb()) ? 'ok' : 'down'
     return {
@@ -108,6 +110,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       llm: env.LLM_PROVIDER,
       embeddings: env.EMBEDDINGS_PROVIDER,
       dev_auth: env.DEV_AUTH,
+      telegram_auth: telegramLoginConfigured(),
+      telegram_bot_username: telegramLoginConfigured() ? botUsername() : null,
       time: new Date().toISOString(),
     }
   })

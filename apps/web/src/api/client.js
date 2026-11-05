@@ -231,10 +231,14 @@ export const api = {
     }
   },
 
-  /* 1. Вход и пользователь — 4 метода */
+  /* 1. Вход и пользователь — 4 метода + 3 метода входа через бота */
   auth: {
     /** `{initData}` для Telegram или `{telegram_id, name}` в DEV_AUTH=1. */
     telegram: (body) => post('/auth/telegram', body),
+    /** Одноразовый код и ссылка на бота: `{code, bot_url, expires_at}`. */
+    startTelegramLogin: () => post('/auth/telegram/start', {}),
+    /** Опрос статуса: `{status: pending|confirmed|expired, token?, user?}`. */
+    telegramLoginStatus: (code) => get('/auth/telegram/status', { code }),
   },
   users: {
     me: () => get('/users/me'),

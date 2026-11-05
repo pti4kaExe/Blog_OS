@@ -188,19 +188,48 @@ curl -s -I -H "Origin: <client-url>" <api-url>/health | findstr /i access-contro
 
 ## 6. Вход на проде
 
-`DEV_AUTH=0`, поэтому вход — только через Telegram `initData`.
+Два способа, оба дают один и тот же JWT на 30 дней.
 
-1. Создайте бота у [@BotFather](https://t.me/BotFather) (если ещё нет).
-2. `/newapp` → выберите бота → укажите URL `<client-url>` (HTTPS).
-3. `TELEGRAM_BOT_TOKEN` положите в Render → Environment как secret. После
-   изменения переменных сервис перезапустится.
-4. Откройте мини-приложение из Telegram: клиент передаёт `initData` автоматически
-   (`window.Telegram.WebApp.initData`), сервер проверяет HMAC-SHA256 и выдаёт JWT
-   на 30 дней.
+### 6.1. Вход через Telegram-бота (основной для браузера)
 
-Для скриншотов без Telegram допустим временный dev-вход: поставьте на Render
-`DEV_AUTH=1`, войдите через форму (`telegram_id` + имя), затем **обязательно**
-верните `DEV_AUTH=0`. В логах и на скриншотах отмечайте, что это dev-режим.
+Схема: сайт выдаёт одноразовый код → человек нажимает Start в боте → бот
+подтверждает код через webhook → сайт опрашивает статус и получает токен.
+
+1. Создайте бота у [@BotFather](https://t.me/BotFather): `/newbot` → имя → username
+   (например `blogos_login_bot`). Запишите **токен** и **username**.
+2. В Render → Environment добавьте:
+
+   | Переменная | Значение |
+   |---|---|
+   | `TELEGRAM_BOT_TOKEN` | токен из BotFather |
+   | `TELEGRAM_BOT_USERNAME` | username без `@` |
+   | `TELEGRAM_WEBHOOK_SECRET` | случайная строка, например `openssl rand -hex 24` |
+   | `PUBLIC_API_URL` | `<api-url>` (без слэша на конце) |
+   | `PUBLIC_WEB_URL` | `<client-url>` |
+   | `RUN_MIGRATIONS_ON_START` | `1` — на free-плане нет preDeployCommand |
+   | `DEV_AUTH` | `0` — после того как вход через бота проверен |
+
+3. Перезапустите сервис (изменение переменных само вызывает деплой). В логах
+   должна появиться строка `Telegram webhook: <api-url>/telegram/webhook`.
+   Если её нет — проверьте `PUBLIC_API_URL` и токен.
+4. Проверка: на сайте «Войти через Telegram» → откроется бот → Start → сайт
+   сам войдёт. Статус webhook можно проверить у Telegram:
+   `https://api.telegram.org/bot<токен>/getWebhookInfo` (поле `last_error_message`
+   должно быть пустым).
+5. После успешной проверки **выключите `DEV_AUTH`**: пока он включён, любой может
+   войти по `telegram_id` и имени.
+
+### 6.2. Вход внутри Telegram (Mini App)
+
+1. `/newapp` → выберите бота → укажите URL `<client-url>` (HTTPS).
+2. Откройте мини-приложение из Telegram: клиент передаёт `initData` автоматически
+   (`window.Telegram.WebApp.initData`), сервер проверяет HMAC-SHA256.
+3. Кнопка меню бота открывает клиент как Mini App (можно поставить через
+   `/setmenubutton` в BotFather или `setChatMenuButton` в API).
+
+Если нужен временный dev-вход для скриншотов: `DEV_AUTH=1`, форма
+(`telegram_id` + имя), затем **обязательно** вернуть `DEV_AUTH=0` и отметить
+в материалах, что это dev-режим.
 
 ## 7. Прогрев перед демонстрацией
 

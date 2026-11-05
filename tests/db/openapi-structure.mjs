@@ -8,9 +8,9 @@
  * OpenAPI: пути на отступе 2, методы на отступе 4, компоненты на 2/4.
  *
  * Проверяется:
- *   1. все 59 методов из docs/API.md присутствуют в openapi.yaml (и наоборот);
+ *   1. все методы из docs/API.md (59 по контракту + 3 входа через бота) присутствуют в openapi.yaml (и наоборот);
  *   2. нет дублей path+method и дублей operationId;
- *   3. 11 тегов совпадают с группами API.md, у каждой операции есть тег;
+ *   3. 12 тегов совпадают с группами API.md, у каждой операции есть тег;
  *   4. у каждой операции есть responses с кодом 2xx;
  *   5. встречаются все коды ошибок контракта: 400/401/402/403/404/409/422/429/500/502/503;
  *   6. security: глобальный bearerAuth, у /auth/telegram — security: [];
@@ -139,12 +139,12 @@ const extra = [...yamlOpSet].filter((k) => !opsFromApiSet.has(k))
 
 check(
   'Все методы из docs/API.md описаны в openapi.yaml',
-  `59 операций: ${opsFromApi.length}`,
+  `62 операции: ${opsFromApi.length}`,
   `${opsFromYaml.length} операций; отсутствуют: ${missing.length}; лишние: ${extra.length}`,
-  opsFromApi.length === 59 && missing.length === 0 && extra.length === 0,
+  opsFromApi.length === 62 && missing.length === 0 && extra.length === 0,
   missing.length || extra.length
     ? `Отсутствуют: ${missing.join('; ') || '—'} | Лишние: ${extra.join('; ') || '—'}`
-    : 'Состав совпадает, количество 59',
+    : 'Состав совпадает, количество 62',
 )
 
 const dupOps = [...yamlOpIndex.entries()].filter(([, lineNos]) => lineNos.length > 1)
@@ -168,12 +168,16 @@ check(
 // ─── 5. Теги: 11 групп ───────────────────────────────────────────────────────
 const declaredTags = [...openapi.matchAll(/^  - name: (.+)$/gm)].map((m) => m[1].trim())
 const apiGroupTitles = apiGroups.map((g) => g.title)
+// В API.md 11 групп контракта; в OpenAPI 12 тегов — добавлен тег
+// «Вход через Telegram-бота» для трёх служебных методов входа.
+const INFRA_TAG = 'Вход через Telegram-бота'
 const tagsMatch =
-  declaredTags.length === 11 &&
+  declaredTags.length === 12 &&
   apiGroupTitles.length === 11 &&
-  apiGroupTitles.every((t) => declaredTags.includes(t))
+  apiGroupTitles.every((t) => declaredTags.includes(t)) &&
+  declaredTags.includes(INFRA_TAG)
 check(
-  '11 тегов совпадают с группами docs/API.md',
+  '12 тегов совпадают с группами docs/API.md',
   apiGroupTitles.join(', '),
   declaredTags.join(', '),
   tagsMatch,
