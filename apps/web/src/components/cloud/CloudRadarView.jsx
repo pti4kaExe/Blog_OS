@@ -10,6 +10,7 @@ import {
   ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Loading, Modal, Notice,
   Select, StatusTag, Tag, TextInput, Toggle,
 } from '../ui.jsx'
+import { AiWait } from '../ui/AiWait.jsx'
 import { PanelReveal, Reveal, Stagger } from '../ui/Motion.jsx'
 
 const PART_LABELS = {
@@ -688,6 +689,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                 </button>
                 <span className="faint">Движок оставляет пропуск в части «заполнить» — факт вписывает автор.</span>
               </div>
+              <AiWait active={generateBusy} ai={useLlm} label="Собираем варианты ответа" />
 
               {generateInfo?.kind === 'warn' && (
                 <div style={{ marginBottom: 12 }}><Notice kind="warn">{generateInfo.message}</Notice></div>

@@ -6,6 +6,7 @@ import { fmtDateTime, isOffline, plural } from '../../lib/format.js'
 import {
   AiBadge, ErrorState, InlineError, Notice, Toggle,
 } from '../ui.jsx'
+import { AiWait } from '../ui/AiWait.jsx'
 import TovCard from '../TovCard.jsx'
 import TovEditor from './TovEditor.jsx'
 import { ResultReveal } from '../ui/Motion.jsx'
@@ -170,6 +171,7 @@ export default function CloudStyleStep({
               {chars} из {MIN_CHARS} символов · {filled.length} {plural(filled.length, 'пост', 'поста', 'постов')}
             </span>
           </div>
+          <AiWait active={busy} ai={useLlm} />
         </section>
       )}
 

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { splitFragments } from '../../engine/narrative.js'
-import { useAiConsent } from '../../lib/aiConsent.jsx'
+import { getAiConsent, useAiConsent } from '../../lib/aiConsent.jsx'
 import { CLOUD_ARCS, plural } from '../../lib/format.js'
 import { InlineError, Notice } from '../ui.jsx'
+import { AiWait } from '../ui/AiWait.jsx'
 import { useArcPick } from '../ui/Motion.jsx'
 import DraftsList from './DraftsList.jsx'
 
@@ -105,6 +106,7 @@ export default function CloudNotesStep({
               {fragments.length} {plural(fragments.length, 'фрагмент', 'фрагмента', 'фрагментов')} · сохраняется на сервере
             </span>
           </div>
+          <AiWait active={generating} ai={getAiConsent() === 'granted'} label="Собираем черновик" />
         </section>
 
         <section className="card">
