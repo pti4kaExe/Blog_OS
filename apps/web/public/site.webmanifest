@@ -1,0 +1,30 @@
+{
+  "name": "BlogOS — пост в вашем стиле",
+  "short_name": "BlogOS",
+  "description": "Собирает пост из сырых заметок в авторском стиле и проверяет черновик на клише, логические ошибки и отклонения от Tone of Voice.",
+  "lang": "ru",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#1a1512",
+  "theme_color": "#1a1512",
+  "icons": [
+    {
+      "src": "favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
