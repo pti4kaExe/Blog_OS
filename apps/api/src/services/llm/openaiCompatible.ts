@@ -35,7 +35,10 @@ export class OpenAiCompatibleProvider implements LlmProvider {
           { role: 'system', content: params.system },
           { role: 'user', content: params.user },
         ],
-        max_tokens: params.maxTokens ?? 1200,
+        // Пол: рассуждающие модели (например dots-3-note-preview) тратят лимит
+        // токенов на reasoning, и при маленьком max_tokens финальный ответ
+        // обрезается до пустой строки. Пол задаётся LLM_MAX_TOKENS_FLOOR.
+        max_tokens: Math.max(params.maxTokens ?? 1200, env.LLM_MAX_TOKENS_FLOOR),
         temperature: params.temperature ?? 0.2,
       }
       if (params.json) body.response_format = { type: 'json_object' }
@@ -58,12 +61,35 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       }
 
       const data = (await response.json()) as {
-        choices?: Array<{ message?: { content?: unknown } }>
-        usage?: { prompt_tokens?: number; completion_tokens?: number }
+        choices?: Array<{
+          finish_reason?: string
+          message?: { content?: unknown; refusal?: unknown }
+        }>
+        usage?: {
+          prompt_tokens?: number
+          completion_tokens?: number
+          completion_tokens_details?: { reasoning_tokens?: number }
+        }
       }
-      const text = data.choices?.[0]?.message?.content
+      const choice = data.choices?.[0]
+      if (choice?.message?.refusal) {
+        throw new LlmUnavailableError(`${this.name}: модель отказалась отвечать (refusal)`, undefined, {
+          retryable: false,
+        })
+      }
+      const text = choice?.message?.content
       if (typeof text !== 'string' || text.length === 0) {
-        throw new LlmUnavailableError(`${this.name}: пустой ответ модели`)
+        // Пустой ответ у рассуждающих моделей — обычно исчерпанный лимит токенов:
+        // reasoning съёл весь бюджет, а на ответ ничего не осталось.
+        const reasoning = data.usage?.completion_tokens_details?.reasoning_tokens ?? 0
+        const overLimit = choice?.finish_reason === 'length'
+        throw new LlmUnavailableError(
+          `${this.name}: пустой ответ модели (finish_reason=${choice?.finish_reason ?? '—'}, ` +
+            `reasoning_tokens=${reasoning}). Поднимите LLM_MAX_TOKENS_FLOOR или выберите ` +
+            'модель без рассуждений',
+          undefined,
+          { retryable: !overLimit },
+        )
       }
 
       const tokensIn = Number(

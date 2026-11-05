@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Переменные окружения: загрузка .env, проверка схемой, значения по умолчанию.
  *
  * Правила проекта:
@@ -83,6 +83,9 @@ const schema = z.object({
   OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   LLM_TIMEOUT_MS: int(90_000, 1_000, 600_000),
+  // Минимальный max_tokens для ответа. Рассуждающие модели тратят часть лимита
+  // на reasoning, и при малом значении финальный ответ приходит пустым.
+  LLM_MAX_TOKENS_FLOOR: int(8192, 128, 32_000),
   // 1 — mock-провайдер всегда «падает»: проверка отката на правила в тестах и демо.
   LLM_MOCK_FAIL: bool(false),
 

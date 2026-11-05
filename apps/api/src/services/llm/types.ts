@@ -40,10 +40,16 @@ export interface LlmProvider {
 /** Провайдер недоступен: таймаут, сеть, отсутствие ключа. Повод откатиться на правила. */
 export class LlmUnavailableError extends Error {
   override readonly cause?: unknown
+  /**
+   * Есть ли смысл повторять вызов. Таймаут и сетевой сбой — да;
+   * исчерпанный лимит токенов и отказ модели — нет: второй раз будет то же самое.
+   */
+  readonly retryable: boolean
 
-  constructor(message: string, cause?: unknown) {
+  constructor(message: string, cause?: unknown, options: { retryable?: boolean } = {}) {
     super(message)
     this.name = 'LlmUnavailableError'
     this.cause = cause
+    this.retryable = options.retryable ?? true
   }
 }

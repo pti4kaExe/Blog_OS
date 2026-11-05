@@ -90,6 +90,9 @@ export async function callLlm(options: LlmCallOptions): Promise<LlmOutcome> {
       }
     } catch (error) {
       lastError = errorText(error)
+      // Детерминированные отказы (исчерпан лимит токенов, refusal) не повторяем:
+      // второй вызов даст тот же результат, только потратит время и деньги.
+      if (error instanceof LlmUnavailableError && !error.retryable) break
     }
   }
 
