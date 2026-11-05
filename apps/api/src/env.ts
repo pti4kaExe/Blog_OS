@@ -82,7 +82,7 @@ const schema = z.object({
   OPENAI_API_KEY: z.string().optional().default(''),
   OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
-  LLM_TIMEOUT_MS: int(45_000, 1_000, 600_000),
+  LLM_TIMEOUT_MS: int(90_000, 1_000, 600_000),
   // 1 — mock-провайдер всегда «падает»: проверка отката на правила в тестах и демо.
   LLM_MOCK_FAIL: bool(false),
 

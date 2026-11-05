@@ -14,12 +14,33 @@ export interface ModelPrice {
 export const PRICING: Record<string, ModelPrice> = {
   'deepseek-chat': { inputPer1M: 24, outputPer1M: 96 },
   'gpt-4o-mini': { inputPer1M: 14, outputPer1M: 55 },
+  // OpenRouter, бесплатный тариф: цена нулевая по условиям провайдера,
+  // а не потому, что модели не нашлось в прайсе.
+  'dots-studio/dots-3-note-preview:free': { inputPer1M: 0, outputPer1M: 0 },
   // mock не тратит денег: тесты и демо идут без расходов.
   mock: { inputPer1M: 0, outputPer1M: 0 },
 }
 
+const warned = new Set<string>()
+
+/**
+ * Цена модели. Если модели нет в прайсе, себестоимость считается нулевой —
+ * но это чаще всего ошибка настройки, поэтому один раз пишем предупреждение
+ * в лог: иначе лимит monthly_cost_limit молча не остановит расходы.
+ */
 export function priceFor(model: string): ModelPrice {
-  return PRICING[model] ?? { inputPer1M: 0, outputPer1M: 0 }
+  const known = PRICING[model]
+  if (known) return known
+  // Суффикс :free у OpenRouter означает бесплатную модель — это не «неизвестная».
+  if (/:free$/i.test(model)) return { inputPer1M: 0, outputPer1M: 0 }
+  if (!warned.has(model)) {
+    warned.add(model)
+    console.warn(
+      `[pricing] нет цены для модели «${model}»: стоимость вызовов считается нулевой, ` +
+        'лимит расходов не сработает. Добавьте модель в PRICING (services/llm/pricing.ts).',
+    )
+  }
+  return { inputPer1M: 0, outputPer1M: 0 }
 }
 
 /** Стоимость вызова в рублях, округлённая до 6 знаков (numeric(12,6)). */

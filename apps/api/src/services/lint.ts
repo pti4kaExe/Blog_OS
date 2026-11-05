@@ -102,29 +102,91 @@ export interface LlmLintIssue {
   severity?: string
 }
 
-function normalizeLlmIssues(raw: unknown, text: string): ApiIssue[] {
+/** Для сравнения цитаты с текстом: регистр, лишние пробелы и переносы не важны. */
+function normalizeCompare(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Ищет цитату в тексте. Модель часто переставляет переносы строк и пробелы,
+ * поэтому сначала пробуем точное совпадение, затем — по словам с любыми
+ * пробелами между ними.
+ */
+function findQuote(text: string, quote: string): { start: number; end: number } | null {
+  const index = text.toLowerCase().indexOf(quote.toLowerCase())
+  if (index !== -1) return { start: index, end: index + quote.length }
+
+  const words = quote.split(/\s+/).filter(Boolean)
+  if (words.length === 0) return null
+  const pattern = new RegExp(words.map(escapeRegExp).join('\\s+'), 'i')
+  const match = pattern.exec(text)
+  if (!match) return null
+  return { start: match.index, end: match.index + match[0].length }
+}
+
+/**
+ * Проверяет, что замечание модели действительно относится к тексту автора.
+ *
+ * Диапазон [start, end) принимается только если он совпадает с цитатой.
+ * Иначе цитата ищется в тексте; если её там нет — замечание отбрасывается:
+ * модель сослалась на фразу, которой в тексте не было (например, предложила
+ * свой вариант вместо цитаты). Правиловый слой в такой ситуации всегда
+ * цитирует только реальный фрагмент.
+ */
+function locateLlmQuote(
+  text: string,
+  quote: string,
+  start: number | null,
+  end: number | null,
+): { start: number; end: number; quote: string } | null {
+  const rangeValid =
+    start !== null && end !== null && start >= 0 && end > start && end <= text.length
+
+  if (rangeValid && quote && normalizeCompare(text.slice(start!, end!)) === normalizeCompare(quote)) {
+    return { start: start!, end: end!, quote }
+  }
+  if (quote) {
+    const found = findQuote(text, quote)
+    return found ? { ...found, quote } : null
+  }
+  // Цитаты нет, но модель дала корректный диапазон — берём фрагмент из текста.
+  if (rangeValid) return { start: start!, end: end!, quote: text.slice(start!, end!) }
+  return null
+}
+
+export function normalizeLlmIssues(raw: unknown, text: string): ApiIssue[] {
   if (!Array.isArray(raw)) return []
   const result: ApiIssue[] = []
+  let dropped = 0
+
   for (const item of raw as LlmLintIssue[]) {
     if (!item || typeof item !== 'object') continue
     const type = String(item.type ?? item.category ?? 'clarity')
     const category = CATEGORY_KEYS.includes(type) ? type : 'clarity'
-    const quote = typeof item.quote === 'string' ? item.quote : ''
+    const quote = typeof item.quote === 'string' ? item.quote.trim() : ''
     let start = Number.isFinite(item.start) ? Number(item.start) : null
     let end = Number.isFinite(item.end) ? Number(item.end) : null
-    if (start === null || end === null || start < 0 || end <= start || end > text.length) {
-      const index = quote ? text.toLowerCase().indexOf(quote.toLowerCase()) : -1
-      if (index === -1) continue
-      start = index
-      end = index + quote.length
+
+    const located = locateLlmQuote(text, quote, start, end)
+    if (!located) {
+      // Модель указала фрагмент, которого нет в тексте: замечание относится
+      // к её собственному тексту, а не к тексту автора. Не показываем такое.
+      dropped++
+      continue
     }
-    if (end > text.length) end = text.length
-    if (start === null || end === null || end <= start) continue
+    start = located.start
+    end = located.end
+    const effectiveQuote = located.quote
+
     result.push({
       id: `llm-${type}-${start}`,
       type: typeOfCategory(category),
       category,
-      quote: quote || text.slice(start, end),
+      quote: effectiveQuote,
       start,
       end,
       explanation: String(item.explanation ?? 'Замечание модели'),
@@ -133,6 +195,12 @@ function normalizeLlmIssues(raw: unknown, text: string): ApiIssue[] {
       fixable: false,
       source: 'llm',
     })
+  }
+
+  if (dropped > 0) {
+    console.warn(
+      `[lint] модель вернула ${dropped} замечаний с цитатой, которой нет в тексте, — отброшено`,
+    )
   }
   return result
 }
