@@ -116,7 +116,7 @@ export default function DraftsList({
                 <div className="list-item-head">
                   <span className="list-item-title">{draft.title || 'Без названия'}</span>
                   <StatusTag list={DRAFT_STATUSES} value={draft.status} />
-                  {draft.origin === 'narrative_engine' && <Tag kind="accent">собран движком</Tag>}
+                  {draft.origin === 'narrative_engine' && <Tag>собран движком</Tag>}
                   {draft.arc && <Tag>{draft.arc}</Tag>}
                   <div className="spacer" />
                   <span className="list-item-meta">обновлён {fmtDateTime(draft.updated_at)}</span>

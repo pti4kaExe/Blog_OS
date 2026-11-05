@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ARCS, buildPost, splitFragments, suggestArc } from '../engine/narrative.js'
 import { Notice, plural } from './ui.jsx'
+import { useArcPick } from './ui/Motion.jsx'
 
 const DEMO_NOTES = `полгода назад я не понимал, зачем вообще веду канал
 писал, когда было настроение, посты выходили раз в три недели
@@ -20,6 +21,7 @@ export default function NotesStep({
 }) {
   const [error, setError] = useState('')
 
+  const pick = useArcPick()
   const fragments = splitFragments(notes)
   const auto = fragments.length >= 2 ? suggestArc(fragments) : null
 
@@ -125,6 +127,7 @@ export default function NotesStep({
                 aria-pressed={!arcKey}
                 onClick={() => setArcKey(null)}
               >
+                {pick(!arcKey)}
                 <b>Автоматически{auto ? ` · ${ARCS[auto].label}` : ''}</b>
                 <span>Движок сам смотрит, чего в заметках больше: истории, проблемы или мнения.</span>
               </button>
@@ -136,6 +139,7 @@ export default function NotesStep({
                   aria-pressed={arcKey === arc.key}
                   onClick={() => setArcKey(arc.key)}
                 >
+                  {pick(arcKey === arc.key)}
                   <b>{arc.label}</b>
                   <span>{arc.hint}</span>
                 </button>

@@ -17,6 +17,43 @@ export const PLATFORM_HINTS = {
   youtube: 'Сценарий и описание видео до 5000 символов',
 }
 
+/* ---------------------------- типы контента ------------------------------- */
+
+/**
+ * Типы контента и лимиты площадок.
+ *
+ * Зеркало серверного словаря `CONTENT_TYPE_LIMITS` (apps/api/src/lib/text.ts).
+ * Нужен на клиенте, чтобы показать счётчик и предупредить об отказе 422
+ * до отправки, а не после. Сервер остаётся источником истины: он проверяет
+ * длину сам и отвечает `422` с `details.limit`.
+ */
+export const CONTENT_TYPES = [
+  { value: 'post', label: 'Пост', limit: 4096, platforms: ['telegram'] },
+  { value: 'caption', label: 'Подпись', limit: 2200, platforms: ['instagram'] },
+  { value: 'reels_script', label: 'Сценарий Reels', limit: 5000, platforms: ['instagram'] },
+  { value: 'video_script', label: 'Сценарий видео', limit: 5000, platforms: ['youtube'] },
+  { value: 'video_description', label: 'Описание видео', limit: 5000, platforms: ['youtube'] },
+]
+
+/** Типы контента, допустимые для площадки канала. */
+export function contentTypesFor(platform) {
+  const allowed = CONTENT_TYPES.filter((type) => type.platforms.includes(platform))
+  return allowed.length ? allowed : CONTENT_TYPES
+}
+
+/** Тип контента по умолчанию для площадки (как `defaultContentType` на сервере). */
+export function defaultContentType(platform) {
+  if (platform === 'instagram') return 'caption'
+  if (platform === 'youtube') return 'video_description'
+  return 'post'
+}
+
+/** Лимит длины для типа контента или `null`, если лимита нет. */
+export function contentLimit(contentType) {
+  const found = CONTENT_TYPES.find((type) => type.value === contentType)
+  return found ? found.limit : null
+}
+
 /* -------------------------------- арки ------------------------------------ */
 
 /** Ключи арок на сервере (db/sql/001_schema.sql, комментарий drafts.arc). */
@@ -89,7 +126,9 @@ export const SOURCE_TYPES = [
 ]
 
 export const SCAN_STATUSES = [
-  { value: 'never', label: 'Ещё не сканировали', tone: 'warn' },
+  /* Новый источник ещё не сканировали — это норма, а не проблема:
+     оранжевый тег читался как ошибка. */
+  { value: 'never', label: 'Ещё не сканировали' },
   { value: 'ok', label: 'Успешно', tone: 'good' },
   { value: 'failed', label: 'Ошибка площадки', tone: 'bad' },
 ]

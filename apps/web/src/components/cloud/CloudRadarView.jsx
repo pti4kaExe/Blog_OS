@@ -5,10 +5,12 @@ import {
   apiErrorMessage, fmtDateTime, hasUnfilledGaps, isOffline,
   labelOf, plural, RESPONSE_STATUSES, SCAN_STATUSES, SOURCE_TYPES,
 } from '../../lib/format.js'
+import { matchedCount, rankComments } from '../../lib/rankComments.js'
 import {
   ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Loading, Modal, Notice,
   Select, StatusTag, Tag, TextInput, Toggle,
 } from '../ui.jsx'
+import { PanelReveal, Reveal, Stagger } from '../ui/Motion.jsx'
 
 const PART_LABELS = {
   reference: 'отсылка к посту',
@@ -18,6 +20,7 @@ const PART_LABELS = {
 }
 
 const EMPTY_SOURCE_FORM = { name: '', source_type: 'telegram_channel', source_url: '' }
+const EMPTY_MANUAL = { commenter_name: '', text: '' }
 
 /**
  * CommentRadar в облаке.
@@ -65,13 +68,36 @@ export default function CloudRadarView({ channel, onUseLocal }) {
   const [responseBusyId, setResponseBusyId] = useState(null)
   const [responseError, setResponseError] = useState(null)
 
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualForm, setManualForm] = useState(EMPTY_MANUAL)
+  const [manualBusy, setManualBusy] = useState(false)
+  const [manualError, setManualError] = useState(null)
+
   const [useLlm, setUseLlm] = useState(getAiConsent() === 'granted')
   const consent = useAiConsent()
+
+  /* Профиль стиля нужен для ранжирования ленты по темам автора (ТЗ, раздел 4).
+     404 — профиль ещё не построен: лента тогда идёт в порядке сервера. */
+  const [tov, setTov] = useState(null)
 
   const selectedSource = useMemo(
     () => sources.find((source) => String(source.id) === String(selectedSourceId)) || null,
     [sources, selectedSourceId],
   )
+
+  useEffect(() => {
+    let alive = true
+    setTov(null)
+    api.tov.get(channel.id)
+      .then((payload) => {
+        if (!alive) return
+        setTov(payload && payload.tov_profile ? payload.tov_profile : payload)
+      })
+      .catch(() => {
+        /* без профиля радар работает, просто без ранжирования */
+      })
+    return () => { alive = false }
+  }, [channel.id])
 
   /* ------------------------------- источники ------------------------------ */
 
@@ -165,6 +191,38 @@ export default function CloudRadarView({ channel, onUseLocal }) {
     }
   }
 
+  /**
+   * Ручное добавление обсуждения — `POST /sources/{id}/comments`.
+   *
+   * ТЗ, раздел 7: вручную добавленные помечаются `manual:<номер>`; номер
+   * ставит сервер, клиент `external_id` не передаёт. Нужно, когда автор
+   * увидел разговор сам, а сканер до него не дошёл или площадка без ключей.
+   */
+  const submitManual = async (event) => {
+    event.preventDefault()
+    if (!manualForm.text.trim()) {
+      setManualError({ code: 'validation_error', message: 'Вставьте текст обсуждения.' })
+      return
+    }
+    setManualBusy(true)
+    setManualError(null)
+    try {
+      const created = await api.comments.create(selectedSource.id, {
+        commenter_name: manualForm.commenter_name.trim() || 'Читатель',
+        text: manualForm.text.trim(),
+        posted_at: new Date().toISOString(),
+      })
+      setManualOpen(false)
+      setManualForm(EMPTY_MANUAL)
+      setCommentsKey((key) => key + 1)
+      if (created && created.id !== undefined) setSelectedCommentId(String(created.id))
+    } catch (error) {
+      setManualError(error)
+    } finally {
+      setManualBusy(false)
+    }
+  }
+
   const confirmDeleteSource = async () => {
     if (!deleteSource) return
     setDeleteBusy(true)
@@ -207,6 +265,14 @@ export default function CloudRadarView({ channel, onUseLocal }) {
       })
     return () => { alive = false }
   }, [selectedSourceId, commentsKey])
+
+  /* Лента в порядке релевантности темам автора и свежести — та же функция
+     движка, что в локальном режиме. Без профиля порядок остаётся серверным. */
+  const ranked = useMemo(
+    () => rankComments(comments, tov, selectedSource?.name),
+    [comments, tov, selectedSource],
+  )
+  const ranking = Boolean(tov) && ranked.some((item) => item.matchScore !== null)
 
   useEffect(() => {
     if (!selectedCommentId) {
@@ -345,19 +411,29 @@ export default function CloudRadarView({ channel, onUseLocal }) {
 
   return (
     <>
-      <div className="card-head" style={{ marginBottom: 14 }}>
+      {/* Название не объясняет, что это такое: раздел виден в навигации
+          первым в своём контексте, но «радар» ничего не говорит человеку,
+          который открыл его впервые. Один спокойный абзац — что именно
+          он делает и чего не делает (раздел 10: не выдавать демо-данные
+          за результат реального поиска). */}
+      <div className="stage-head head-row">
         <div>
-          <h1 style={{ fontSize: 20 }}>CommentRadar в облаке</h1>
-          <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
-            Источники канала «{channel.name}»: сканируйте площадки, разбирайте комментарии
-            и одобряйте ответы в своём стиле.
+          <h1>CommentRadar</h1>
+          <p className="lead">
+            Находит в Telegram, Instagram и YouTube обсуждения по темам вашего канала
+            и готовит черновик ответа в вашем стиле — отправка остаётся за вами.
           </p>
         </div>
-        <div className="spacer" />
-        <button type="button" className="btn btn-sm" onClick={() => { setSourceForm(EMPTY_SOURCE_FORM); setCreateError(null); setCreateOpen(true) }}>
-          + Источник
-        </button>
+        <div className="btn-row">
+          <button type="button" className="btn btn-sm" onClick={() => { setSourceForm(EMPTY_SOURCE_FORM); setCreateError(null); setCreateOpen(true) }}>
+            + Источник
+          </button>
+        </div>
       </div>
+
+      <p className="faint" style={{ marginTop: -8, marginBottom: 20 }}>
+        Источники канала «{channel.name}».
+      </p>
 
       <div className="grid-radar">
         <section className="card">
@@ -473,13 +549,28 @@ export default function CloudRadarView({ channel, onUseLocal }) {
           <div className="card-head">
             <div>
               <h2>Лента комментариев</h2>
-              <p>{selectedSource ? `Источник: ${selectedSource.name}` : 'Сначала выберите источник слева.'}</p>
+              <p>
+                {!selectedSource && 'Сначала выберите источник слева.'}
+                {selectedSource && ranking && (
+                  `${matchedCount(ranked)} из ${ranked.length} пересекаются с вашими темами`
+                )}
+                {selectedSource && !ranking && `Источник: ${selectedSource.name}`}
+              </p>
             </div>
             <div className="spacer" />
             {selectedSource && (
-              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setCommentsKey((key) => key + 1)}>
-                Обновить
-              </button>
+              <div className="btn-row">
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => { setManualError(null); setManualForm(EMPTY_MANUAL); setManualOpen(true) }}
+                >
+                  + Обсуждение
+                </button>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setCommentsKey((key) => key + 1)}>
+                  Обновить
+                </button>
+              </div>
             )}
           </div>
 
@@ -510,10 +601,16 @@ export default function CloudRadarView({ channel, onUseLocal }) {
             </EmptyState>
           )}
 
-          {selectedSource && comments.length > 0 && (
-            <div className="list list-scroll">
-              {comments.map((item) => (
-                <button
+          {selectedSource && ranked.length > 0 && (
+            /* Каскад играет при первом входе и при смене источника —
+               `replay` перезапускает его сменой ключа. На выбор карточки
+               он не повторяется: пользователь уже работает с лентой. */
+            <Stagger className="list list-scroll" replay={selectedSource.id}>
+              {ranked.map((item, index) => (
+                <Reveal
+                  as="button"
+                  index={index}
+                  offset={8}
                   type="button"
                   className="list-item list-btn"
                   key={item.id}
@@ -522,19 +619,29 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                 >
                   <div className="list-item-head">
                     <span className="list-item-title">{item.commenter_name || 'Читатель'}</span>
+                    {String(item.external_id || '').startsWith('manual:') && <Tag>вручную</Tag>}
                     <div className="spacer" />
+                    {item.matchScore > 0 && <span className="disc-score">{item.matchScore}%</span>}
                     <span className="list-item-meta">{fmtDateTime(item.posted_at || item.created_at)}</span>
                   </div>
                   <div className="list-item-text">{item.text}</div>
-                </button>
+                  {/* Причину показываем только у совпавших: «нет пересечений» под
+                      каждой карточкой — шум, общий счёт уже стоит в заголовке. */}
+                  {item.matchScore > 0 && <div className="disc-why">{item.reason}</div>}
+                </Reveal>
               ))}
-            </div>
+            </Stagger>
           )}
         </section>
       </div>
 
       {selectedCommentId && (
-        <section className="card" style={{ marginTop: 16 }}>
+        <PanelReveal
+          as="section"
+          replay={selectedCommentId}
+          className="card"
+          style={{ marginTop: 16 }}
+        >
           <div className="card-head">
             <div>
               <h2>Ответ на комментарий</h2>
@@ -678,8 +785,56 @@ export default function CloudRadarView({ channel, onUseLocal }) {
               </div>
             </>
           )}
-        </section>
+        </PanelReveal>
       )}
+
+      <Modal
+        open={manualOpen}
+        title="Добавить обсуждение вручную"
+        onClose={manualBusy ? undefined : () => setManualOpen(false)}
+        footer={(
+          <div className="btn-row">
+            <button type="submit" form="manual-comment-form" className="btn btn-primary" disabled={manualBusy}>
+              {manualBusy ? 'Добавляем…' : 'Добавить'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setManualOpen(false)}
+              disabled={manualBusy}
+            >
+              Отмена
+            </button>
+          </div>
+        )}
+      >
+        <form id="manual-comment-form" onSubmit={submitManual}>
+          <Field label="Кто написал" hint="Необязательно. По умолчанию — «Читатель»." htmlFor="manual-author">
+            <TextInput
+              id="manual-author"
+              value={manualForm.commenter_name}
+              onChange={(event) => setManualForm((prev) => ({ ...prev, commenter_name: event.target.value }))}
+              placeholder="Читатель"
+              autoComplete="off"
+            />
+          </Field>
+          <Field label="Текст обсуждения" htmlFor="manual-text">
+            <textarea
+              id="manual-text"
+              className="ta"
+              style={{ minHeight: 140, maxWidth: 'none' }}
+              value={manualForm.text}
+              onChange={(event) => setManualForm((prev) => ({ ...prev, text: event.target.value }))}
+              placeholder="Скопируйте сюда комментарий или вопрос, на который хотите ответить…"
+            />
+          </Field>
+          <InlineError error={manualError} />
+          <p className="faint" style={{ marginBottom: 0 }}>
+            Обсуждение попадёт в источник «{selectedSource?.name}» с пометкой «добавлено вручную»
+            и встанет в ленту по совпадению с вашими темами.
+          </p>
+        </form>
+      </Modal>
 
       <Modal
         open={createOpen}

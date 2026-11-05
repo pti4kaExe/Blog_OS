@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { buildStyleProfile } from '../engine/styleProfile.js'
 import { DEMO_AUTHOR } from '../engine/demoData.js'
-import { Metric, Notice, Tag } from './ui.jsx'
+import { Notice } from './ui.jsx'
+import TovCard from './TovCard.jsx'
+import { ResultReveal } from './ui/Motion.jsx'
 
 /**
  * Шаг 1. Профиль авторского стиля.
@@ -97,44 +99,13 @@ export default function StyleStep({ samples, setSamples, profile, setProfile, on
             Без него проверка стиля работать не будет.
           </div>
         ) : (
-          <>
-            <p style={{ marginTop: 0 }}>
-              <strong>Как вы пишете:</strong> {profile.summary}
-            </p>
-
-            <div className="metrics" style={{ marginBottom: 14 }}>
-              <Metric value={profile.avgSentenceLen} label="слов в предложении" />
-              <Metric value={profile.firstPersonPer100Words} label="«я» на 100 слов" />
-              <Metric value={`${profile.questionShare}%`} label="вопросов" />
-              <Metric value={profile.address} label="обращение" />
-              <Metric value={profile.emojiPer100Words} label="эмодзи /100 слов" />
-              <Metric value={profile.readability} label="читаемость" />
-            </div>
-
-            <h3>Ваши темы</h3>
-            <div className="tags" style={{ marginBottom: 14 }}>
-              {profile.topTerms.slice(0, 10).map((t) => (
-                <Tag key={t.stem} kind="accent">{t.label}</Tag>
-              ))}
-            </div>
-
-            {profile.signaturePhrases.length > 0 && (
-              <>
-                <h3>Частые связки</h3>
-                <div className="tags" style={{ marginBottom: 14 }}>
-                  {profile.signaturePhrases.map((p) => <Tag key={p}>{p}</Tag>)}
-                </div>
-              </>
-            )}
-
-            <p className="faint" style={{ marginBottom: 14 }}>
-              Разобрано постов: {profile.stats.posts} · слов: {profile.stats.words} · начало поста обычно — {profile.openingStyle}
-            </p>
+          <ResultReveal replay={profile}>
+            <TovCard profile={profile} />
 
             <button type="button" className="btn btn-primary" onClick={onNext}>
               Дальше: заметки →
             </button>
-          </>
+          </ResultReveal>
         )}
       </section>
     </div>

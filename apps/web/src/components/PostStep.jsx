@@ -1,11 +1,14 @@
 import { ARCS } from '../engine/narrative.js'
-import { CopyButton, Notice, Tag } from './ui.jsx'
+import { CopyButton, DownloadButton, Notice, Tag } from './ui.jsx'
+import { Reveal, Stagger, useArcPick } from './ui/Motion.jsx'
 
 /**
  * Шаг 3. Результат Narrative Engine: пост, разложенный по сюжетной арке.
  * Видно, из каких заметок собран каждый блок и что именно добавил движок.
  */
 export default function PostStep({ post, arcKey, onRebuild, onCheck, onBack }) {
+  const pick = useArcPick()
+
   if (!post || !post.ok) {
     return (
       <section className="card">
@@ -24,19 +27,23 @@ export default function PostStep({ post, arcKey, onRebuild, onCheck, onBack }) {
           </div>
           <div className="spacer" />
           <CopyButton text={post.text} />
+          <DownloadButton text={post.text} filename={post.title || 'Пост BlogOS'} />
         </div>
 
         <div className="faint" style={{ marginBottom: 2 }}>О чём пост</div>
         <h3 className="post-title">{post.title}</h3>
 
-        <div className="blocks">
+        {/* Структура входит последовательно: роли фрагментов показывают
+            композицию поста, но не задерживают чтение — каскад
+            ограничен (раздел 08). */}
+        <Stagger className="blocks" replay={post.text}>
           {post.blocks.map((b, i) => (
-            <div className="block" data-role={b.role} key={`${b.role}-${i}`}>
+            <Reveal className="block" data-role={b.role} index={i} offset={8} key={`${b.role}-${i}`}>
               <div className="block-label">{b.label}</div>
               <div className="block-text">{b.text}</div>
-            </div>
+            </Reveal>
           ))}
-        </div>
+        </Stagger>
 
         <div className="btn-row" style={{ marginTop: 18 }}>
           <button type="button" className="btn btn-primary" onClick={onCheck}>
@@ -66,6 +73,7 @@ export default function PostStep({ post, arcKey, onRebuild, onCheck, onBack }) {
               aria-pressed={(arcKey || post.arc.key) === arc.key}
               onClick={() => onRebuild(arc.key)}
             >
+              {pick((arcKey || post.arc.key) === arc.key)}
               <b>{arc.label}</b>
               <span>{arc.hint}</span>
             </button>

@@ -8,9 +8,11 @@ import {
   isOffline, LINT_ENGINE_LABELS, plural, unfilledGaps,
 } from '../../lib/format.js'
 import {
-  AiBadge, CopyButton, ErrorState, InlineError, Loading, Modal, Notice, ScoreRing,
+  AiBadge, CopyButton, DownloadButton, ErrorState, InlineError, Loading, Modal, Notice, ScoreRing,
   StatusTag, Tag, Toggle,
 } from '../ui.jsx'
+import { AnimatePresence } from 'motion/react'
+import { Reveal, ResultReveal, Stagger } from '../ui/Motion.jsx'
 
 const CATEGORY_ORDER = ['cliche', 'logic', 'tov', 'clarity']
 const SEV_ORDER = { high: 0, med: 1, medium: 1, low: 2 }
@@ -356,7 +358,7 @@ export default function CloudCheckStep({
         )}
 
         {report && (
-          <>
+          <ResultReveal replay={report.report.id}>
             <div className="score-wrap" style={{ marginBottom: 16 }}>
               <ScoreRing score={score ?? 0} tone={toneFor(score)} />
               <div>
@@ -391,7 +393,7 @@ export default function CloudCheckStep({
                 </Notice>
               </div>
             )}
-          </>
+          </ResultReveal>
         )}
 
         {notice && <div style={{ marginBottom: 10 }}><Notice kind="warn">{notice}</Notice></div>}
@@ -427,6 +429,7 @@ export default function CloudCheckStep({
           <div><h2 style={{ fontSize: 15 }}>Текст с пометками</h2></div>
           <div className="spacer" />
           <CopyButton text={text} />
+          <DownloadButton text={text} filename={draft.title || 'Пост BlogOS'} />
         </div>
 
         {report ? (
@@ -481,15 +484,23 @@ export default function CloudCheckStep({
                   {CATEGORIES[category]?.label || category}
                   <span className="faint">({groupIssues.length})</span>
                 </h3>
-                <div className="issue-list">
+                {/* Замечания входят каскадом и уходят со свёртыванием:
+                    исчезать без обратной связи правка не должна
+                    (раздел 09). `layout` подтягивает соседей на
+                    освободившееся место, а не роняет их рывком. */}
+                <Stagger className="issue-list">
+                  <AnimatePresence initial={false}>
                   {groupIssues.map((issue, index) => {
                     const key = issueKey(issue, index)
                     const fixable = Boolean(findLocalFix(issue))
                     const suggestion = issueSuggestion(issue)
                     return (
-                      <div
+                      <Reveal
+                        layout
                         className="issue"
                         key={key}
+                        offset={8}
+                        exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.18 } }}
                         data-sev={severityOf(issue)}
                         data-active={activeIssue === key}
                         role="button"
@@ -533,10 +544,11 @@ export default function CloudCheckStep({
                             Скрыть
                           </button>
                         </div>
-                      </div>
+                      </Reveal>
                     )
                   })}
-                </div>
+                  </AnimatePresence>
+                </Stagger>
               </div>
             )
           })

@@ -3,6 +3,7 @@ import { splitFragments } from '../../engine/narrative.js'
 import { useAiConsent } from '../../lib/aiConsent.jsx'
 import { CLOUD_ARCS, plural } from '../../lib/format.js'
 import { InlineError, Notice } from '../ui.jsx'
+import { useArcPick } from '../ui/Motion.jsx'
 import DraftsList from './DraftsList.jsx'
 
 const DEMO_NOTES = `полгода назад я не понимал, зачем вообще веду канал
@@ -26,6 +27,7 @@ export default function CloudNotesStep({
 }) {
   const [localError, setLocalError] = useState(null)
   const consent = useAiConsent()
+  const pick = useArcPick()
 
   const fragments = splitFragments(notes)
 
@@ -120,6 +122,7 @@ export default function CloudNotesStep({
               aria-pressed={!arc}
               onClick={() => setArc(null)}
             >
+              {pick(!arc)}
               <b>Автоматически</b>
               <span>Сервер сам смотрит, чего в заметках больше: истории, проблемы или мнения.</span>
             </button>
@@ -131,6 +134,7 @@ export default function CloudNotesStep({
                 aria-pressed={arc === item.key}
                 onClick={() => setArc(item.key)}
               >
+                {pick(arc === item.key)}
                 <b>{item.label}</b>
                 <span>{item.hint}</span>
               </button>

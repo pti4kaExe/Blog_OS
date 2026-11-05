@@ -3,6 +3,7 @@ import { draftComment, hasGaps, rankDiscussions } from '../engine/radar.js'
 import { lint } from '../engine/anticringe.js'
 import { DEMO_DISCUSSIONS } from '../engine/demoData.js'
 import { CopyButton, Notice, ScoreRing, Tag } from './ui.jsx'
+import { Reveal, Stagger } from './ui/Motion.jsx'
 
 const PART_LABELS = {
   opener: 'вход',
@@ -82,11 +83,14 @@ export default function RadarView({ profile, approved, setApproved }) {
             </div>
           </div>
 
-          <div className="disc-list">
-            {ranked.map((d) => {
+          <Stagger className="disc-list">
+            {ranked.map((d, index) => {
               const done = approved.some((a) => a.discussionId === d.id)
               return (
-                <button
+                <Reveal
+                  as="button"
+                  index={index}
+                  offset={8}
                   type="button"
                   className="disc"
                   key={d.id}
@@ -100,10 +104,10 @@ export default function RadarView({ profile, approved, setApproved }) {
                   <div className="disc-text">{d.text}</div>
                   <div className="disc-why">{d.reason}</div>
                   {done && <div className="disc-done">✓ комментарий одобрен</div>}
-                </button>
+                </Reveal>
               )
             })}
-          </div>
+          </Stagger>
         </section>
 
         <section className="card">

@@ -1,10 +1,22 @@
 import { useEffect, useState } from 'react'
+import draftVersions from '../../api/draftVersions.js'
+import { useRegisterCommands } from '../../lib/commands.jsx'
 import {
-  arcLabel, CLOUD_ARCS, DRAFT_STATUSES, fmtDateTime, hasUnfilledGaps,
+  arcLabel, CLOUD_ARCS, contentLimit, defaultContentType, DRAFT_STATUSES,
+  fmtDateTime, hasUnfilledGaps,
 } from '../../lib/format.js'
 import {
-  AiBadge, CopyButton, InlineError, Notice, Select, StatusTag, Tag, TextInput,
+  AiBadge, CharCounter, CopyButton, DownloadButton, InlineError, Notice, Select,
+  StatusTag, Tag, TextInput,
 } from '../ui.jsx'
+import { Reveal, Stagger } from '../ui/Motion.jsx'
+import DraftVersions from './DraftVersions.jsx'
+
+/* Подпись модификатора в подсказках: на Mac ⌘, на остальных Ctrl. */
+const MOD = typeof navigator !== 'undefined'
+  && /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent || '')
+  ? '⌘'
+  : 'Ctrl'
 
 const ROLE_LABELS = {
   hook: 'Зацепка',
@@ -23,6 +35,10 @@ const ROLE_LABELS = {
 export default function CloudDraftStep({
   channel, draft, build, verifiedWithoutAi, saving, saveError, onSave, onStep, onDrafts,
 }) {
+  /* Черновик ещё не знает своего типа контента — он появится при публикации.
+     До тех пор ориентируемся на тип по умолчанию для площадки канала. */
+  const platformLimit = contentLimit(defaultContentType(channel.platform))
+
   const [text, setText] = useState(draft.text || '')
   const [title, setTitle] = useState(draft.title || '')
   const [arc, setArc] = useState(draft.arc || null)
@@ -30,6 +46,7 @@ export default function CloudDraftStep({
   const [localError, setLocalError] = useState(null)
   const [savedAt, setSavedAt] = useState(null)
   const [busyNext, setBusyNext] = useState(false)
+  const [versionsKey, setVersionsKey] = useState(0)
 
   useEffect(() => {
     setText(draft.text || '')
@@ -43,6 +60,21 @@ export default function CloudDraftStep({
 
   const save = async () => {
     setLocalError(null)
+    /* Снимок прежнего текста до записи нового: на сервере это будет делать
+       сам `PATCH /drafts/{id}`, пока делает клиент. Сбой истории не должен
+       мешать сохранению — поэтому отдельный try. */
+    try {
+      if (draft.text && draft.text !== text) {
+        await draftVersions.create(draft.id, {
+          text: draft.text,
+          title: draft.title,
+          origin: draft.origin === 'narrative_engine' && !savedAt ? 'narrative_engine' : 'author',
+        })
+        setVersionsKey((key) => key + 1)
+      }
+    } catch {
+      /* история версий необязательна для сохранения черновика */
+    }
     const updated = await onSave({
       text,
       title: title.trim() ? title.trim() : null,
@@ -50,6 +82,18 @@ export default function CloudDraftStep({
     })
     setSavedAt(new Date())
     return updated
+  }
+
+  /* Возврат версии: текст подменяется и тут же уходит в `PATCH /drafts/{id}`,
+     чтобы на сервере лежало то же, что видит автор. */
+  const restoreVersion = async (result) => {
+    setText(result.text)
+    await onSave({
+      text: result.text,
+      title: title.trim() ? title.trim() : null,
+      arc: arc || null,
+    })
+    setSavedAt(new Date())
   }
 
   const saveClick = async () => {
@@ -80,7 +124,48 @@ export default function CloudDraftStep({
   const addedByEngine = build?.added_by_engine || []
   const gapsLeft = hasUnfilledGaps(text)
 
+  /* Те же два действия в палитре ⌘K — иначе про сочетания можно только
+     догадаться: подсказка в `title` на тач-экранах не появляется. */
+  useRegisterCommands('cloud-draft', () => [
+    {
+      id: 'draft:save',
+      group: 'Черновик',
+      title: 'Сохранить черновик',
+      hint: `${MOD}+S`,
+      disabled: !dirty || saving,
+      run: saveClick,
+    },
+    {
+      id: 'draft:check',
+      group: 'Черновик',
+      title: 'Проверить в AntiCringe',
+      hint: `${MOD}+Enter`,
+      disabled: busyNext || saving,
+      run: goCheck,
+    },
+  ])
+
+  /* Горячие клавиши редактора: ⌘S сохраняет, ⌘Enter отправляет на проверку.
+     Это рефлекс из любого текстового редактора, и без перехвата ⌘S браузер
+     предлагает сохранить страницу — то есть делает заведомо не то. */
+  useEffect(() => {
+    const onKey = (event) => {
+      if (!(event.metaKey || event.ctrlKey)) return
+      const key = event.key.toLowerCase()
+      if (key === 's' || key === 'ы') {
+        event.preventDefault()
+        if (dirty && !saving) saveClick()
+      } else if (event.key === 'Enter') {
+        event.preventDefault()
+        if (!busyNext && !saving) goCheck()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   return (
+    <>
     <div className="grid-2">
       <section className="card">
         <div className="card-head">
@@ -95,25 +180,29 @@ export default function CloudDraftStep({
           <div className="spacer" />
           <StatusTag list={DRAFT_STATUSES} value={draft.status} />
           <CopyButton text={text} />
+          <DownloadButton text={text} filename={draft.title || 'Черновик BlogOS'} />
         </div>
 
         {build && (
           <>
             <h3>Блоки арки</h3>
-            <div className="blocks" style={{ marginBottom: 16 }}>
+            {/* Структура раскрывается вслед за готовым результатом: роли
+                фрагментов показывают композицию поста, но каскад ограничен,
+                чтобы не задерживать чтение (раздел 08). */}
+            <Stagger className="blocks" style={{ marginBottom: 16 }} replay={build.id || build.text}>
               {(build.blocks || []).map((block, index) => (
-                <div className="block" data-role={block.role} key={`${block.role}-${index}`}>
+                <Reveal className="block" data-role={block.role} index={index} offset={8} key={`${block.role}-${index}`}>
                   <div className="block-label">{ROLE_LABELS[block.role] || block.role}</div>
                   <div className="block-text">{block.text}</div>
                   {block.fragment && (
                     <div className="faint" style={{ marginTop: 2 }}>из заметки: {block.fragment}</div>
                   )}
-                </div>
+                </Reveal>
               ))}
               {(build.blocks || []).length === 0 && (
                 <div className="faint">Сервер вернул черновик без блоков арки.</div>
               )}
-            </div>
+            </Stagger>
           </>
         )}
 
@@ -129,6 +218,9 @@ export default function CloudDraftStep({
         <div className="card-head" style={{ marginBottom: 8 }}>
           <div><h2 style={{ fontSize: 15 }}>Текст черновика</h2></div>
           <div className="spacer" />
+          {/* Лимит площадки виден прямо в редакторе: сервер откажет на 422,
+              и узнавать об этом после публикации — поздно. */}
+          <CharCounter value={text} limit={platformLimit} />
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing((value) => !value)}>
             {editing ? 'Показать через блоки' : 'Править текст'}
           </button>
@@ -159,10 +251,22 @@ export default function CloudDraftStep({
         {saveError && <InlineError error={saveError} />}
 
         <div className="btn-row" style={{ marginTop: 16 }}>
-          <button type="button" className="btn btn-primary" onClick={goCheck} disabled={busyNext || saving}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={goCheck}
+            disabled={busyNext || saving}
+            title={`Проверить — ${MOD}+Enter`}
+          >
             {busyNext ? 'Сохраняем…' : 'Проверить в AntiCringe →'}
           </button>
-          <button type="button" className="btn btn-ghost" onClick={saveClick} disabled={saving || !dirty}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={saveClick}
+            disabled={saving || !dirty}
+            title={`Сохранить — ${MOD}+S`}
+          >
             {saving ? 'Сохраняем…' : dirty ? 'Сохранить черновик' : 'Сохранено'}
           </button>
           <button type="button" className="btn btn-ghost" onClick={() => onStep(2)} disabled={busyNext}>
@@ -250,7 +354,13 @@ export default function CloudDraftStep({
           Черновик канала «{channel.name}». Публикация не отправляет пост на площадку — она
           фиксирует факт публикации в архиве BlogOS.
         </Notice>
+
       </section>
     </div>
+
+    {/* История — под обеими колонками: в правой она сжималась до
+        нечитаемой ширины, а строки версий длинные. */}
+    <DraftVersions draft={draft} refreshKey={versionsKey} onRestore={restoreVersion} />
+    </>
   )
 }

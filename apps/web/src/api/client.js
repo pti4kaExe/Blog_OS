@@ -168,7 +168,25 @@ async function request(method, path, { body, query, timeout = DEFAULT_TIMEOUT } 
   return payload
 }
 
-const get = (path, query) => request('GET', path, { query })
+/**
+ * Склейка одновременных одинаковых GET-запросов.
+ *
+ * Один и тот же ресурс нужен нескольким экранам сразу — профиль стиля
+ * запрашивают и конвейер, и чеклист запуска, и радар. Кэша результатов
+ * здесь нет намеренно: хранится только незавершённый запрос, поэтому
+ * устареть нечему, а сеть не дёргается дважды за один кадр.
+ */
+const inFlight = new Map()
+
+const get = (path, query) => {
+  const key = `${path}${buildQuery(query)}`
+  const running = inFlight.get(key)
+  if (running) return running
+  const promise = request('GET', path, { query })
+    .finally(() => { inFlight.delete(key) })
+  inFlight.set(key, promise)
+  return promise
+}
 const post = (path, body, options) => request('POST', path, { ...options, body })
 const patch = (path, body) => request('PATCH', path, { body })
 const put = (path, body) => request('PUT', path, { body })
@@ -260,6 +278,17 @@ export const api = {
     remove: (draftId) => del(`/drafts/${id(draftId)}`),
     generate: (profileId, body) => post(`/author-profiles/${id(profileId)}/drafts/generate`, body),
     publish: (draftId, body) => post(`/drafts/${id(draftId)}/publish`, body || {}),
+  },
+
+  /* Версии черновика — метода на сервере ещё нет.
+     Контракт описан в отчёте; пока экраны ходят в мок через фасад
+     `api/draftVersions.js`, и переключателем остаётся один флаг. */
+  draftVersions: {
+    list: (draftId, query) => get(`/drafts/${id(draftId)}/versions`, query),
+    create: (draftId, body) => post(`/drafts/${id(draftId)}/versions`, body),
+    get: (versionId) => get(`/draft-versions/${id(versionId)}`),
+    restore: (versionId) => post(`/draft-versions/${id(versionId)}/restore`, {}),
+    remove: (versionId) => del(`/draft-versions/${id(versionId)}`),
   },
 
   /* 6. Проверка — 3 метода */

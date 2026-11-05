@@ -3,8 +3,10 @@ import api, { itemsOf } from '../../api/client.js'
 import { fmtDateTime, fmtPercent, isOffline, plural } from '../../lib/format.js'
 import {
   ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Loading, Metric, Modal,
-  Notice, Tag, TextInput,
+  Tag, TextInput,
 } from '../ui.jsx'
+import { Reveal, Stagger } from '../ui/Motion.jsx'
+import Accordion from '../ui/Accordion.jsx'
 
 const EMPTY_FORM = { title: '', content: '' }
 
@@ -29,6 +31,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
 
+  const [openIds, setOpenIds] = useState(() => new Set())
   const [query, setQuery] = useState('')
   const [searchBusy, setSearchBusy] = useState(false)
   const [searchError, setSearchError] = useState(null)
@@ -54,6 +57,13 @@ export default function KnowledgeView({ channel, onUseLocal }) {
   }, [channel.id, reloadKey])
 
   const reload = () => setReloadKey((key) => key + 1)
+
+  const toggleOpen = (id) => setOpenIds((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
 
   const openCreate = () => {
     setEditing(null)
@@ -161,29 +171,36 @@ export default function KnowledgeView({ channel, onUseLocal }) {
           </EmptyState>
         )}
 
+        {/* Аккордеон, не список открытых карточек: заголовок крупнее и
+            виден весь список фактов сразу, тело читаешь только у того
+            факта, который сейчас интересен. */}
         {state === 'ready' && items.length > 0 && (
-          <div className="list list-scroll">
+          <Stagger className="accordion-list list-scroll" replay={reloadKey}>
             {items.map((item) => (
-              <div className="list-item" key={item.id}>
-                <div className="list-item-head">
-                  <span className="list-item-title">{item.title}</span>
-                  <div className="spacer" />
-                  <span className="list-item-meta">{fmtDateTime(item.updated_at || item.created_at)}</span>
-                </div>
-                <div className="list-item-text">{item.content}</div>
-                <div className="list-item-actions">
-                  <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(item)}>Изменить</button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-ghost"
-                    onClick={() => { setDeleteError(null); setDeleteTarget(item) }}
-                  >
-                    Удалить
-                  </button>
-                </div>
-              </div>
+              <Reveal key={item.id}>
+                <Accordion
+                  title={item.title}
+                  meta={fmtDateTime(item.updated_at || item.created_at)}
+                  open={openIds.has(item.id)}
+                  onToggle={() => toggleOpen(item.id)}
+                  actions={(
+                    <>
+                      <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(item)}>Изменить</button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => { setDeleteError(null); setDeleteTarget(item) }}
+                      >
+                        Удалить
+                      </button>
+                    </>
+                  )}
+                >
+                  {item.content}
+                </Accordion>
+              </Reveal>
             ))}
-          </div>
+          </Stagger>
         )}
       </section>
 
@@ -215,11 +232,20 @@ export default function KnowledgeView({ channel, onUseLocal }) {
 
         {searchResult && (
           <>
-            <div className="metrics" style={{ margin: '14px 0' }}>
+            {/* Модель эмбеддингов — идентификатор, не число: раньше она
+                попадала в ту же сетку фактов и получала крупную антикву
+                стата, из-за чего длинная строка вроде «text-embedding-3-small»
+                переламывалась на три строки. Факты остаются фактами,
+                идентификатор — подписью рядом с ними. */}
+            <div className="metrics metrics-compact" style={{ margin: '14px 0' }}>
               <Metric value={(searchResult.items || []).length} label="найдено фрагментов" />
               <Metric value={searchResult.searched_chunks ?? '—'} label="проверено чанков" />
-              <Metric value={searchResult.query_embedding_model || '—'} label="модель эмбеддингов" />
             </div>
+            {searchResult.query_embedding_model && (
+              <p className="faint" style={{ marginTop: -6, marginBottom: 14 }}>
+                модель эмбеддингов: <code>{searchResult.query_embedding_model}</code>
+              </p>
+            )}
 
             {(searchResult.items || []).length === 0 ? (
               <EmptyState title="Ничего не найдено">
@@ -231,7 +257,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
                   <div className="list-item" key={`${hit.knowledge_id}-${hit.chunk_index ?? 0}`}>
                     <div className="list-item-head">
                       <span className="list-item-title">{hit.title || `Факт №${hit.knowledge_id}`}</span>
-                      <Tag kind="accent">score {fmtPercent(hit.score, 0)}</Tag>
+                      <Tag>score {fmtPercent(hit.score, 0)}</Tag>
                       <div className="spacer" />
                       {hit.chunk_index !== undefined && (
                         <span className="list-item-meta">чанк {hit.chunk_index}</span>
@@ -245,13 +271,16 @@ export default function KnowledgeView({ channel, onUseLocal }) {
           </>
         )}
 
+        {/* Один блок объяснения, а не два подряд: до поиска — что и как
+            проверить, после — что это значит для генерации. Раньше здесь
+            стояли оба сразу и читались одним сплошным текстом. */}
         {!searchResult && !searchTouched && (
           <div className="state" style={{ marginTop: 14 }}>
             <div className="state-icon" aria-hidden="true">·</div>
             <div className="state-title">Проверьте, что найдёт движок</div>
             <div className="state-text">
-              Поиск работает по векторам фактов. Если модель эмбеддингов недоступна,
-              сервер ответит 503 — остальные функции продолжат работать.
+              Поиск работает по векторам фактов. Нужен работающий сервер — если модель
+              эмбеддингов недоступна, он ответит 503, остальные функции продолжат работать.
             </div>
           </div>
         )}
@@ -262,11 +291,6 @@ export default function KnowledgeView({ channel, onUseLocal }) {
             генерации, поэтому факты должны быть короткими и точными.
           </div>
         )}
-
-        <Notice>
-          Поиск и правка фактов требуют работающего сервера. При 503 «модель эмбеддингов недоступна»
-          проверьте настройки провайдера на сервере.
-        </Notice>
       </section>
 
       <Modal

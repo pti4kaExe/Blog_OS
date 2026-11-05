@@ -1,26 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
+import { useRegisterCommands } from '../../lib/commands.jsx'
 import {
   apiErrorMessage, isOffline, labelOf, PLATFORMS, plural,
 } from '../../lib/format.js'
 import {
   ConfirmDialog, EmptyState, ErrorState, InlineError, Loading, Notice, Select, Tag,
 } from '../ui.jsx'
+import AppShell from '../ui/AppShell.jsx'
+import CloudSidebar, { CLOUD_SECTIONS } from './CloudSidebar.jsx'
 import LoginScreen from './LoginScreen.jsx'
 import ChannelFormModal from './ChannelFormModal.jsx'
 import CloudPipeline from './CloudPipeline.jsx'
 import CloudRadarView from './CloudRadarView.jsx'
 import KnowledgeView from './KnowledgeView.jsx'
-import UsageView from './UsageView.jsx'
+import Onboarding from './Onboarding.jsx'
+import PostsView from './PostsView.jsx'
+import SettingsView from './SettingsView.jsx'
 
 const CHANNEL_KEY = 'blogos.channel.v1'
 
-const CLOUD_TABS = [
-  { key: 'pipeline', label: 'Конвейер поста' },
-  { key: 'radar', label: 'CommentRadar' },
-  { key: 'knowledge', label: 'База знаний' },
-  { key: 'usage', label: 'Расходы' },
-]
+
 
 function savedChannelId() {
   try {
@@ -232,18 +232,80 @@ export default function CloudApp({ onUseLocal }) {
     }
   }
 
+  /* Команды палитры ⌘K: прямой путь к любому экрану и действию.
+     Регистрируются всегда — хук нельзя вызывать условно, а список
+     сам пустеет, пока сессия не готова. */
+  useRegisterCommands('cloud', () => {
+    if (sessionState !== 'ready') return []
+    const commands = CLOUD_SECTIONS.map((tab) => ({
+      id: `cloud:view:${tab.key}`,
+      group: 'Экраны',
+      title: tab.label,
+      disabled: !activeChannel || view === tab.key,
+      run: () => setView(tab.key),
+    }))
+    commands.push({
+      id: 'cloud:view:settings',
+      group: 'Экраны',
+      title: 'Настройки',
+      disabled: view === 'settings',
+      run: () => setView('settings'),
+    })
+
+    for (const channel of channels) {
+      if (String(channel.id) === String(activeId)) continue
+      commands.push({
+        id: `cloud:channel:${channel.id}`,
+        group: 'Каналы',
+        title: `Перейти в «${channel.name}»`,
+        hint: labelOf(PLATFORMS, channel.platform),
+        run: () => setActiveId(String(channel.id)),
+      })
+    }
+
+    commands.push(
+      {
+        id: 'cloud:channel-new',
+        group: 'Действия',
+        title: 'Новый канал',
+        run: () => openChannelForm(null),
+      },
+      {
+        id: 'cloud:channel-settings',
+        group: 'Действия',
+        title: 'Настройки канала',
+        disabled: !activeChannel,
+        run: () => openChannelForm(activeChannel),
+      },
+      {
+        id: 'cloud:account',
+        group: 'Действия',
+        title: 'Аккаунт',
+        run: () => setAccountOpen(true),
+      },
+      {
+        id: 'cloud:logout',
+        group: 'Действия',
+        title: 'Выйти из аккаунта',
+        run: logout,
+      },
+    )
+    return commands
+  })
+
   /* ------------------------------- экраны сессии --------------------------- */
 
   if (sessionState === 'boot') {
     return (
-      <section className="card">
-        <Loading label="Подключаемся к облаку…" />
-      </section>
+      <div className="auth-stage">
+        <section className="card"><Loading label="Подключаемся к облаку…" /></section>
+      </div>
     )
   }
 
   if (sessionState === 'offline') {
     return (
+      <div className="auth-stage">
       <section className="card">
         <ErrorState error={bootError} title="Облачный сервер недоступен" onRetry={retryBoot}>
           <button type="button" className="btn btn-sm btn-ghost" onClick={onUseLocal}>
@@ -259,65 +321,48 @@ export default function CloudApp({ onUseLocal }) {
           <code> VITE_API_URL</code> при сборке клиента.
         </p>
       </section>
+      </div>
     )
   }
 
   if (sessionState === 'login') {
-    return <LoginScreen onLogin={handleLogin} onUseLocal={onUseLocal} />
+    return (
+      <div className="auth-stage">
+        <LoginScreen onLogin={handleLogin} onUseLocal={onUseLocal} />
+      </div>
+    )
   }
 
   /* ------------------------------- сессия готова --------------------------- */
 
-  const roleLabel = user?.role === 'admin' ? 'администратор' : 'автор'
-  const channelsCount = channels.length
+  const sectionTitle = view === 'settings'
+    ? 'Настройки'
+    : (CLOUD_SECTIONS.find((item) => item.key === view) || {}).label
 
   return (
-    <>
-      <div className="subbar">
-        <div className="user-chip">
-          <span className="user-avatar" aria-hidden="true">{(user?.name || '?').slice(0, 1).toUpperCase()}</span>
-          <span>
-            <span className="user-chip-name">{user?.name || 'Автор'}</span>
-            <span className="faint"> · {roleLabel} · {channelsCount} {plural(channelsCount, 'канал', 'канала', 'каналов')}</span>
-          </span>
-        </div>
-        <div className="spacer" />
-
-        {channels.length > 0 && (
-          <Select
-            className="channel-select inp-sm"
-            aria-label="Активный канал"
-            value={activeId ?? ''}
-            onChange={(event) => setActiveId(event.target.value)}
-          >
-            {channels.map((channel) => (
-              <option key={channel.id} value={String(channel.id)}>
-                {channel.name} · {labelOf(PLATFORMS, channel.platform)}
-              </option>
-            ))}
-          </Select>
-        )}
-
-        <button type="button" className="btn btn-sm" onClick={() => openChannelForm(null)}>
-          + Канал
+    <AppShell
+      title={activeChannel && view !== 'settings' ? `${activeChannel.name} · ${sectionTitle}` : sectionTitle}
+      actions={activeChannel && (
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => openChannelForm(activeChannel)}>
+          Настройки канала
         </button>
-        {activeChannel && (
-          <>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => openChannelForm(activeChannel)}>
-              Изменить
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-ghost"
-              onClick={() => { setDeleteError(null); setDeleteOpen(true) }}
-            >
-              Удалить
-            </button>
-          </>
-        )}
-        <button type="button" className="btn btn-sm btn-ghost" onClick={logout}>Выйти</button>
-      </div>
-
+      )}
+      sidebar={(
+        <CloudSidebar
+          user={user}
+          channels={channels}
+          activeId={activeId}
+          onChannel={setActiveId}
+          view={view}
+          onView={setView}
+          disabled={!activeChannel}
+          onNewChannel={() => openChannelForm(null)}
+          onPalette={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+          onLogout={logout}
+          onUseLocal={onUseLocal}
+        />
+      )}
+    >
       {channelsError && (
         <div style={{ marginBottom: 14 }}>
           <Notice kind="error">
@@ -329,25 +374,6 @@ export default function CloudApp({ onUseLocal }) {
           </Notice>
         </div>
       )}
-
-      <div className="view-tabs">
-        <div className="tabs" role="tablist">
-          {CLOUD_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className="tab"
-              role="tab"
-              aria-selected={view === tab.key}
-              onClick={() => setView(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div className="spacer" />
-        <Tag kind="accent">Облако</Tag>
-      </div>
 
       {channelsState === 'loading' && channels.length === 0 && (
         <section className="card"><Loading label="Загружаем каналы…" /></section>
@@ -383,8 +409,18 @@ export default function CloudApp({ onUseLocal }) {
         </section>
       )}
 
+      {/* Чеклист живёт на конвейере — это стартовый экран канала. Он
+          размонтируется при уходе на другую вкладку и пересчитывается при
+          возврате, поэтому выполненный шаг сразу виден выполненным. */}
+      {activeChannel && view === 'pipeline' && (
+        <Onboarding key={`onboarding-${activeChannel.id}`} channel={activeChannel} onGo={setView} />
+      )}
+
       {activeChannel && view === 'pipeline' && (
         <CloudPipeline key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
+      )}
+      {activeChannel && view === 'archive' && (
+        <PostsView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
       )}
       {activeChannel && view === 'radar' && (
         <CloudRadarView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
@@ -392,15 +428,25 @@ export default function CloudApp({ onUseLocal }) {
       {activeChannel && view === 'knowledge' && (
         <KnowledgeView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
       )}
-      {activeChannel && view === 'usage' && (
-        <UsageView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
+      {/* Настройки не требуют активного канала: это уровень аккаунта,
+          а не конвейера поста. */}
+      {view === 'settings' && (
+        <SettingsView
+          user={user}
+          channels={channels}
+          activeId={activeId}
+          onChannel={setActiveId}
+          onUpdated={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+          onDeleted={() => logout()}
+          onEditChannel={(channel) => openChannelForm(channel || activeChannel)}
+          onNewChannel={() => openChannelForm(null)}
+        />
       )}
 
-      <footer style={{ marginTop: 34, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Tag>Облачный режим</Tag>
-        <Tag>API: {api.baseUrl}</Tag>
+      <footer className="stage-foot">
         <span className="faint">
-          Тексты отправляются на сервер BlogOS. Внешнему AI-провайдеру — только с вашего согласия.
+          Тексты отправляются на сервер BlogOS ({api.baseUrl}). Внешнему AI-провайдеру —
+          только с вашего согласия.
         </span>
       </footer>
 
@@ -410,6 +456,11 @@ export default function CloudApp({ onUseLocal }) {
         busy={channelBusy}
         error={channelError}
         onSubmit={submitChannel}
+        onDelete={() => {
+          setChannelModal({ open: false, channel: null })
+          setDeleteError(null)
+          setDeleteOpen(true)
+        }}
         onClose={() => { setChannelModal({ open: false, channel: null }); setChannelError(null) }}
       />
 
@@ -428,6 +479,6 @@ export default function CloudApp({ onUseLocal }) {
         </p>
         {deleteError && <InlineError error={deleteError} />}
       </ConfirmDialog>
-    </>
+    </AppShell>
   )
 }
