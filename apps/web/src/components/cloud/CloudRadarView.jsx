@@ -172,6 +172,17 @@ export default function CloudRadarView({ channel, onUseLocal }) {
     setScanInfo(null)
     try {
       const result = await api.comments.scan(source.id, { limit: 100 })
+      // Площадка может быть доступна, но обсуждения не отдавать публично:
+      // это не «ничего не найдено», и автор должен видеть причину и что делать.
+      if (result?.status === 'unavailable') {
+        setScanInfo({
+          sourceId: source.id,
+          kind: 'warn',
+          message: result.hint || 'Площадка не отдаёт обсуждения публично.',
+        })
+        reloadSources()
+        return
+      }
       setScanInfo({
         sourceId: source.id,
         kind: 'good',
@@ -585,7 +596,11 @@ export default function CloudRadarView({ channel, onUseLocal }) {
 
           {selectedSource && commentsState === 'ready' && comments.length === 0 && (
             <EmptyState
-              title="Комментариев пока нет"
+              title={
+                selectedSource.last_scan_status === 'failed'
+                  ? 'Сканирование не дало обсуждений'
+                  : 'Комментариев пока нет'
+              }
               action={(
                 <button
                   type="button"
@@ -597,8 +612,23 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                 </button>
               )}
             >
-              Запустите сканирование — комментарии появятся здесь. Сканировать чаще, чем раз в
-              минуту, нельзя (сервер ответит 429).
+              {selectedSource.last_scan_status === 'failed' && selectedSource.last_scan_error ? (
+                selectedSource.last_scan_error
+              ) : (
+                <>
+                  Запустите сканирование — комментарии появятся здесь. Сканировать чаще, чем раз в
+                  минуту, нельзя (сервер ответит 429).
+                  {String(selectedSource.source_type).startsWith('telegram') && (
+                    <span>
+                      {' '}
+                      Для Telegram: публичный виджет комментариев отключён, поэтому канал сам
+                      обсуждения не отдаёт. Добавьте чат как источник и добавьте в него
+                      @blogos_login_bot администратором — новые сообщения будут появляться здесь.
+                      Или вставьте обсуждение вручную кнопкой ниже.
+                    </span>
+                  )}
+                </>
+              )}
             </EmptyState>
           )}
 
@@ -875,16 +905,35 @@ export default function CloudRadarView({ channel, onUseLocal }) {
               </Select>
             </Field>
             <div className="span-2">
-              <Field label="Ссылка" htmlFor="source-url" hint="https://t.me/s/code">
+              <Field
+                label="Ссылка"
+                htmlFor="source-url"
+                hint={
+                  sourceForm.source_type === 'telegram_chat'
+                    ? 'https://t.me/your_chat — публичный чат, куда добавлен @blogos_login_bot'
+                    : sourceForm.source_type === 'telegram_channel'
+                      ? 'https://t.me/s/code — канал; обсуждения канала Telegram публично не отдаёт, для комментариев используйте чат'
+                      : 'https://t.me/s/code'
+                }
+              >
                 <TextInput
                   id="source-url"
                   value={sourceForm.source_url}
                   onChange={(event) => setSourceForm((prev) => ({ ...prev, source_url: event.target.value }))}
-                  placeholder="https://t.me/s/code"
+                  placeholder={sourceForm.source_type === 'telegram_chat' ? 'https://t.me/your_chat' : 'https://t.me/s/code'}
                 />
               </Field>
             </div>
           </div>
+          {sourceForm.source_type === 'telegram_chat' && (
+            <div style={{ marginTop: 10 }}>
+              <Notice kind="warn">
+                Чтобы обсуждения приходили автоматически, добавьте @blogos_login_bot в этот чат
+                администратором: бот видит сообщения и сохраняет их как комментарии. История чата
+                не подгружается — только новые сообщения.
+              </Notice>
+            </div>
+          )}
           {createError && <InlineError error={createError} />}
         </form>
       </Modal>

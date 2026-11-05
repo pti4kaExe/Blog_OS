@@ -7,7 +7,12 @@ import { AppError } from '../../errors.ts'
 import { withRetry } from './http.ts'
 import { InstagramAdapter } from './instagram.ts'
 import { TelegramAdapter } from './telegram.ts'
-import { PlatformError, type PlatformAdapter, type PlatformName } from './types.ts'
+import {
+  DiscussionsUnavailableError,
+  PlatformError,
+  type PlatformAdapter,
+  type PlatformName,
+} from './types.ts'
 import { YoutubeAdapter } from './youtube.ts'
 
 const ADAPTERS: Record<PlatformName, PlatformAdapter> = {
@@ -29,6 +34,9 @@ async function runWithRetry<T>(platform: PlatformName, operation: () => Promise<
     return await withRetry(operation)
   } catch (error) {
     if (error instanceof AppError) throw error
+    // «Обсуждения публично недоступны» — не сбой площадки: повторять и
+    // выдавать 502 нельзя, причина должна дойти до автора как есть.
+    if (error instanceof DiscussionsUnavailableError) throw error
     throw new PlatformError(
       platform,
       error instanceof Error ? error.message : String(error),
@@ -52,5 +60,5 @@ export async function scanPlatform(
   return runWithRetry(platform, () => getAdapter(platform).scanComments({ sourceUrl, limit }))
 }
 
-export { PlatformError }
+export { DiscussionsUnavailableError, PlatformError }
 export type { ImportedPost, PlatformAdapter, PlatformName, ScannedComment } from './types.ts'

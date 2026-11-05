@@ -128,3 +128,21 @@ export async function markScanFailed(sourceId: number, errorMessage: string): Pr
     [sourceId, errorMessage.slice(0, 500)],
   )
 }
+
+/**
+ * Источники, в чат которых добавлен бот: сообщения из чата становятся
+ * комментариями. Сопоставление по username в source_url (@name или t.me/name);
+ * приватные группы без username бот сопоставить не может.
+ */
+export async function findChatSourcesByUsername(username: string): Promise<Row[]> {
+  const handle = username.trim().replace(/^@/, '').toLowerCase()
+  if (!handle) return []
+  return query<Row>(
+    `SELECT s.id, s.author_id, s.name, s.source_url
+       FROM sources s
+      WHERE s.is_active
+        AND s.source_type IN ('telegram_chat', 'telegram_channel')
+        AND lower(s.source_url) LIKE '%' || $1 || '%'`,
+    [handle],
+  )
+}

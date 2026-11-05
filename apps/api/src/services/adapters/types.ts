@@ -45,3 +45,24 @@ export class PlatformError extends Error {
     this.platform = platform
   }
 }
+
+/**
+ * Площадка технически доступна, но обсуждения публично не отдаёт.
+ *
+ * Отдельный тип нужен, чтобы не выдавать это за сбой площадки (502) и не
+ * делать вид, что «обсуждений нет»: для Telegram публичный виджет
+ * комментариев отключён, поэтому причина должна быть видна автору.
+ */
+export class DiscussionsUnavailableError extends Error {
+  readonly platform: PlatformName
+  readonly reason: string
+  readonly hint: string
+
+  constructor(platform: PlatformName, reason: string, hint: string) {
+    super(hint)
+    this.name = 'DiscussionsUnavailableError'
+    this.platform = platform
+    this.reason = reason
+    this.hint = hint
+  }
+}

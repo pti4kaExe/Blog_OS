@@ -2503,7 +2503,19 @@ components:
         created: { type: integer, minimum: 0 }
         duplicates: { type: integer, minimum: 0 }
         last_scanned_at: { $ref: '#/components/schemas/Timestamp' }
-        status: { $ref: '#/components/schemas/ScanStatus' }
+        status:
+          type: string
+          description: |
+            ok — сканирование выполнено; unavailable — площадка доступна, но обсуждения
+            публично не отдаёт (Telegram отключил виджет комментариев); тогда приходят
+            reason и hint.
+          enum: [ok, unavailable]
+        reason:
+          type: string
+          description: Причина недоступности обсуждений, например telegram_discussions_closed.
+        hint:
+          type: string
+          description: Что сделать автору — показывается в интерфейсе вместо «обсуждений нет».
     ResponseInput:
       type: object
       required: [response_text]

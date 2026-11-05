@@ -15,11 +15,14 @@ export interface TelegramUser {
   first_name?: string
   last_name?: string
   username?: string
+  is_bot?: boolean
 }
 
 export interface TelegramMessage {
   message_id: number
-  chat: { id: number; type: string }
+  // date — unix-время сообщения; используется как posted_at комментария.
+  date?: number
+  chat: { id: number; type: string; username?: string; title?: string }
   from?: TelegramUser
   text?: string
 }

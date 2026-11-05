@@ -22,6 +22,7 @@ import { parseBody } from '../lib/query.ts'
 import * as users from '../repositories/users.ts'
 import { assertRateAllowed } from '../services/authRateLimit.ts'
 import { cleanupOldCodes, confirmCode, createCode, expireCode, getCode } from '../services/loginCodes.ts'
+import { ingestChatMessage } from '../services/telegramChatIngest.ts'
 import {
   botUsername,
   displayName,
@@ -186,6 +187,19 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const chatId = message.chat.id
     const text = message.text.trim()
     const link = webUrl()
+
+    // Сообщение из группы: если на этот чат подписан источник CommentRadar,
+    // сохраняем его как комментарий. Ответ в чат не отправляем, чтобы не шуметь.
+    if (message.chat.type === 'group' || message.chat.type === 'supergroup') {
+      const ingested = await ingestChatMessage(message)
+      if (ingested.created > 0) {
+        request.log.info(
+          { sources: ingested.sources, created: ingested.created },
+          'обсуждения из чата сохранены как комментарии',
+        )
+      }
+      return reply.status(200).send({ ok: true })
+    }
 
     if (!text.startsWith('/start')) {
       await sendMessage(
