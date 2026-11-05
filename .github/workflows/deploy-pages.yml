@@ -1,15 +1,14 @@
 name: Deploy web client to GitHub Pages
 
-# Собирает apps/web и публикует статику на GitHub Pages с ветки
-# front/pipeline-screen — main этот workflow не трогает и не требует.
+# Собирает apps/web и публикует статику на GitHub Pages.
 #
-# Бэкенда на Pages нет: это статический хостинг. Облачный режим клиента
-# будет показывать «сервер недоступен» (VITE_API_URL не задан — адрес
-# облачного API появится, когда он будет где-то развёрнут), локальный
-# режим работает полностью в браузере без сервера.
+# Бэкенда на Pages нет: это статический хостинг. Адрес облачного API приходит
+# из переменной репозитория VITE_API_URL (Settings → Secrets and variables →
+# Actions → Variables). Пока переменная не задана, облачный режим клиента
+# показывает «сервер недоступен», а локальный работает полностью в браузере.
 on:
   push:
-    branches: [front/pipeline-screen]
+    branches: [main, front/pipeline-screen]
   workflow_dispatch: {}
 
 permissions:
@@ -33,7 +32,11 @@ jobs:
       - run: npm ci
       - run: npm run build:web
         env:
+          # Подпуть GitHub Pages: сайт публикуется по /<репозиторий>/.
           VITE_BASE: /Blog_OS/
+          # Адрес API задаётся переменной репозитория, а не в коде:
+          # меняется в настройках GitHub без правки файлов.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
