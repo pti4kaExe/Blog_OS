@@ -364,3 +364,39 @@ Render/Vercel, сборка `Dockerfile`, работа с живыми ключ�
 | Neon free | 1 ГБ хранилища на проект, 100 CU-часов в месяц; вычисления останавливаются через ~5 минут простоя; история восстановления — 6 часов; 10 ветвей на проект. Есть пулер соединений |
 | Render free | web service засыпает после ~15 минут простоя и просыпается около минуты; 750 free instance hours в месяц; откат — только к двум последним предыдущим деплоям; нет `preDeployCommand`, Shell, one-off jobs и дисков |
 | Vercel Hobby | статика в пределах лимитов тарифа: одна параллельная сборка, до 45 минут на сборку, 100 деплоев в сутки; домены `*.vercel.app` и preview-домены на каждый деплой (их нужно учитывать в `CORS_ORIGIN`) |
+
+## 15. Фактическое развёртывание BlogOS
+
+Развёрнуто 5 ноября 2026 на бесплатных тарифах. Эти данные — состояние на момент
+деплоя; при переезде обновляйте раздел.
+
+| Компонент | Значение |
+|---|---|
+| Клиент | GitHub Pages: https://pti4kaexe.github.io/Blog_OS/ (workflow `deploy-pages.yml`, сборка с `main`) |
+| API | Render, сервис `blogos-api`, id `srv-dbm839t6e07s73beht00`, регион `virginia`, план `free`: https://blogos-api-shlm.onrender.com |
+| База | Neon, проект `summer-night-83571170` (организация управляется через Vercel), отдельная база `blogos`, PostgreSQL 17, pgvector 0.8.0. Новые проекты Neon по API недоступны — поэтому база создана внутри существующего проекта |
+| Переменная клиента | GitHub → Settings → Secrets and variables → Actions → Variables: `VITE_API_URL=https://blogos-api-shlm.onrender.com` |
+| Вход | `DEV_AUTH=1` — демо-режим: `telegram_id` 200600 (автор) и 100500 (админ). Заменить на вход через Telegram-бота и выключить dev-режим |
+| AI | `LLM_PROVIDER=openai` + OpenRouter, модель `dots-studio/dots-3-note-preview:free`; ключ хранится в переменных Render |
+| Эмбеддинги | `EMBEDDINGS_PROVIDER=mock` — RAG работает, но не семантически |
+
+Порядок, которым это было сделано (он же — воспроизведение):
+
+1. Neon: база `blogos` в проекте, `pgvector` включён.
+2. Локально с `DATABASE_URL` облачной базы: `npm run db:migrate`, `npm run db:seed`.
+3. Render: сервис создан через API (`POST /v1/services`), переменные — отдельным
+   запросом `PUT /v1/services/{id}/env-vars` (в теле создания сервиса они не
+   применяются — проверено), затем `POST /v1/services/{id}/deploys`.
+4. GitHub: переменная `VITE_API_URL` и ручной запуск `deploy-pages.yml`.
+5. Проверки: `/health` → 200, CORS с `https://pti4kaexe.github.io`, dev-вход,
+   сквозной сценарий `node scripts/smoke-http.mjs` с `API_URL` на Render — 19/19,
+   AI-вызовы в облаке (`rules+llm`), адрес API присутствует в бандле клиента.
+
+Ключи, которыми создавались ресурсы (Neon API, Render API), после деплоя
+рекомендуется отозвать: Neon → Settings → API keys, Render → Account Settings →
+API Keys. Для повторного деплоя нужен новый ключ.
+
+Особенности free-тарифов, которые заметны на демонстрации: Render засыпает после
+~15 минут простоя (первый запрос 30–60 с), AI отвечает 7–43 с, Pages отдаёт только
+статику (бэкенд — на Render).
+

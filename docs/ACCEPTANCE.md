@@ -166,3 +166,24 @@ docs/API.md присутствуют и наоборот, дублей нет, 1
 
 Код приложения QA не менял: правки только в `tests/**`, `docs/openapi.yaml`,
 `docs/ACCEPTANCE.md`, `docs/DB-REVIEW.md`.
+
+## 7. Облачная приёмка (после фактического деплоя, 5 ноября 2026)
+
+Проверено на живых ресурсах: клиент — GitHub Pages, API — Render, база — Neon.
+
+| Проверка | Команда/способ | Результат |
+|---|---|---|
+| API живо | `GET https://blogos-api-shlm.onrender.com/health` | `200 {"status":"ok","db":"ok","llm":"openai","embeddings":"mock","dev_auth":true}` |
+| База в облаке | `npm run db:migrate` с `DATABASE_URL` Neon | 14 таблиц, `pgvector 0.8.0`; `db:reset` + `db:seed` выполнены |
+| CORS | preflight `OPTIONS /auth/telegram` с `Origin: https://pti4kaexe.github.io` | `204`, `access-control-allow-origin` совпадает |
+| Вход | `POST /auth/telegram` (dev) с тем же Origin | `200`, токен получен, 2 канала автора |
+| Сквозной сценарий | `API_URL=https://blogos-api-shlm.onrender.com node scripts/smoke-http.mjs` | **19/19 шагов**, провалов 0 |
+| AI в облаке | `use_llm: true` для `tov/analyze`, `drafts/generate`, `lint` | `rules+llm`, `verified_without_ai: false`, вызовы 8–22 с, журнал `success` |
+| Публикация клиента | workflow `deploy-pages.yml` с `main` | success; адрес API присутствует в бандле страницы |
+| Число методов API в облаке | `scripts/check-api.mjs` (локально, тот же код) | 59 в корне и 59 под `/api/v1` |
+
+Осталось не подтверждённым и почему: клики по интерфейсу и адаптивность на
+390/768/1024/1440 — в среде проверки нет браузера, нужен ручной проход;
+холодный старт Render под нагрузкой — проверено только одиночное пробуждение;
+живые ключи Instagram/YouTube — не выданы.
+
