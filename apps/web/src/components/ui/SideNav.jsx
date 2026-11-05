@@ -1,10 +1,20 @@
 import { Icon } from './Icon.jsx'
 
+/**
+ * Адрес файла из public/ с учётом базы сборки.
+ *
+ * Сайт живёт в подпапке (`/Blog_OS/` на GitHub Pages), поэтому абсолютный
+ * `/brand-mark.svg` браузер искал в корне домена и получал 404 — в шапке
+ * появлялась битая картинка. BASE_URL Vite подставляет на этапе сборки
+ * (`/Blog_OS/` для Pages, `/` для локальной разработки).
+ */
+const assetUrl = (file) => `${import.meta.env.BASE_URL}${file}`
+
 /** Логотип и название в шапке боковой панели. */
 export function SideBrand({ subtitle }) {
   return (
     <div className="side-brand">
-      <img className="brand-mark" src="/brand-mark.svg" alt="" aria-hidden="true" width="30" height="30" />
+      <img className="brand-mark" src={assetUrl('brand-mark.svg')} alt="" aria-hidden="true" width="30" height="30" />
       <span className="side-brand-text">
         <span className="side-brand-name">BlogOS</span>
         {subtitle && <span className="side-brand-sub">{subtitle}</span>}
