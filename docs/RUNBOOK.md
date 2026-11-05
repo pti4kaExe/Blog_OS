@@ -365,10 +365,10 @@ curl -s "<api-url>/generation-runs?limit=5" -H "Authorization: Bearer <token>"
 - `npm run db:reset` — схема пересоздана, 14 таблиц;
 - `npm run db:seed` — демо-данные (2 пользователя, 4 канала, 10 эталонов, посты, комментарии, векторы);
 - `npm run test:engine` — 49 из 49;
-- `npm run test:api` — 93 из 93 на PGlite в памяти;
+- `npm run test:api` — 109 из 109 на PGlite в памяти (включая 9 тестов входа через бота);
 - `npm run test:e2e` — 57 из 57 по HTTP на PGlite в памяти;
-- `npm run test:db` — 14 таблиц, 17 внешних ключей, каскады/триггеры/HNSW;
-- `npm run test:contract` — 11 проверок, включая 59 операций OpenAPI;
+- `npm run test:db` — 14 доменных таблиц (+ `login_codes`, `_migrations`), 17 внешних ключей, каскады/триггеры/HNSW;
+- `npm run test:contract` — 11 проверок, включая 62 операции OpenAPI;
 - `npm run typecheck` — без ошибок;
 - `npm run build` — `apps/web/dist` и `apps/api/dist`;
 - `npm run start` — запуск собранного API, `GET /health` → 200 (`db: ok`);
@@ -376,13 +376,17 @@ curl -s "<api-url>/generation-runs?limit=5" -H "Authorization: Bearer <token>"
   `author-profiles/{id}/usage`, алиас `/api/v1/...`, `golden-dataset` → 200;
 - `render.yaml`, `vercel.json`, `.github/workflows/ci.yml`, `Dockerfile` —
   статическая проверка структуры/ключей и путей (YAML разобран, JSON валиден,
-  источники `COPY` существуют).
+  источники `COPY` существуют);
+- **живой вход через бота** (проверено на проде 5 ноября 2026): `POST /auth/telegram/start`
+  → `201` с ссылкой на @blogos_login_bot, webhook зарегистрирован Telegram без ошибок
+  (`getWebhookInfo.last_error_message` пуст), подтверждение кода через webhook → статус
+  `confirmed` → `/users/me` с полученным JWT → `200`; после `DEV_AUTH=0` dev-вход отвечает
+  `400 dev_auth_disabled`.
 
-Не проверено (нет внешней сети/Docker-демона в среде подготовки): реальный деплой
-Render/Vercel, сборка `Dockerfile`, работа с живыми ключами Neon/Telegram/LLM и
-площадок, а также `node --watch` (в песочнице запрещён запуск дочернего процесса —
-использован прямой `node apps/api/src/server.ts`). Эти шаги выполняются по
-инструкции выше; результаты проверок фиксируйте в issue/отчёте, а не в README.
+Не проверено в среде подготовки: реальный деплой Render/Vercel, сборка `Dockerfile`,
+работа с живыми ключами Telegram/LLM и площадок, а также `node --watch` (в песочнице
+запрещён запуск дочернего процесса — использован прямой `node apps/api/src/server.ts`).
+Эти шаги выполняются по инструкции выше.
 
 ## 14. Справочные ограничения бесплатных тарифов
 
@@ -405,7 +409,7 @@ Render/Vercel, сборка `Dockerfile`, работа с живыми ключ�
 | API | Render, сервис `blogos-api`, id `srv-dbm839t6e07s73beht00`, регион `virginia`, план `free`: https://blogos-api-shlm.onrender.com |
 | База | Neon, проект `summer-night-83571170` (организация управляется через Vercel), отдельная база `blogos`, PostgreSQL 17, pgvector 0.8.0. Новые проекты Neon по API недоступны — поэтому база создана внутри существующего проекта |
 | Переменная клиента | GitHub → Settings → Secrets and variables → Actions → Variables: `VITE_API_URL=https://blogos-api-shlm.onrender.com` |
-| Вход | `DEV_AUTH=1` — демо-режим: `telegram_id` 200600 (автор) и 100500 (админ). Заменить на вход через Telegram-бота и выключить dev-режим |
+| Вход | **через Telegram-бота @blogos_login_bot**, `DEV_AUTH=0`: сайт → «Войти через Telegram» → Start в боте → JWT. Одноразовые коды живут 10 минут. Демо-аккаунты 200600/100500 остались в базе, но вход под ними возможен только с их Telegram-аккаунтов |
 | AI | `LLM_PROVIDER=openai` + OpenRouter, модель `dots-studio/dots-3-note-preview:free`; ключ хранится в переменных Render |
 | Эмбеддинги | `EMBEDDINGS_PROVIDER=mock` — RAG работает, но не семантически |
 
