@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
 import { useRegisterCommands } from '../../lib/commands.jsx'
 import {
@@ -20,7 +20,19 @@ import SettingsView from './SettingsView.jsx'
 
 const CHANNEL_KEY = 'blogos.channel.v1'
 
+/**
+ * Ожидание пробуждения бесплатного хостинга.
+ *
+ * Render free засыпает после ~15 минут простоя, а первый запрос после паузы
+ * занимает 30–60 секунд. Проверять доступность одним коротким запросом нельзя:
+ * новый посетитель видел «сервер недоступен», хотя сервер просто просыпался.
+ * Поэтому проверяем повторно, пока не истечёт этот срок, и показываем прогресс.
+ */
+const WAKE_BUDGET_MS = 80000
+const WAKE_STEP_MS = 3000
+const WAKE_PROBE_MS = 12000
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 function savedChannelId() {
   try {
@@ -39,8 +51,9 @@ function savedChannelId() {
  * и предлагает локальный режим, который работает без сети.
  */
 export default function CloudApp({ onUseLocal }) {
-  const [sessionState, setSessionState] = useState('boot') // boot | offline | login | ready
+  const [sessionState, setSessionState] = useState('boot') // boot | waking | offline | login | ready
   const [bootError, setBootError] = useState(null)
+  const [wakingSeconds, setWakingSeconds] = useState(0)
   const [user, setUser] = useState(null)
   const [channels, setChannels] = useState([])
   const [channelsState, setChannelsState] = useState('idle') // idle | loading | ready | error
@@ -120,37 +133,54 @@ export default function CloudApp({ onUseLocal }) {
     }
   }, [chooseActive])
 
-  const probeServer = useCallback(async () => {
-    setSessionState('boot')
-    setBootError(null)
-    const result = await api.probe()
-    if (result.reachable) {
-      setSessionState('login')
-    } else {
-      setBootError(result.error)
-      setSessionState('offline')
+  /**
+   * Ждёт, пока сервер проснётся, повторяя проверку в пределах бюджета.
+   * Возвращает true, если сервер ответил.
+   */
+  const waitForServer = useCallback(async (alive) => {
+    const startedAt = Date.now()
+    let lastError = null
+    while (Date.now() - startedAt < WAKE_BUDGET_MS) {
+      setWakingSeconds(Math.round((Date.now() - startedAt) / 1000))
+      const result = await api.probe(WAKE_PROBE_MS)
+      if (!alive()) return { reachable: false, error: lastError }
+      if (result.reachable) return { reachable: true, error: null }
+      lastError = result.error
+      await sleep(WAKE_STEP_MS)
     }
+    return { reachable: false, error: lastError }
   }, [])
 
-  useEffect(() => {
-    let alive = true
-    const start = async () => {
-      if (!api.token.get()) {
-        const result = await api.probe()
-        if (!alive) return
-        if (result.reachable) setSessionState('login')
-        else {
-          setBootError(result.error)
-          setSessionState('offline')
-        }
-        return
-      }
-      if (!alive) return
-      restoreSession()
+  /**
+   * Старт приложения: проверка сервера с ожиданием пробуждения, затем сессия.
+   *
+   * Так новый посетитель не видит ложное «сервер недоступен»: бесплатный
+   * хостинг просыпается до минуты, и всё это время показывается прогресс.
+   */
+  const boot = useCallback(async (aliveRef) => {
+    setSessionState('waking')
+    setBootError(null)
+    setWakingSeconds(0)
+    const probe = await waitForServer(() => aliveRef.current)
+    if (!aliveRef.current) return
+    if (!probe.reachable) {
+      setBootError(probe.error)
+      setSessionState('offline')
+      return
     }
-    start()
-    return () => { alive = false }
-  }, [restoreSession])
+    if (api.token.get()) {
+      await restoreSession()
+      return
+    }
+    setSessionState('login')
+  }, [restoreSession, waitForServer])
+
+  const aliveRef = useRef(true)
+  useEffect(() => () => { aliveRef.current = false }, [])
+
+  useEffect(() => {
+    boot(aliveRef)
+  }, [boot])
 
   const handleLogin = async (result) => {
     api.token.set(result.token)
@@ -183,8 +213,7 @@ export default function CloudApp({ onUseLocal }) {
   }
 
   const retryBoot = () => {
-    if (api.token.get()) restoreSession()
-    else probeServer()
+    boot(aliveRef)
   }
 
   const submitChannel = async (body) => {
@@ -303,6 +332,31 @@ export default function CloudApp({ onUseLocal }) {
     )
   }
 
+  if (sessionState === 'waking') {
+    return (
+      <div className="auth-stage">
+        <section className="card">
+          <Loading
+            label={
+              wakingSeconds < 3
+                ? 'Подключаемся к облаку…'
+                : `Сервер просыпается после простоя — ${wakingSeconds} с. Обычно это занимает до минуты.`
+            }
+          />
+          <p className="faint" style={{ marginTop: 12 }}>
+            Бесплатный тариф засыпает без обращений и включается при первом запросе. Страница
+            дождётся ответа сама — закрывать её не нужно.
+          </p>
+          <div className="btn-row" style={{ marginTop: 8 }}>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={onUseLocal}>
+              Работать локально
+            </button>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
   if (sessionState === 'offline') {
     return (
       <div className="auth-stage">
@@ -317,8 +371,9 @@ export default function CloudApp({ onUseLocal }) {
           считаются прямо в браузере. Облачные данные появятся, когда сервер будет доступен.
         </Notice>
         <p className="faint" style={{ marginBottom: 0 }}>
-          Проверьте, что API запущен на {api.baseUrl}. Адрес задаётся переменной
-          <code> VITE_API_URL</code> при сборке клиента.
+          Сервер проверен по адресу {api.baseUrl}. Бесплатный тариф засыпает без обращений и
+          просыпается до минуты: нажмите «Повторить» — страница снова подождёт ответа.
+          Адрес API задаётся переменной <code>VITE_API_URL</code> при сборке клиента.
         </p>
       </section>
       </div>

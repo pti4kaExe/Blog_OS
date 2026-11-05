@@ -220,13 +220,19 @@ export const api = {
   token: { get: getToken, set: setToken, clear: clearToken },
   itemsOf,
 
-  /** Служебная проверка доступности сервера (для баннера «облако недоступно»). */
-  async health(timeout = 6000) {
+  /**
+   * Служебная проверка доступности сервера (для баннера «облако недоступно»).
+   *
+   * Таймаут не 6 секунд, как было: бесплатный Render просыпается 30–60 секунд,
+   * и короткая проверка показывала «сервер недоступен» новым посетителям,
+   * хотя сервер просто спал.
+   */
+  async health(timeout = 15000) {
     return request('GET', '/health', { timeout })
   },
 
   /** Проверяет, что сервер отвечает. Не падает: возвращает {reachable, error}. */
-  async probe(timeout = 6000) {
+  async probe(timeout = 15000) {
     try {
       await request('GET', '/health', { timeout })
       return { reachable: true, error: null }

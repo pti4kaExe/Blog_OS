@@ -33,14 +33,18 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
   const [copied, setCopied] = useState(false)
   const pollTimer = useRef(null)
   const deadlineRef = useRef(0)
+  const [healthKey, setHealthKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    api.health(8000)
+    // Таймаут с запасом на пробуждение бесплатного хостинга (30–60 с).
+    // Фолбэк — «сервер недоступен», а не «dev-вход доступен»: иначе на проде,
+    // где dev-вход выключен, показывалась форма, которая не могла войти.
+    api.health(20000)
       .then((result) => { if (!cancelled) setCapabilities(result) })
-      .catch(() => { if (!cancelled) setCapabilities({ telegram_auth: false, dev_auth: true }) })
+      .catch(() => { if (!cancelled) setCapabilities({ telegram_auth: false, dev_auth: false, unavailable: true }) })
     return () => { cancelled = true }
-  }, [])
+  }, [healthKey])
 
   // Автоматический вход внутри Telegram.
   useEffect(() => {
@@ -201,6 +205,23 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
               Автоматический вход через Telegram не удался — {apiErrorMessage(error)}.
               Открытая сессия продолжает работать.
             </Notice>
+          </div>
+        )}
+
+        {capabilities?.unavailable && (
+          <div style={{ marginBottom: 14 }}>
+            <Notice kind="warn">
+              Сервер не ответил — возможно, он просыпается после простоя: на бесплатном тарифе
+              это занимает до минуты. Подождите немного и проверьте снова.
+            </Notice>
+            <div className="btn-row" style={{ marginTop: 8 }}>
+              <button type="button" className="btn btn-sm" onClick={() => setHealthKey((key) => key + 1)}>
+                Проверить снова
+              </button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={onUseLocal}>
+                Работать локально
+              </button>
+            </div>
           </div>
         )}
 
