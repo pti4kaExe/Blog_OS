@@ -32,6 +32,16 @@ after(async () => {
   if (ownerToken) await api('DELETE', '/users/me', { token: ownerToken })
 })
 
+test('DELETE с content-type: application/json и без тела → 400, а не 500', async () => {
+  // Так бывает у клиентов, которые всегда ставят заголовок. Fastify отклоняет
+  // запрос до обработчика; сервер обязан ответить 4xx в общем конверте.
+  const response = await api('DELETE', '/users/me', {
+    headers: { 'content-type': 'application/json' },
+  })
+  assert.equal(response.status, 400)
+  assert.equal((response.body as { error: { code: string } }).error.code, 'validation_error')
+})
+
 test('зарегистрировано ровно 62 метода (корень и /api/v1)', async () => {
   const app = await getApp()
   const normalize = (url: string): string => url.replace(/^\/api\/v1(?=\/|$)/, '') || '/'
