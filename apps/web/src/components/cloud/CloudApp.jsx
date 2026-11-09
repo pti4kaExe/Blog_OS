@@ -251,6 +251,18 @@ export default function CloudApp({ onUseLocal }) {
       disabled: view === 'settings',
       run: () => setView('settings'),
     })
+    /* «Аккаунт» — второе имя того же экрана. Слово из головы автора
+       («где поменять имя?») не совпадает с названием раздела, а палитра
+       ищет по названию: без этой строки поиск по «аккаунт» не находит
+       ничего. */
+    commands.push({
+      id: 'cloud:account',
+      group: 'Экраны',
+      title: 'Аккаунт',
+      hint: 'профиль, расходы, удаление',
+      disabled: view === 'settings',
+      run: () => setView('settings'),
+    })
 
     for (const channel of channels) {
       if (String(channel.id) === String(activeId)) continue
@@ -276,12 +288,6 @@ export default function CloudApp({ onUseLocal }) {
         title: 'Настройки канала',
         disabled: !activeChannel,
         run: () => openChannelForm(activeChannel),
-      },
-      {
-        id: 'cloud:account',
-        group: 'Действия',
-        title: 'Аккаунт',
-        run: () => setAccountOpen(true),
       },
       {
         id: 'cloud:logout',
