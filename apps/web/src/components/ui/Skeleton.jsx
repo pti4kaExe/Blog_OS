@@ -47,6 +47,31 @@ export function SkeletonCard({ lines = 2 }) {
 }
 
 /**
+ * Заготовка списка: те же `.list` и `.list-item`, что у настоящего.
+ *
+ * Ширины строк чуть разные — ровная стопка одинаковых плашек читается
+ * как узор, а не как будущий список. Строк по умолчанию три: столько
+ * обычно видно до того, как придётся прокручивать.
+ */
+export function SkeletonList({ rows = 3, lines = 1 }) {
+  const widths = ['54%', '38%', '46%', '42%', '50%']
+  return (
+    <div className="list" aria-hidden="true">
+      {Array.from({ length: rows }, (_, i) => (
+        <div className="list-item" key={i}>
+          <div className="list-item-head">
+            <Skeleton width={widths[i % widths.length]} height="0.9rem" />
+            <span className="spacer" />
+            <Skeleton width="76px" height="0.7rem" />
+          </div>
+          <SkeletonText lines={lines} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
  * Обёртка для области, которая грузится. Держит роль и живой регион,
  * чтобы скринридер сообщил о загрузке и о её окончании.
  */
