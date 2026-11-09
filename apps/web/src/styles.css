@@ -402,10 +402,10 @@
    расплывается — именно это читалось как «вяло». */
 .card {
   background: var(--surface-raised);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--card-edge);
   border-radius: var(--r-md);
   padding: var(--sp-7);
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--card-shadow);
 }
 
 /* Крупная панель — радиус на ступень больше карточки (раздел 04). */
