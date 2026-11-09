@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
 import { CATEGORIES, applyFixes, isFixable, lint as engineLint } from '../../engine/anticringe.js'
 import { getAiConsent, useAiConsent } from '../../lib/aiConsent.jsx'
@@ -108,6 +108,12 @@ export default function CloudCheckStep({
   const [historyError, setHistoryError] = useState(null)
   const [historyDetail, setHistoryDetail] = useState(null)
 
+  /* Карточка итога и признак «итог только что пришёл по кнопке».
+     Флаг надёжнее сравнения номеров отчёта: отчёт может приехать и
+     вместе с черновиком, при входе на шаг, — туда везти не нужно. */
+  const resultRef = useRef(null)
+  const scrollToResult = useRef(false)
+
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState(null)
   const [publishResult, setPublishResult] = useState(null)
@@ -171,6 +177,43 @@ export default function CloudCheckStep({
     loadHistory()
   }, [loadHistory])
 
+  /**
+   * Подвести к итогу, когда он приходит.
+   *
+   * Кольцо с оценкой стоит ниже сгиба: человек нажимает «Проверить» и
+   * остаётся перед прежним экраном, а результат — вместе с анимацией
+   * набора дуги — проигрывается там, куда он не смотрит.
+   *
+   * Везём экран только когда есть что показать и этого не видно: если
+   * итог и так на экране, дёргать его незачем. Отступ сверху — под
+   * липкую полосу заголовка, иначе она накрывает первую строку.
+   */
+  useEffect(() => {
+    if (!scrollToResult.current) return
+    scrollToResult.current = false
+
+    const node = resultRef.current
+    if (!node) return
+    const box = node.getBoundingClientRect()
+    const barHeight = 72
+    if (box.top >= barHeight && box.bottom <= window.innerHeight) return
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const target = window.scrollY + box.top - barHeight
+    const from = window.scrollY
+    window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' })
+
+    /* Плавная прокрутка бывает выключена средой — во встроенных
+       webview и headless-браузерах она тихо не делает ничего. Если
+       через треть секунды экран не тронулся, доезжаем мгновенно:
+       увидеть результат важнее, чем доехать до него красиво. */
+    if (reduced) return undefined
+    const id = setTimeout(() => {
+      if (Math.abs(window.scrollY - from) < 2) window.scrollTo({ top: target, behavior: 'auto' })
+    }, 350)
+    return () => clearTimeout(id)
+  }, [report])
+
   /* ------------------------------- проверка ------------------------------- */
 
   const saveAndLint = useCallback(async (nextText, { llm = useLlm } = {}) => {
@@ -198,6 +241,7 @@ export default function CloudCheckStep({
         }
       }
       setReport(normalizeReport(result))
+      scrollToResult.current = true
       await loadHistory()
     } catch (error) {
       // если PATCH не прошёл — возвращаем текст, который точно сохранён на сервере
@@ -334,7 +378,7 @@ export default function CloudCheckStep({
 
   return (
     <div className="grid-2">
-      <section className="card">
+      <section className="card" ref={resultRef}>
         <div className="card-head">
           <div>
             <h2>Итог проверки</h2>
