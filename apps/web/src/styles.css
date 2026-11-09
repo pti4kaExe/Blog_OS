@@ -1687,3 +1687,21 @@ button.list-btn { width: 100%; }
    не таблицы — широкая колонка только мешала бы читать подписи полей. */
 .stage-narrow { max-width: var(--measure); margin: 0 auto; }
 .stage-narrow .card + .card { margin-top: var(--sp-5); }
+
+/* Свёрнутый чеклист — одна строка прогресса вместо карточки на полэкрана.
+   Пока не пройден ни один шаг, чеклист показывается целиком: новому автору
+   он нужнее, чем рабочая область. Дальше уступает место работе. */
+.onboarding-compact { padding: var(--sp-3) var(--sp-4); }
+.onboarding-line {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+}
+.onboarding-title { font-weight: 620; font-size: var(--t-subhead-size); }
+.onboarding-bar {
+  flex: 0 1 140px; height: 4px; border-radius: var(--r-full);
+  background: var(--surface-overlay); overflow: hidden;
+}
+.onboarding-bar i {
+  display: block; height: 100%; background: var(--tint);
+  border-radius: var(--r-full);
+  transition: width var(--dur-base) var(--ease-out);
+}
