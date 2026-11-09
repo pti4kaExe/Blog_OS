@@ -70,14 +70,14 @@ export default function Onboarding({ channel, onGo }) {
       title: 'Разобрать свой стиль',
       text: 'Вставьте 2–3 своих поста — система построит карточку Tone of Voice. Без неё остальные шаги работают вслепую.',
       action: 'Перейти к стилю',
-      go: () => onGo('pipeline'),
+      go: () => onGo('pipeline', 1),
     },
     {
       key: 'draft',
       title: 'Собрать первый черновик',
       text: 'Накидайте сырые мысли по строке — Narrative Engine расставит их по сюжетной арке и проверит текст.',
       action: 'Перейти к заметкам',
-      go: () => onGo('pipeline'),
+      go: () => onGo('pipeline', 2),
     },
     {
       key: 'knowledge',

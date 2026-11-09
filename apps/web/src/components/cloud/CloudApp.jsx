@@ -47,6 +47,9 @@ export default function CloudApp({ onUseLocal }) {
   const [channelsError, setChannelsError] = useState(null)
   const [activeId, setActiveId] = useState(savedChannelId)
   const [view, setView] = useState('pipeline')
+  /* Шаг конвейера, который попросил открыть чеклист «С чего начать».
+     Сам номер живёт в CloudPipeline — сюда поднята только просьба. */
+  const [requestedStep, setRequestedStep] = useState(null)
 
   const [channelModal, setChannelModal] = useState({ open: false, channel: null })
   const [channelBusy, setChannelBusy] = useState(false)
@@ -419,11 +422,24 @@ export default function CloudApp({ onUseLocal }) {
           размонтируется при уходе на другую вкладку и пересчитывается при
           возврате, поэтому выполненный шаг сразу виден выполненным. */}
       {activeChannel && view === 'pipeline' && (
-        <Onboarding key={`onboarding-${activeChannel.id}`} channel={activeChannel} onGo={setView} />
+        <Onboarding
+          key={`onboarding-${activeChannel.id}`}
+          channel={activeChannel}
+          onGo={(nextView, step) => {
+            setView(nextView)
+            if (step) setRequestedStep(step)
+          }}
+        />
       )}
 
       {activeChannel && view === 'pipeline' && (
-        <CloudPipeline key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
+        <CloudPipeline
+          key={activeChannel.id}
+          channel={activeChannel}
+          onUseLocal={onUseLocal}
+          requestedStep={requestedStep}
+          onStepTaken={() => setRequestedStep(null)}
+        />
       )}
       {activeChannel && view === 'archive' && (
         <PostsView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
