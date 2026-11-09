@@ -106,7 +106,10 @@ export default function CloudDraftStep({
 
   const goCheck = async () => {
     if (!text.trim()) {
-      setLocalError('В черновике нет текста — добавьте хотя бы одно предложение.')
+      setLocalError({
+        code: 'validation_error',
+        message: 'В черновике нет текста — добавьте хотя бы одно предложение.',
+      })
       return
     }
     setLocalError(null)
