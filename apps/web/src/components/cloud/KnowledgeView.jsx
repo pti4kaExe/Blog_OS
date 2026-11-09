@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
 import { fmtDateTime, fmtPercent, isOffline, plural } from '../../lib/format.js'
 import {
-  ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Loading, Metric, Modal,
+  ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Metric, Modal,
   Tag, TextInput,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
 import Accordion from '../ui/Accordion.jsx'
 
@@ -151,7 +152,9 @@ export default function KnowledgeView({ channel, onUseLocal }) {
           <button type="button" className="btn btn-sm btn-primary" onClick={openCreate}>+ Факт</button>
         </div>
 
-        {state === 'loading' && <Loading label="Загружаем факты…" />}
+        {state === 'loading' && (
+          <SkeletonRegion loading label="Загружаем факты…" fallback={<SkeletonList rows={4} lines={0} />} />
+        )}
 
         {state === 'error' && (
           <ErrorState error={error} onRetry={reload}>

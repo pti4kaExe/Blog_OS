@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
 import { apiErrorMessage, DRAFT_STATUSES, fmtDateTime, plural } from '../../lib/format.js'
 import {
-  ConfirmDialog, EmptyState, ErrorState, InlineError, Loading, StatusTag, Tag,
+  ConfirmDialog, EmptyState, ErrorState, InlineError, StatusTag, Tag,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 
 const FILTERS = [
   { value: '', label: 'Все' },
@@ -90,7 +91,9 @@ export default function DraftsList({
         ))}
       </div>
 
-      {state === 'loading' && <Loading label="Загружаем черновики…" />}
+      {state === 'loading' && (
+        <SkeletonRegion loading label="Загружаем черновики…" fallback={<SkeletonList rows={3} />} />
+      )}
 
       {state === 'error' && (
         <ErrorState error={error} onRetry={reload}>

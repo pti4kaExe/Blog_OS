@@ -5,9 +5,9 @@ import {
   fmtDateTime, isOffline, labelOf, PLATFORMS, plural,
 } from '../../lib/format.js'
 import {
-  CharCounter, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Loading,
-  Modal, Notice, Select, Tag, TextInput,
+  CharCounter, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Modal, Notice, Select, Tag, TextInput,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
 
 /** `2026-10-28T09:10:00Z` → `2026-10-28T09:10` для `<input type="datetime-local">`. */
@@ -293,7 +293,9 @@ export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
           )}
         </div>
 
-        {state === 'loading' && <Loading label="Загружаем архив…" />}
+        {state === 'loading' && (
+          <SkeletonRegion loading label="Загружаем архив…" fallback={<SkeletonList rows={3} lines={2} />} />
+        )}
 
         {state === 'error' && (
           <ErrorState error={error} onRetry={reload}>

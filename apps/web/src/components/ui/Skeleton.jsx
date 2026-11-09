@@ -64,7 +64,9 @@ export function SkeletonList({ rows = 3, lines = 1 }) {
             <span className="spacer" />
             <Skeleton width="76px" height="0.7rem" />
           </div>
-          <SkeletonText lines={lines} />
+          {/* Строк текста может не быть вовсе: в базе знаний список —
+              это одни заголовки, тело скрыто до раскрытия. */}
+          {lines > 0 && <SkeletonText lines={lines} />}
         </div>
       ))}
     </div>
