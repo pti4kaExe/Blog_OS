@@ -10,6 +10,7 @@ import {
   ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Loading, Modal, Notice,
   Select, StatusTag, Tag, TextInput, Toggle,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { PanelReveal, Reveal, Stagger } from '../ui/Motion.jsx'
 
 const PART_LABELS = {
@@ -446,7 +447,9 @@ export default function CloudRadarView({ channel, onUseLocal }) {
             {sourcesState === 'ready' && <span className="faint">{sources.length}</span>}
           </div>
 
-          {sourcesState === 'loading' && <Loading label="Загружаем источники…" />}
+          {sourcesState === 'loading' && (
+            <SkeletonRegion loading label="Загружаем источники…" fallback={<SkeletonList rows={2} lines={1} />} />
+          )}
 
           {sourcesState === 'error' && (
             <ErrorState error={sourcesError} onRetry={reloadSources}>
@@ -576,7 +579,9 @@ export default function CloudRadarView({ channel, onUseLocal }) {
 
           {!selectedSource && <EmptyState title="Нет выбранного источника" />}
 
-          {selectedSource && commentsState === 'loading' && <Loading label="Загружаем комментарии…" />}
+          {selectedSource && commentsState === 'loading' && (
+            <SkeletonRegion loading label="Загружаем комментарии…" fallback={<SkeletonList rows={4} lines={2} />} />
+          )}
 
           {selectedSource && commentsState === 'error' && (
             <ErrorState error={commentsError} onRetry={() => setCommentsKey((key) => key + 1)} />

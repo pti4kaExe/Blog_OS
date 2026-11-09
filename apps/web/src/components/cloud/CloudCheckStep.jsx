@@ -8,9 +8,10 @@ import {
   isOffline, LINT_ENGINE_LABELS, plural, unfilledGaps,
 } from '../../lib/format.js'
 import {
-  AiBadge, CopyButton, DownloadButton, ErrorState, InlineError, Loading, Modal, Notice, ScoreRing,
+  AiBadge, CopyButton, DownloadButton, ErrorState, InlineError, Modal, Notice, ScoreRing,
   StatusTag, Tag, Toggle,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { AnimatePresence } from 'motion/react'
 import { Reveal, ResultReveal, Stagger } from '../ui/Motion.jsx'
 
@@ -557,7 +558,9 @@ export default function CloudCheckStep({
         <hr className="hr" />
 
         <h3>История проверок</h3>
-        {historyState === 'loading' && <Loading label="Загружаем историю…" />}
+        {historyState === 'loading' && (
+          <SkeletonRegion loading label="Загружаем историю проверок…" fallback={<SkeletonList rows={3} lines={1} />} />
+        )}
         {historyState === 'error' && (
           <ErrorState error={historyError} onRetry={loadHistory}>
             {isOffline(historyError) && onUseLocal && (
