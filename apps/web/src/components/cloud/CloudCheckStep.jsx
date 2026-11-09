@@ -423,6 +423,68 @@ export default function CloudCheckStep({
           </ResultReveal>
         )}
 
+        {/* Решение о публикации — сразу под оценкой.
+
+            Раньше оно стояло последней строкой правой колонки: кнопка
+            «Опубликовать пост» приходилась на 2027-ю точку из 2402,
+            то есть на 84% глубины страницы, за замечаниями, историей
+            проверок и сравнением с профилем. Главное действие продукта
+            нужно было искать прокруткой.
+
+            Теперь вердикт и решение стоят рядом: прочитал оценку —
+            решил, публиковать или править. */}
+        <hr className="hr" />
+
+        <h3>Публикация</h3>
+        <div style={{ marginBottom: 10 }}>
+          <StatusTag list={DRAFT_STATUSES} value={draft.status} />
+          {draft.arc && <span className="faint"> · арка: {arcLabel(draft.arc)}</span>}
+        </div>
+
+        {published && !publishResult ? (
+          <Notice kind="good">
+            Черновик уже опубликован{publishedPostId ? ` — пост №${publishedPostId} в архиве BlogOS` : ''}.
+          </Notice>
+        ) : publishResult ? (
+          <Notice kind="good">
+            Пост опубликован. Черновик переведён в статус «Опубликован».
+            {publishedLink ? (
+              <> <a href={publishedLink} target="_blank" rel="noreferrer">Открыть пост</a></>
+            ) : (
+              <> Ссылка на площадку не создаётся: BlogOS фиксирует публикацию в архиве (пост №{publishResult.post?.id}).</>
+            )}
+          </Notice>
+        ) : (
+          <>
+            <p className="faint" style={{ marginTop: 0 }}>
+              Публикация не отправляет пост на площадку — она фиксирует факт в архиве BlogOS.
+              Нужен статус «Готов к публикации» и отсутствие пропусков <code>[дополните: …]</code>.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={publish}
+              disabled={publishing || hasUnfilledGaps(text)}
+            >
+              {publishing ? 'Публикуем…' : 'Опубликовать пост'}
+            </button>
+            {hasUnfilledGaps(text) && (
+              <p className="faint" style={{ marginBottom: 0 }}>
+                Кнопка заблокирована: сначала заполните пропуски в тексте.
+              </p>
+            )}
+          </>
+        )}
+
+        {publishError && (
+          <div style={{ marginTop: 10 }}>
+            <Notice kind="error">{apiErrorMessage(publishError)}</Notice>
+            {publishError.details?.reason === 'unfilled_gaps' && gaps.length > 0 && (
+              <p className="faint" style={{ marginBottom: 0 }}>Пропуски: {gaps.join(', ')}</p>
+            )}
+          </div>
+        )}
+
         {notice && <div style={{ marginBottom: 10 }}><Notice kind="warn">{notice}</Notice></div>}
         <InlineError error={lintError} />
 
@@ -641,57 +703,6 @@ export default function CloudCheckStep({
           </p>
         )}
 
-        <hr className="hr" />
-
-        <h3>Публикация</h3>
-        <div style={{ marginBottom: 10 }}>
-          <StatusTag list={DRAFT_STATUSES} value={draft.status} />
-          {draft.arc && <span className="faint"> · арка: {arcLabel(draft.arc)}</span>}
-        </div>
-
-        {published && !publishResult ? (
-          <Notice kind="good">
-            Черновик уже опубликован{publishedPostId ? ` — пост №${publishedPostId} в архиве BlogOS` : ''}.
-          </Notice>
-        ) : publishResult ? (
-          <Notice kind="good">
-            Пост опубликован. Черновик переведён в статус «Опубликован».
-            {publishedLink ? (
-              <> <a href={publishedLink} target="_blank" rel="noreferrer">Открыть пост</a></>
-            ) : (
-              <> Ссылка на площадку не создаётся: BlogOS фиксирует публикацию в архиве (пост №{publishResult.post?.id}).</>
-            )}
-          </Notice>
-        ) : (
-          <>
-            <p className="faint" style={{ marginTop: 0 }}>
-              Публикация не отправляет пост на площадку — она фиксирует факт в архиве BlogOS.
-              Нужен статус «Готов к публикации» и отсутствие пропусков <code>[дополните: …]</code>.
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={publish}
-              disabled={publishing || hasUnfilledGaps(text)}
-            >
-              {publishing ? 'Публикуем…' : 'Опубликовать пост'}
-            </button>
-            {hasUnfilledGaps(text) && (
-              <p className="faint" style={{ marginBottom: 0 }}>
-                Кнопка заблокирована: сначала заполните пропуски в тексте.
-              </p>
-            )}
-          </>
-        )}
-
-        {publishError && (
-          <div style={{ marginTop: 10 }}>
-            <Notice kind="error">{apiErrorMessage(publishError)}</Notice>
-            {publishError.details?.reason === 'unfilled_gaps' && gaps.length > 0 && (
-              <p className="faint" style={{ marginBottom: 0 }}>Пропуски: {gaps.join(', ')}</p>
-            )}
-          </div>
-        )}
 
         <div style={{ marginTop: 14 }}>
           <Notice>
