@@ -3,6 +3,7 @@ import api, { itemsOf } from '../../api/client.js'
 import { CATEGORIES, applyFixes, isFixable, lint as engineLint } from '../../engine/anticringe.js'
 import { getAiConsent, useAiConsent } from '../../lib/aiConsent.jsx'
 import { engineProfileFromTov } from '../../lib/tov.js'
+import { scrollNodeIntoView } from '../../lib/scroll.js'
 import {
   apiErrorMessage, arcLabel, DRAFT_STATUSES, fmtDateTime, hasUnfilledGaps,
   isOffline, LINT_ENGINE_LABELS, plural, unfilledGaps,
@@ -192,26 +193,7 @@ export default function CloudCheckStep({
     if (!scrollToResult.current) return
     scrollToResult.current = false
 
-    const node = resultRef.current
-    if (!node) return
-    const box = node.getBoundingClientRect()
-    const barHeight = 72
-    if (box.top >= barHeight && box.bottom <= window.innerHeight) return
-
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const target = window.scrollY + box.top - barHeight
-    const from = window.scrollY
-    window.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' })
-
-    /* Плавная прокрутка бывает выключена средой — во встроенных
-       webview и headless-браузерах она тихо не делает ничего. Если
-       через треть секунды экран не тронулся, доезжаем мгновенно:
-       увидеть результат важнее, чем доехать до него красиво. */
-    if (reduced) return undefined
-    const id = setTimeout(() => {
-      if (Math.abs(window.scrollY - from) < 2) window.scrollTo({ top: target, behavior: 'auto' })
-    }, 350)
-    return () => clearTimeout(id)
+    scrollNodeIntoView(resultRef.current)
   }, [report])
 
   /* ------------------------------- проверка ------------------------------- */
