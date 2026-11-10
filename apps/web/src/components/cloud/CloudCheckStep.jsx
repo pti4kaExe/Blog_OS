@@ -375,7 +375,7 @@ export default function CloudCheckStep({
         </div>
 
         {!report && (
-          <div className="state" style={{ marginBottom: 16 }}>
+          <div className="state mb-4">
             <div className="state-title">Запустите AntiCringe</div>
             <div className="state-text">
               Правиловый слой работает всегда и бесплатно. AI — второй слой: его можно
@@ -386,7 +386,7 @@ export default function CloudCheckStep({
 
         {report && (
           <ResultReveal replay={report.report.id}>
-            <div className="score-wrap" style={{ marginBottom: 16 }}>
+            <div className="score-wrap mb-4">
               <ScoreRing score={score ?? 0} tone={toneFor(score)} />
               <div>
                 <div className="grade" data-tone={toneFor(score)}>{report.verdict || verdictFor(score)}</div>
@@ -413,7 +413,7 @@ export default function CloudCheckStep({
             </div>
 
             {report.aiSkippedReason && (
-              <div style={{ marginBottom: 10 }}>
+              <div className="mb-3">
                 <Notice kind="warn">
                   AI-слой не выполнялся ({report.aiSkippedReason === 'budget_exceeded' ? 'лимит расходов исчерпан' : report.aiSkippedReason}).
                   Правиловый слой проверил текст полностью.
@@ -436,7 +436,7 @@ export default function CloudCheckStep({
         <hr className="hr" />
 
         <h3>Публикация</h3>
-        <div style={{ marginBottom: 10 }}>
+        <div className="mb-3">
           <StatusTag list={DRAFT_STATUSES} value={draft.status} />
           {draft.arc && <span className="faint"> · арка: {arcLabel(draft.arc)}</span>}
         </div>
@@ -456,7 +456,7 @@ export default function CloudCheckStep({
           </Notice>
         ) : (
           <>
-            <p className="faint" style={{ marginTop: 0 }}>
+            <p className="faint mt-0">
               Публикация не отправляет пост на площадку — она фиксирует факт в архиве BlogOS.
               Нужен статус «Готов к публикации» и отсутствие пропусков <code>[дополните: …]</code>.
             </p>
@@ -469,7 +469,7 @@ export default function CloudCheckStep({
               {publishing ? 'Публикуем…' : 'Опубликовать пост'}
             </button>
             {hasUnfilledGaps(text) && (
-              <p className="faint" style={{ marginBottom: 0 }}>
+              <p className="faint mb-0">
                 Кнопка заблокирована: сначала заполните пропуски в тексте.
               </p>
             )}
@@ -477,18 +477,18 @@ export default function CloudCheckStep({
         )}
 
         {publishError && (
-          <div style={{ marginTop: 10 }}>
+          <div className="mt-3">
             <Notice kind="error">{apiErrorMessage(publishError)}</Notice>
             {publishError.details?.reason === 'unfilled_gaps' && gaps.length > 0 && (
-              <p className="faint" style={{ marginBottom: 0 }}>Пропуски: {gaps.join(', ')}</p>
+              <p className="faint mb-0">Пропуски: {gaps.join(', ')}</p>
             )}
           </div>
         )}
 
-        {notice && <div style={{ marginBottom: 10 }}><Notice kind="warn">{notice}</Notice></div>}
+        {notice && <div className="mb-3"><Notice kind="warn">{notice}</Notice></div>}
         <InlineError error={lintError} />
 
-        <div style={{ margin: '14px 0' }}>
+        <div className="my-4">
           <Toggle
             id="lint-use-llm"
             checked={useLlm}
@@ -499,7 +499,7 @@ export default function CloudCheckStep({
           />
         </div>
 
-        <div className="btn-row" style={{ marginBottom: 16 }}>
+        <div className="btn-row mb-4">
           <button type="button" className="btn btn-primary" onClick={runLint} disabled={lintBusy}>
             {lintBusy ? 'Проверяем…' : report ? 'Проверить снова' : 'Проверить в AntiCringe'}
           </button>
@@ -514,7 +514,7 @@ export default function CloudCheckStep({
           <button type="button" className="btn btn-ghost" onClick={onBack} disabled={lintBusy}>← К черновику</button>
         </div>
 
-        <div className="card-head" style={{ marginBottom: 8 }}>
+        <div className="card-head mb-2">
           <div><h2 style={{ fontSize: 15 }}>Текст с пометками</h2></div>
           <div className="spacer" />
           <CopyButton text={text} />
@@ -530,7 +530,7 @@ export default function CloudCheckStep({
         )}
 
         {gaps.length > 0 && (
-          <div style={{ marginTop: 12 }}>
+          <div className="mt-3">
             <Notice kind="warn">
               Незаполненные пропуски: {gaps.join(', ')}. Публикация будет заблокирована,
               пока автор не заполнит их своим опытом.
@@ -704,7 +704,7 @@ export default function CloudCheckStep({
         )}
 
 
-        <div style={{ marginTop: 14 }}>
+        <div className="mt-4">
           <Notice>
             Отчёт неизменяем: повторная проверка создаёт новую запись в истории.
             Канал: «{channel.name}».
@@ -720,7 +720,7 @@ export default function CloudCheckStep({
       >
         {historyDetail && (
           <>
-            <p className="faint" style={{ marginTop: 0 }}>
+            <p className="faint mt-0">
               {fmtDateTime(historyDetail.created_at)} · {LINT_ENGINE_LABELS[historyDetail.engine] || historyDetail.engine}
               {' · '}{verdictFor(historyDetail.score)}
             </p>

@@ -177,7 +177,7 @@ export default function CloudStyleStep({
           ))}
 
           {archiveCount > 0 && (
-            <div style={{ marginTop: 14 }}>
+            <div className="mt-4">
               <Notice>
                 В архиве канала есть публикации. Профиль можно построить по трём последним —
                 это точнее, чем по текстам, вставленным руками.{' '}
@@ -200,7 +200,7 @@ export default function CloudStyleStep({
             />
           </div>
 
-          <div className="btn-row" style={{ marginTop: 14 }}>
+          <div className="btn-row mt-4">
             <button type="button" className="btn btn-primary" onClick={analyze} disabled={busy}>
               {busy ? 'Разбираем…' : 'Разобрать стиль'}
             </button>
@@ -250,7 +250,7 @@ export default function CloudStyleStep({
                 <h2>Профиль Tone of Voice</h2>
                 <p>То, что система будет защищать в ваших текстах.</p>
                 {tovState === 'ready' && (
-                  <p className="faint" style={{ marginTop: 4, marginBottom: 0 }}>
+                  <p className="faint mt-1 mb-0">
                     обновлён {fmtDateTime(tov?.analyzed_at || tov?.updated_at)}
                   </p>
                 )}
@@ -281,7 +281,7 @@ export default function CloudStyleStep({
             )}
 
             {analysis && (
-              <p className="faint" style={{ marginTop: 0 }}>
+              <p className="faint mt-0">
                 Разобрано: {analysisSummary(analysis)}
                 {analysis.source && analysis.source.includes('llm') ? ' · AI дополнял карточку' : ' · только правила'}
               </p>
@@ -302,7 +302,7 @@ export default function CloudStyleStep({
               </Notice>
             )}
 
-            <div className="btn-row" style={{ marginTop: 16 }}>
+            <div className="btn-row mt-4">
               <button type="button" className="btn btn-primary" onClick={onNext}>
                 Дальше: заметки →
               </button>

@@ -136,13 +136,13 @@ export default function SettingsView({
                 <InlineError error={saveError} />
               </form>
 
-              <dl className="deflist" style={{ marginTop: 20 }}>
+              <dl className="deflist mt-5">
                 <div><dt>Роль</dt><dd>{roleLabel}</dd></div>
                 <div><dt>Вход</dt><dd>Telegram, номер {user?.telegram_id ?? '—'}</dd></div>
                 <div><dt>Каналов</dt><dd>{channels.length} {plural(channels.length, 'канал', 'канала', 'каналов')}</dd></div>
                 <div><dt>В сервисе с</dt><dd>{fmtDateTime(user?.created_at)}</dd></div>
               </dl>
-              <p className="faint" style={{ marginBottom: 0 }}>
+              <p className="faint mb-0">
                 Роль выдаётся вручную при развёртывании — метода назначения в сервисе нет намеренно.
               </p>
             </FormSection>
@@ -171,7 +171,7 @@ export default function SettingsView({
                   Спросить заново
                 </button>
               </div>
-              <p className="faint" style={{ marginTop: 12, marginBottom: 0 }}>
+              <p className="faint mt-3 mb-0">
                 Без согласия всё считается правиловым движком — бесплатно, без передачи текста
                 провайдеру. Решение хранится в этом браузере и не синхронизируется между устройствами.
               </p>
@@ -239,7 +239,7 @@ export default function SettingsView({
                   ))}
                 </div>
               )}
-              <div className="btn-row" style={{ marginTop: 14 }}>
+              <div className="btn-row mt-4">
                 <button type="button" className="btn btn-sm" onClick={onNewChannel}>+ Новый канал</button>
               </div>
             </FormSection>
@@ -250,7 +250,7 @@ export default function SettingsView({
           <section className="card">
             <div className="danger-zone" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
               <h3>Удаление аккаунта</h3>
-              <p className="faint" style={{ marginTop: 0 }}>
+              <p className="faint mt-0">
                 Вместе с аккаунтом удалятся все каналы, профили стиля, посты, черновики,
                 отчёты проверок, источники и база знаний. Журнал расходов на AI сохранится
                 без привязки к вам. Восстановить нельзя.
@@ -269,7 +269,7 @@ export default function SettingsView({
                       placeholder={CONFIRM_WORD} autoComplete="off"
                     />
                   </Field>
-                  <div className="btn-row" style={{ marginTop: 12 }}>
+                  <div className="btn-row mt-3">
                     <button
                       type="button" className="btn btn-sm btn-danger"
                       disabled={confirmText.trim().toUpperCase() !== CONFIRM_WORD || deleteBusy}

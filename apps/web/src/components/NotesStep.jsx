@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ARCS, buildPost, splitFragments, suggestArc } from '../engine/narrative.js'
-import { Notice, plural } from './ui.jsx'
+import { Notice } from './ui.jsx'
+import { plural } from '../lib/format.js'
 import { useArcPick } from './ui/Motion.jsx'
 
 const DEMO_NOTES = `полгода назад я не понимал, зачем вообще веду канал
@@ -76,8 +77,8 @@ export default function NotesStep({
               onChange={(e) => setNotes(e.target.value)}
               placeholder={'что произошло\nчто не получалось\nчто я поменял\nчто вышло в итоге'}
             />
-            {error && <div style={{ marginTop: 12 }}><Notice kind="warn">{error}</Notice></div>}
-            <div className="btn-row" style={{ marginTop: 14 }}>
+            {error && <div className="mt-3"><Notice kind="warn">{error}</Notice></div>}
+            <div className="btn-row mt-4">
               <button type="button" className="btn btn-primary" onClick={build} disabled={fragments.length < 2}>
                 Собрать пост
               </button>
@@ -98,8 +99,8 @@ export default function NotesStep({
               onChange={(e) => setRawDraft(e.target.value)}
               placeholder="Вставьте готовый текст поста…"
             />
-            {error && <div style={{ marginTop: 12 }}><Notice kind="warn">{error}</Notice></div>}
-            <div className="btn-row" style={{ marginTop: 14 }}>
+            {error && <div className="mt-3"><Notice kind="warn">{error}</Notice></div>}
+            <div className="btn-row mt-4">
               <button type="button" className="btn btn-primary" onClick={checkDraft}>
                 Проверить в AntiCringe
               </button>
@@ -147,7 +148,7 @@ export default function NotesStep({
             </div>
 
             {fragments.length >= 2 && (
-              <p className="faint" style={{ marginTop: 14, marginBottom: 0 }}>
+              <p className="faint mt-4 mb-0">
                 Ни один фрагмент не потеряется: всё, что не попало в слоты арки, движок добавит в основной блок.
               </p>
             )}

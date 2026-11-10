@@ -243,7 +243,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
                 оно получало крупную антикву и переламывалось на три
                 строки. Автору оно нужно разве что при разборе сбоя,
                 поэтому ушло в тихую подпись. */}
-            <div className="metrics metrics-compact" style={{ margin: '14px 0' }}>
+            <div className="metrics metrics-compact my-4">
               <Metric value={(searchResult.items || []).length} label="подходящих отрывков" />
               <Metric value={searchResult.searched_chunks ?? '—'} label="отрывков просмотрено" />
             </div>
@@ -285,7 +285,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
             проверить, после — что это значит для генерации. Раньше здесь
             стояли оба сразу и читались одним сплошным текстом. */}
         {!searchResult && !searchTouched && (
-          <div className="state" style={{ marginTop: 14 }}>
+          <div className="state mt-4">
             <div className="state-icon" aria-hidden="true">·</div>
             <div className="state-title">Проверьте себя перед сборкой поста</div>
             <div className="state-text">
@@ -296,7 +296,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
         )}
 
         {searchResult && (
-          <div className="faint" style={{ marginTop: 10 }}>
+          <div className="faint mt-3">
             В пост и в ответы попадут два-три самых подходящих отрывка. Поэтому факты лучше
             держать короткими и точными: длинный рассказ движок возьмёт кусками.
           </div>
@@ -328,7 +328,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
               maxLength={200}
             />
           </Field>
-          <div style={{ marginTop: 12 }}>
+          <div className="mt-3">
             <Field label="Факт" hint="Один факт — одна короткая запись: так движок точнее находит нужное." htmlFor="knowledge-content">
               <textarea
                 id="knowledge-content"
@@ -353,7 +353,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
         onConfirm={confirmDelete}
         onCancel={() => { setDeleteTarget(null); setDeleteError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Факт «{deleteTarget?.title}» удалится, и движок перестанет его находить.
         </p>
         {deleteError && <InlineError error={deleteError} />}

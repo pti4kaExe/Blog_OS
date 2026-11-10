@@ -66,7 +66,7 @@ export default function DraftsList({
   }
 
   return (
-    <section className="card" style={{ marginTop: 16 }}>
+    <section className="card mt-4">
       <div className="card-head">
         <div>
           <h2>Мои черновики</h2>
@@ -161,7 +161,7 @@ export default function DraftsList({
         onConfirm={remove}
         onCancel={() => { setDeleteTarget(null); setDeleteError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Черновик «{deleteTarget?.title || 'Без названия'}» и все его отчёты AntiCringe удалятся
           без возможности восстановления.
         </p>
