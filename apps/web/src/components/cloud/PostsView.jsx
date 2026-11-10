@@ -519,7 +519,7 @@ export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
             </Notice>
           )}
 
-          <p className="faint" style={{ marginBottom: 0 }}>
+          <p className="faint mb-0">
             Если площадка ещё не настроена, импорт не сработает и скажет об этом.
             Остальное продолжит работать, а посты можно добавить руками.
           </p>
@@ -535,7 +535,7 @@ export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
         onConfirm={confirmDelete}
         onCancel={() => { setDeleteTarget(null); setDeleteError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Пост удалится из архива вместе со своими векторами. Черновик, опубликованный
           из этого поста, останется — у него просто пропадёт ссылка на публикацию.
         </p>

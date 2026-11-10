@@ -83,7 +83,7 @@ export default function CloudNotesStep({
           <InlineError error={localError} />
           {generateError && <InlineError error={generateError} />}
 
-          <div className="btn-row" style={{ marginTop: 14 }}>
+          <div className="btn-row mt-4">
             <button
               type="button"
               className="btn btn-primary"
@@ -140,7 +140,7 @@ export default function CloudNotesStep({
             ))}
           </div>
 
-          <div style={{ marginTop: 14 }}>
+          <div className="mt-4">
             <Notice>
               Черновик появится на шаге «Черновик»: там будут блоки арки, пометки
               о том, что добавил движок, и возможность править текст с сохранением.
@@ -148,7 +148,7 @@ export default function CloudNotesStep({
           </div>
 
           {notes.trim().length === 0 && (
-            <p className="faint" style={{ marginBottom: 0 }}>
+            <p className="faint mb-0">
               Канал: «{channel.name}». Стиль уже разобран — сборка подстроится под него.
             </p>
           )}

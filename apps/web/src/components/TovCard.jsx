@@ -63,7 +63,7 @@ export default function TovCard({ profile, tone, slang = [], stopWords = [], phr
       {(address || lexicon.length > 0) && (
         <Reveal>
           <h3>Тон и лексика</h3>
-          <div className="tags" style={{ marginBottom: 12 }}>
+          <div className="tags mb-3">
             {address && <Tag>обращение: {address}</Tag>}
             {slang.map((word) => <Tag key={`slang-${word}`}>{word}</Tag>)}
             {phrases.map((phrase) => <Tag key={`phrase-${phrase}`}>{phrase}</Tag>)}
@@ -74,7 +74,7 @@ export default function TovCard({ profile, tone, slang = [], stopWords = [], phr
       {stopWords.length > 0 && (
         <Reveal>
           <h3>Стоп-слова</h3>
-          <div className="tags" style={{ marginBottom: 12 }}>
+          <div className="tags mb-3">
             {stopWords.map((word) => <Tag key={`stop-${word}`} kind="warn">{word}</Tag>)}
           </div>
         </Reveal>
@@ -83,7 +83,7 @@ export default function TovCard({ profile, tone, slang = [], stopWords = [], phr
       {tags.topics.length > 0 && (
         <Reveal>
           <h3>Ваши темы</h3>
-          <div className="tags" style={{ marginBottom: 12 }}>
+          <div className="tags mb-3">
             {tags.topics.map((topic) => <Tag key={topic}>{topic}</Tag>)}
           </div>
         </Reveal>
@@ -92,7 +92,7 @@ export default function TovCard({ profile, tone, slang = [], stopWords = [], phr
       {tags.phrases.length > 0 && (
         <Reveal>
           <h3>Частые связки</h3>
-          <div className="tags" style={{ marginBottom: 12 }}>
+          <div className="tags mb-3">
             {tags.phrases.map((phrase) => <Tag key={phrase}>{phrase}</Tag>)}
           </div>
         </Reveal>

@@ -312,9 +312,9 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
       </StepTransition>
 
       {generateError && step !== 2 && (
-        <div style={{ marginTop: 14 }}>
+        <div className="mt-4">
           <Notice kind="error">{apiErrorMessage(generateError)}</Notice>
-          <div className="btn-row" style={{ marginTop: 8 }}>
+          <div className="btn-row mt-2">
             <button type="button" className="btn btn-sm btn-ghost" onClick={() => setGenerateError(null)}>
               Скрыть
             </button>
@@ -323,7 +323,7 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
       )}
 
       {loadDraftError && (
-        <div style={{ marginTop: 14 }}><InlineError error={loadDraftError} /></div>
+        <div className="mt-4"><InlineError error={loadDraftError} /></div>
       )}
     </>
   )

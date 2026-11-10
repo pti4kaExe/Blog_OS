@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CATEGORIES, applyFixes, isFixable, lint, scoreText } from '../engine/anticringe.js'
-import { Bar, CharCounter, CopyButton, DownloadButton, Notice, ScoreRing, plural } from './ui.jsx'
+import { Bar, CharCounter, CopyButton, DownloadButton, Notice, ScoreRing } from './ui.jsx'
+import { plural } from '../lib/format.js'
 import { AnimatePresence } from 'motion/react'
 import { Reveal, Stagger } from './ui/Motion.jsx'
 
@@ -74,7 +75,7 @@ export default function CheckStep({ text, setText, profile, baseline, setBaselin
           </div>
         </div>
 
-        <div className="score-wrap" style={{ marginBottom: 18 }}>
+        <div className="score-wrap mb-4">
           <ScoreRing score={live.score} tone={toneFor(live.score)} />
           <div>
             <div className="grade" data-tone={toneFor(live.score)}>{gradeLabel(live.score)}</div>
@@ -85,7 +86,7 @@ export default function CheckStep({ text, setText, profile, baseline, setBaselin
                   + (fixable.length ? `, ${fixable.length} правятся автоматически` : ', автоправок нет')}
             </div>
             {improved && (
-              <div className="improve" style={{ marginTop: 6 }}>
+              <div className="improve mt-2">
                 <span className="muted">Было {baseline}</span>
                 <b>→ {live.score}</b>
               </div>
@@ -107,12 +108,12 @@ export default function CheckStep({ text, setText, profile, baseline, setBaselin
         </div>
 
         {report.notes.map((n, i) => (
-          <div key={i} style={{ marginBottom: 10 }}>
+          <div key={i} className="mb-3">
             <Notice kind={n.kind === 'info' ? 'warn' : undefined}>{n.text}</Notice>
           </div>
         ))}
 
-        <div className="card-head" style={{ marginTop: 18, marginBottom: 10 }}>
+        <div className="card-head mt-4 mb-3">
           <div>
             <h2 style={{ fontSize: 15 }}>Текст с пометками</h2>
           </div>
@@ -142,7 +143,7 @@ export default function CheckStep({ text, setText, profile, baseline, setBaselin
           </div>
         )}
 
-        <div className="btn-row" style={{ marginTop: 16 }}>
+        <div className="btn-row mt-4">
           <button type="button" className="btn btn-primary" onClick={applyAll} disabled={!fixable.length}>
             Применить безопасные правки ({fixable.length})
           </button>
@@ -230,7 +231,7 @@ export default function CheckStep({ text, setText, profile, baseline, setBaselin
 
         {report.tovDeltas.length > 0 && (
           <>
-            <h3 style={{ marginTop: 20 }}>Сравнение с вашим стилем</h3>
+            <h3 className="mt-5">Сравнение с вашим стилем</h3>
             <div className="deltas">
               {report.tovDeltas.map((d) => (
                 <div className="delta" key={d.key}>

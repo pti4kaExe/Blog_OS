@@ -93,7 +93,7 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
         </div>
 
         {telegramAuto === 'failed' && (
-          <div style={{ marginBottom: 14 }}>
+          <div className="mb-4">
             <Notice kind="warn">
               Автоматический вход через Telegram не удался — {apiErrorMessage(error)}.
               Открытая сессия продолжает работать. Можно войти по форме ниже.
@@ -133,7 +133,7 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
 
           <InlineError error={error} />
 
-          <div className="btn-row" style={{ marginTop: 16 }}>
+          <div className="btn-row mt-4">
             <button type="submit" className="btn btn-primary" disabled={busy}>
               {busy ? 'Входим…' : 'Войти'}
             </button>
@@ -143,7 +143,7 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           </div>
 
           {error && isOffline(error) && (
-            <p className="faint" style={{ marginTop: 10 }}>
+            <p className="faint mt-3">
               Облачный сервер не отвечает. Локальный режим работает без сети — все четыре шага и
               CommentRadar считаются в браузере.
             </p>
@@ -178,13 +178,13 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           </p>
           </div>
         </div>
-        <ul className="consent-list" style={{ marginTop: 0 }}>
+        <ul className="consent-list mt-0">
           <li>Профиль стиля, черновики и архив живут на сервере, а не в одном этом браузере.</li>
           <li>История проверок: видно, как текст менялся от правки к правке.</li>
           <li>CommentRadar следит за Telegram, Instagram и YouTube и приносит обсуждения по вашим темам.</li>
           <li>Факты о вас, на которые опирается движок, чтобы не выдумывать цифры за вас.</li>
         </ul>
-        <div className="tags" style={{ marginTop: 14 }}>
+        <div className="tags mt-4">
           <Tag>русский интерфейс</Tag>
           <Tag>AI — только с вашего согласия</Tag>
           <Tag>ключи остаются на сервере</Tag>

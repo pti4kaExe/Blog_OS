@@ -63,7 +63,7 @@ export default function RadarView({ profile, approved, setApproved }) {
 
   return (
     <>
-      <div className="card-head" style={{ marginBottom: 14 }}>
+      <div className="card-head mb-4">
         <div>
           <h1 style={{ fontSize: 20 }}>CommentRadar</h1>
           <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
@@ -142,7 +142,7 @@ export default function RadarView({ profile, approved, setApproved }) {
               />
 
               {hasGaps(comment) && (
-                <div style={{ marginTop: 12 }}>
+                <div className="mt-3">
                   <Notice kind="warn">
                     В черновике остался пропуск в квадратных скобках. Заполните его своим примером — иначе
                     комментарий будет шаблонным.
@@ -151,7 +151,7 @@ export default function RadarView({ profile, approved, setApproved }) {
               )}
 
               {report && !report.empty && (
-                <div className="score-wrap" style={{ marginTop: 16 }}>
+                <div className="score-wrap mt-4">
                   <ScoreRing score={report.score} tone={report.score >= 85 ? 'good' : report.score >= 70 ? 'ok' : 'warn'} />
                   <div>
                     <div className="grade" data-tone={report.score >= 85 ? 'good' : report.score >= 70 ? 'ok' : 'warn'}>
@@ -166,7 +166,7 @@ export default function RadarView({ profile, approved, setApproved }) {
                 </div>
               )}
 
-              <div className="btn-row" style={{ marginTop: 16 }}>
+              <div className="btn-row mt-4">
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -182,13 +182,13 @@ export default function RadarView({ profile, approved, setApproved }) {
 
           {approved.length > 0 && (
             <>
-              <h3 style={{ marginTop: 22 }}>Одобрено вами ({approved.length})</h3>
+              <h3 className="mt-5">Одобрено вами ({approved.length})</h3>
               <div className="approved-list">
                 {approved.map((a) => (
                   <div className="approved" key={a.id}>
-                    <div className="faint" style={{ marginBottom: 4 }}>{a.source}</div>
+                    <div className="faint mb-1">{a.source}</div>
                     {a.text}
-                    <div className="btn-row" style={{ marginTop: 8 }}>
+                    <div className="btn-row mt-2">
                       <CopyButton text={a.text} label="Скопировать" />
                       <button
                         type="button"

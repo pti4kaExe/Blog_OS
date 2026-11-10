@@ -527,7 +527,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                       </div>
                     )}
                     {scanInfo && String(scanInfo.sourceId) === String(source.id) && (
-                      <div style={{ marginTop: 8 }}>
+                      <div className="mt-2">
                         <Notice kind={scanInfo.kind === 'good' ? 'good' : scanInfo.kind === 'warn' ? 'warn' : 'error'}>
                           {scanInfo.message}
                         </Notice>
@@ -679,14 +679,14 @@ export default function CloudRadarView({ channel, onUseLocal }) {
 
           {commentState === 'ready' && comment && (
             <>
-              <div className="disc" style={{ marginBottom: 14 }}>
+              <div className="disc mb-4">
                 <div className="disc-top">
                   <span className="disc-src">{selectedSource?.name || 'Источник'}</span>
                 </div>
                 <div className="disc-text" style={{ fontSize: 14 }}>{comment.text}</div>
               </div>
 
-              <div style={{ marginBottom: 14 }}>
+              <div className="mb-4">
                 <Toggle
                   id="radar-use-llm"
                   checked={useLlm}
@@ -697,7 +697,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                 />
               </div>
 
-              <div className="btn-row" style={{ marginBottom: 14 }}>
+              <div className="btn-row mb-4">
                 <button type="button" className="btn btn-primary" onClick={generateResponses} disabled={generateBusy}>
                   {generateBusy ? 'Генерируем ответы…' : 'Сгенерировать ответ (4 части)'}
                 </button>
@@ -705,10 +705,10 @@ export default function CloudRadarView({ channel, onUseLocal }) {
               </div>
 
               {generateInfo?.kind === 'warn' && (
-                <div style={{ marginBottom: 12 }}><Notice kind="warn">{generateInfo.message}</Notice></div>
+                <div className="mb-3"><Notice kind="warn">{generateInfo.message}</Notice></div>
               )}
               {generateInfo?.kind === 'good' && (
-                <div style={{ marginBottom: 12 }}>
+                <div className="mb-3">
                   <Notice kind="good">
                     Варианты собраны{generateInfo.verifiedWithoutAi ? ' без AI — только правилами' : ''}.
                     {generateInfo.basedOnPostId ? ' Опора — ваш пост из архива.' : ''}
@@ -743,7 +743,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                       </div>
 
                       {parts && (
-                        <div className="comment-parts" style={{ marginTop: 8 }}>
+                        <div className="comment-parts mt-2">
                           {['reference', 'experience', 'gap', 'question'].map((kind) => (
                             parts[kind] ? (
                               <div className="cpart" data-kind={kind} key={kind}>
@@ -764,7 +764,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                       />
 
                       {blocked && (
-                        <div style={{ marginTop: 8 }}>
+                        <div className="mt-2">
                           <Notice kind="warn">
                             Заполните пропуск <code>[дополните: …]</code> перед одобрением — иначе ответ
                             останется шаблонным.
@@ -844,7 +844,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
             />
           </Field>
           <InlineError error={manualError} />
-          <p className="faint" style={{ marginBottom: 0 }}>
+          <p className="faint mb-0">
             Обсуждение попадёт в источник «{selectedSource?.name}» с пометкой «добавлено вручную»
             и встанет в ленту по совпадению с вашими темами.
           </p>
@@ -911,7 +911,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
         onConfirm={confirmDeleteSource}
         onCancel={() => { setDeleteSource(null); setDeleteError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Источник «{deleteSource?.name}» удалится вместе со всеми найденными комментариями и ответами.
         </p>
         {deleteError && <InlineError error={deleteError} />}

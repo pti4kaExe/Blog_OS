@@ -325,7 +325,7 @@ export default function CloudApp({ onUseLocal }) {
           Локальный режим работает без сети: разбор стиля, сборка поста, AntiCringe и CommentRadar
           считаются прямо в браузере. Облачные данные появятся, когда сервер будет доступен.
         </Notice>
-        <p className="faint" style={{ marginBottom: 0 }}>
+        <p className="faint mb-0">
           Проверьте, что API запущен на {api.baseUrl}. Адрес задаётся переменной
           <code> VITE_API_URL</code> при сборке клиента.
         </p>
@@ -373,7 +373,7 @@ export default function CloudApp({ onUseLocal }) {
       )}
     >
       {channelsError && (
-        <div style={{ marginBottom: 14 }}>
+        <div className="mb-4">
           <Notice kind="error">
             {apiErrorMessage(channelsError)}{' '}
             <button type="button" className="btn btn-sm btn-ghost" onClick={loadChannels}>Повторить</button>
@@ -500,7 +500,7 @@ export default function CloudApp({ onUseLocal }) {
         onConfirm={confirmDelete}
         onCancel={() => { setDeleteOpen(false); setDeleteError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Канал «{activeChannel?.name}» удалится вместе со стилем, постами, черновиками, источниками,
           комментариями и базой знаний. Журнал расходов на AI сохранится.
         </p>

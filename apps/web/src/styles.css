@@ -1294,30 +1294,6 @@ button.list-btn { width: 100%; }
   .palette-foot span:not(:last-child):not(.spacer) { display: none; }
 }
 
-/* Вызов палитры из шапки. Выглядит как подсказка, а не кнопка: главное
-   в нём — сочетание клавиш, которое иначе негде узнать. */
-.palette-trigger {
-  display: inline-flex; align-items: center; gap: var(--sp-2);
-  border: 0; background: var(--surface-overlay); color: var(--label-secondary);
-  padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-3);
-  border-radius: var(--r-sm);
-  font-size: var(--t-caption-size); font-weight: var(--t-caption-fw);
-  white-space: nowrap;
-  transition: color var(--dur-fast) var(--ease-out),
-              background-color var(--dur-fast) var(--ease-out);
-}
-.palette-trigger:hover { background: var(--surface-elevated); color: var(--label-primary); }
-.palette-trigger kbd {
-  font-family: var(--font-mono); font-size: var(--t-caption-size);
-  padding: 1px var(--sp-1); border-radius: var(--r-xs);
-  background: var(--surface-base); color: var(--label-tertiary);
-}
-
-@media (max-width: 940px) {
-  .palette-trigger span { display: none; }
-  .palette-trigger { padding: var(--sp-1) var(--sp-2); }
-}
-
 /* ════════════════════════════ чеклист запуска ═══════════════════════════ */
 
 .onboarding { margin-bottom: var(--sp-5); }

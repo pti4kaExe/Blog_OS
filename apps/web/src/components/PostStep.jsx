@@ -45,7 +45,7 @@ export default function PostStep({ post, arcKey, onRebuild, onCheck, onBack }) {
           ))}
         </Stagger>
 
-        <div className="btn-row" style={{ marginTop: 18 }}>
+        <div className="btn-row mt-4">
           <button type="button" className="btn btn-primary" onClick={onCheck}>
             Проверить в AntiCringe →
           </button>
@@ -64,7 +64,7 @@ export default function PostStep({ post, arcKey, onRebuild, onCheck, onBack }) {
         </div>
 
         <h3>Пересобрать другой аркой</h3>
-        <div className="arc-picker" style={{ marginBottom: 16 }}>
+        <div className="arc-picker mb-4">
           {Object.values(ARCS).map((arc) => (
             <button
               key={arc.key}
@@ -84,9 +84,9 @@ export default function PostStep({ post, arcKey, onRebuild, onCheck, onBack }) {
         {post.additions.length === 0 ? (
           <p className="faint">Ничего — пост собран целиком из ваших строк.</p>
         ) : (
-          <div style={{ marginBottom: 16 }}>
+          <div className="mb-4">
             {post.additions.map((a, i) => (
-              <div key={i} style={{ marginBottom: 6 }}>
+              <div key={i} className="mb-2">
                 <Tag>{a.type}</Tag>{' '}
                 <span className="muted" style={{ fontSize: 13 }}>{a.text}</span>
               </div>

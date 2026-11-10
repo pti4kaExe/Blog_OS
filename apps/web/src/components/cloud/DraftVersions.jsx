@@ -75,7 +75,7 @@ export default function DraftVersions({ draft, refreshKey = 0, onRestore }) {
   const current = String(draft.text || '')
 
   return (
-    <section className="card" style={{ marginTop: 16 }}>
+    <section className="card mt-4">
       <div className="card-head">
         <div>
           <h2>История версий</h2>
@@ -170,7 +170,7 @@ export default function DraftVersions({ draft, refreshKey = 0, onRestore }) {
         onConfirm={confirmRestore}
         onCancel={() => { setRestoreTarget(null); setRestoreError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Текущий текст черновика не пропадёт — перед заменой он сам станет
           версией, и к нему можно будет вернуться так же.
         </p>

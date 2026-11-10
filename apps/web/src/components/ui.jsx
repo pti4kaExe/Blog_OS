@@ -156,15 +156,6 @@ export function CopyButton({ text, label = 'Скопировать' }) {
   )
 }
 
-/** Русское склонение после числа: 1 замечание, 2 замечания, 5 замечаний. */
-export function plural(n, one, few, many) {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod10 === 1 && mod100 !== 11) return one
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few
-  return many
-}
-
 /* ------------------------------- состояния -------------------------------- */
 
 /** Загрузка. */
@@ -217,7 +208,7 @@ export function ErrorState({ error, title, onRetry, children }) {
 export function InlineError({ error }) {
   if (!error) return null
   return (
-    <div style={{ marginTop: 12 }}>
+    <div className="mt-3">
       <Notice kind="error">{apiErrorMessage(error)}</Notice>
     </div>
   )
