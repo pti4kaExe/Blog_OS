@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
-import { fmtDateTime, fmtPercent, isOffline, plural } from '../../lib/format.js'
+import {
+  clamp, fmtDateTime, fmtPercent, isOffline, plural,
+} from '../../lib/format.js'
 import {
   ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Metric, Modal,
   Tag, TextInput,
@@ -12,9 +14,10 @@ import Accordion from '../ui/Accordion.jsx'
 const EMPTY_FORM = { title: '', content: '' }
 
 /**
- * База знаний канала: факты автора, по которым RAG-поиск собирает опору,
- * чтобы AI не выдумывал данных. Поиск — `GET …/knowledge/search` с score
- * и chunk_text.
+ * База знаний канала: факты автора, на которые опирается движок, чтобы не
+ * выдумывать данные. Поиск по смыслу — `GET …/knowledge/search`; в
+ * интерфейсе его результаты названы отрывками и процентом совпадения,
+ * потому что автор работает с фактами, а не с векторами.
  */
 export default function KnowledgeView({ channel, onUseLocal }) {
   const [items, setItems] = useState([])
@@ -145,7 +148,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
         <div className="card-head">
           <div>
             <h2>База знаний</h2>
-            <p>Факты канала «{channel.name}»: их RAG-поиск подставляет движку, чтобы тот не выдумывал.</p>
+            <p>Факты канала «{channel.name}». Движок опирается на них, чтобы не выдумывать за вас.</p>
           </div>
           <div className="spacer" />
           <span className="faint">{items.length} {plural(items.length, 'факт', 'факта', 'фактов')}</span>
@@ -210,8 +213,9 @@ export default function KnowledgeView({ channel, onUseLocal }) {
       <section className="card">
         <div className="card-head">
           <div>
-            <h2>RAG-поиск</h2>
-            <p>Косинусное расстояние по векторам фактов: score и найденный фрагмент.</p>
+            <h2>Что найдёт движок</h2>
+            <p>Спросите так, как спросил бы читатель, — и увидите, на какие ваши факты
+              обопрётся ответ.</p>
           </div>
         </div>
 
@@ -235,18 +239,17 @@ export default function KnowledgeView({ channel, onUseLocal }) {
 
         {searchResult && (
           <>
-            {/* Модель эмбеддингов — идентификатор, не число: раньше она
-                попадала в ту же сетку фактов и получала крупную антикву
-                стата, из-за чего длинная строка вроде «text-embedding-3-small»
-                переламывалась на три строки. Факты остаются фактами,
-                идентификатор — подписью рядом с ними. */}
+            {/* Название модели — идентификатор, не число: в сетке статов
+                оно получало крупную антикву и переламывалось на три
+                строки. Автору оно нужно разве что при разборе сбоя,
+                поэтому ушло в тихую подпись. */}
             <div className="metrics metrics-compact" style={{ margin: '14px 0' }}>
-              <Metric value={(searchResult.items || []).length} label="найдено фрагментов" />
-              <Metric value={searchResult.searched_chunks ?? '—'} label="проверено чанков" />
+              <Metric value={(searchResult.items || []).length} label="подходящих отрывков" />
+              <Metric value={searchResult.searched_chunks ?? '—'} label="отрывков просмотрено" />
             </div>
             {searchResult.query_embedding_model && (
               <p className="faint" style={{ marginTop: -6, marginBottom: 14 }}>
-                модель эмбеддингов: <code>{searchResult.query_embedding_model}</code>
+                модель поиска: <code>{searchResult.query_embedding_model}</code>
               </p>
             )}
 
@@ -259,11 +262,15 @@ export default function KnowledgeView({ channel, onUseLocal }) {
                 {searchResult.items.map((hit) => (
                   <div className="list-item" key={`${hit.knowledge_id}-${hit.chunk_index ?? 0}`}>
                     <div className="list-item-head">
-                      <span className="list-item-title">{hit.title || `Факт №${hit.knowledge_id}`}</span>
-                      <Tag>score {fmtPercent(hit.score, 0)}</Tag>
+                      <span className="list-item-title">{hit.title || 'Факт без заголовка'}</span>
+                      {/* Сервер отдаёт косинусную близость в диапазоне −1…1
+                          (`1 - (embedding <=> vector)`). Отрицательное значение
+                          означает «смысл противоположный» — для автора это
+                          просто ноль совпадения, а не «минус один процент». */}
+                      <Tag>совпадение {fmtPercent(clamp(hit.score, 0, 1), 0)}</Tag>
                       <div className="spacer" />
                       {hit.chunk_index !== undefined && (
-                        <span className="list-item-meta">чанк {hit.chunk_index}</span>
+                        <span className="list-item-meta">отрывок {hit.chunk_index + 1}</span>
                       )}
                     </div>
                     <div className="list-item-text">{hit.chunk_text}</div>
@@ -280,18 +287,18 @@ export default function KnowledgeView({ channel, onUseLocal }) {
         {!searchResult && !searchTouched && (
           <div className="state" style={{ marginTop: 14 }}>
             <div className="state-icon" aria-hidden="true">·</div>
-            <div className="state-title">Проверьте, что найдёт движок</div>
+            <div className="state-title">Проверьте себя перед сборкой поста</div>
             <div className="state-text">
-              Поиск работает по векторам фактов. Нужен работающий сервер — если модель
-              эмбеддингов недоступна, он ответит 503, остальные функции продолжат работать.
+              Спросите то, о чём вас обычно спрашивают читатели. Если движок ничего не найдёт,
+              значит факта в базе нет — и в тексте на его месте останется пропуск.
             </div>
           </div>
         )}
 
         {searchResult && (
           <div className="faint" style={{ marginTop: 10 }}>
-            Источник ответа — база знаний канала. Слайс на 2–3 лучших фрагмента попадает в контекст
-            генерации, поэтому факты должны быть короткими и точными.
+            В пост и в ответы попадут два-три самых подходящих отрывка. Поэтому факты лучше
+            держать короткими и точными: длинный рассказ движок возьмёт кусками.
           </div>
         )}
       </section>
@@ -322,7 +329,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
             />
           </Field>
           <div style={{ marginTop: 12 }}>
-            <Field label="Факт" hint="Один факт — одна короткая запись: так RAG точнее." htmlFor="knowledge-content">
+            <Field label="Факт" hint="Один факт — одна короткая запись: так движок точнее находит нужное." htmlFor="knowledge-content">
               <textarea
                 id="knowledge-content"
                 className="ta"
@@ -347,7 +354,7 @@ export default function KnowledgeView({ channel, onUseLocal }) {
         onCancel={() => { setDeleteTarget(null); setDeleteError(null) }}
       >
         <p style={{ marginTop: 0 }}>
-          Факт «{deleteTarget?.title}» и его векторы удалятся — RAG перестанет его находить.
+          Факт «{deleteTarget?.title}» удалится, и движок перестанет его находить.
         </p>
         {deleteError && <InlineError error={deleteError} />}
       </ConfirmDialog>
