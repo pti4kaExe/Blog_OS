@@ -442,7 +442,12 @@ export default function CloudApp({ onUseLocal }) {
         />
       )}
       {activeChannel && view === 'archive' && (
-        <PostsView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
+        <PostsView
+          key={activeChannel.id}
+          channel={activeChannel}
+          onUseLocal={onUseLocal}
+          onAnalyzeArchive={() => { setView('pipeline'); setRequestedStep(1) }}
+        />
       )}
       {activeChannel && view === 'radar' && (
         <CloudRadarView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
