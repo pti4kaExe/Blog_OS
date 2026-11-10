@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import api, { itemsOf } from '../../api/client.js'
 import { DEMO_AUTHOR } from '../../engine/demoData.js'
 import { getAiConsent, useAiConsent } from '../../lib/aiConsent.jsx'
 import { analysisSummary } from '../../lib/tov.js'
@@ -36,7 +37,20 @@ export default function CloudStyleStep({
   const [error, setError] = useState(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [showInput, setShowInput] = useState(!tov)
+  /* Сколько публикаций лежит в архиве канала. Нужно только чтобы решить,
+     предлагать ли разбор по архиву: сам разбор делает сервер, он же и
+     берёт три последние публикации. */
+  const [archiveCount, setArchiveCount] = useState(0)
   const consent = useAiConsent()
+
+  useEffect(() => {
+    let alive = true
+    setArchiveCount(0)
+    api.posts.list(channel.id, { limit: 3 })
+      .then((payload) => { if (alive) setArchiveCount(itemsOf(payload).length) })
+      .catch(() => { /* архив недоступен — просто не предлагаем этот путь */ })
+    return () => { alive = false }
+  }, [channel.id])
 
   /* Профиль мог прийти из уже сохранённого состояния (перезагрузка
      страницы) — тогда сразу открываем результат, а не пустой ввод. */
@@ -73,6 +87,31 @@ export default function CloudStyleStep({
       return
     }
     consent.ask((granted) => setUseLlm(granted))
+  }
+
+  /**
+   * Разбор по архиву.
+   *
+   * `POST /tov/analyze` с пустым `texts` и `use_archive: true` берёт три
+   * последние публикации канала. Путь был в контракте с самого начала,
+   * но клиент всегда слал `use_archive: false`, а кнопка в архиве стояла
+   * за условием, которого никто не выполнял: архив обещали текстом и
+   * не давали.
+   */
+  const analyzeArchive = () => {
+    consent.ensure(async (granted) => {
+      setBusy(true)
+      setError(null)
+      try {
+        await onAnalyze({ texts: [], use_archive: true, use_llm: granted })
+        setShowInput(false)
+      } catch (analyzeError) {
+        setError(analyzeError)
+        if (analyzeError.code === 'ai_budget_exceeded') setUseLlm(false)
+      } finally {
+        setBusy(false)
+      }
+    })
   }
 
   const analyze = () => {
@@ -136,6 +175,18 @@ export default function CloudStyleStep({
               />
             </div>
           ))}
+
+          {archiveCount > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <Notice>
+                В архиве канала есть публикации. Профиль можно построить по трём последним —
+                это точнее, чем по текстам, вставленным руками.{' '}
+                <button type="button" className="btn btn-sm" onClick={analyzeArchive} disabled={busy}>
+                  {busy ? 'Разбираем…' : 'Разобрать по архиву'}
+                </button>
+              </Notice>
+            </div>
+          )}
 
           <InlineError error={error} />
 
@@ -208,6 +259,14 @@ export default function CloudStyleStep({
               <button type="button" className="btn btn-sm" onClick={() => setEditorOpen(true)}>
                 Править правила
               </button>
+              {/* Второй вход в разбор по архиву: сюда попадают из «Архива
+                  постов», а форма ввода в этот момент свёрнута — профиль
+                  уже есть. Видно всегда ровно одну из двух кнопок. */}
+              {archiveCount > 0 && (
+                <button type="button" className="btn btn-sm btn-ghost" onClick={analyzeArchive} disabled={busy}>
+                  {busy ? 'Разбираем…' : 'Разобрать по архиву'}
+                </button>
+              )}
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => setShowInput(true)}>
                 Разобрать заново
               </button>

@@ -381,9 +381,10 @@ export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
 
             {onAnalyzeArchive && (
               <Notice>
-                В архиве есть материал — профиль стиля можно построить по нему.{' '}
-                <button type="button" className="btn btn-sm btn-ghost" onClick={onAnalyzeArchive}>
-                  Разобрать стиль по архиву
+                В архиве есть материал — профиль стиля можно построить по нему,
+                не вставляя тексты руками.{' '}
+                <button type="button" className="btn btn-sm" onClick={onAnalyzeArchive}>
+                  Перейти к разбору стиля
                 </button>
               </Notice>
             )}
