@@ -72,8 +72,7 @@ export default function CloudNotesStep({
           </div>
 
           <textarea
-            className="ta"
-            style={{ minHeight: 260 }}
+            className="ta ta-notes"
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             placeholder={mode === 'notes'
