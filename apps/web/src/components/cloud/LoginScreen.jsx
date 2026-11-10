@@ -152,7 +152,10 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
         <div className="card-head">
           <div>
             <h2>Что даёт облако</h2>
-            <p>Локальный режим остаётся доступен в любой момент — переключатель в шапке.</p>
+            <p>
+            Локальный режим доступен в любой момент: сейчас — кнопкой «Работать локально»
+            слева, после входа — внизу боковой панели.
+          </p>
           </div>
         </div>
         <ul className="consent-list" style={{ marginTop: 0 }}>
