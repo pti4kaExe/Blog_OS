@@ -1765,3 +1765,18 @@ button.list-btn { width: 100%; }
   .toasts { right: var(--sp-4); left: var(--sp-4); bottom: var(--sp-4); align-items: stretch; }
   .toast { max-width: none; }
 }
+
+/* Служебное объяснение на экране входа: нужно тому, кто разворачивает
+   проект, и мешает тому, кто просто хочет войти. Поэтому под складкой. */
+.login-tech { margin-top: var(--sp-4); }
+.login-tech > summary {
+  cursor: pointer; width: fit-content;
+  font-size: var(--t-footnote-size); color: var(--label-secondary);
+  padding: var(--sp-1) 0;
+}
+.login-tech > summary:hover { color: var(--label-primary); }
+.login-tech > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.login-tech p {
+  font-size: var(--t-footnote-size); color: var(--label-secondary);
+  margin: var(--sp-2) 0 0; max-width: var(--measure);
+}
