@@ -14,6 +14,7 @@ import {
 } from '../ui.jsx'
 import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { AnimatePresence } from 'motion/react'
+import { AiWait } from '../ui/AiWait.jsx'
 import { Reveal, ResultReveal, Stagger } from '../ui/Motion.jsx'
 
 const CATEGORY_ORDER = ['cliche', 'logic', 'tov', 'clarity']
@@ -513,6 +514,7 @@ export default function CloudCheckStep({
           </button>
           <button type="button" className="btn btn-ghost" onClick={onBack} disabled={lintBusy}>← К черновику</button>
         </div>
+        <AiWait active={lintBusy} ai={useLlm} />
 
         <div className="card-head mb-2">
           <div><h2 style={{ fontSize: 15 }}>Текст с пометками</h2></div>

@@ -3,7 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Иконка сайта: SVG — для современных браузеров, PNG и ICO — для Safari,
+         закладок и установки на телефон. Отдельные файлы нужны потому, что часть
+         браузеров не умеет SVG-иконки вовсе. -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Превью ссылки: Telegram, Slack и соцсети берут картинку отсюда.
+         Адрес абсолютный — краулеры не открывают относительные пути. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="BlogOS" />
+    <meta property="og:title" content="BlogOS — пост в вашем стиле, проверенный до публикации" />
+    <meta property="og:description" content="Собирает пост из сырых заметок в авторском стиле и проверяет черновик на клише, логические ошибки и отклонения от Tone of Voice." />
+    <meta property="og:url" content="https://pti4kaexe.github.io/Blog_OS/" />
+    <meta property="og:image" content="https://pti4kaexe.github.io/Blog_OS/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="BlogOS — пост в вашем стиле" />
+    <meta name="twitter:description" content="Пост из сырых заметок в авторском стиле, проверенный до публикации." />
+    <meta name="twitter:image" content="https://pti4kaexe.github.io/Blog_OS/og-image.png" />
 
     <!-- Гарнитуры продукта. Lora — заголовки и крупные числа: редакторская
          антиква с полной кириллицей, то, что отличает рабочий инструмент

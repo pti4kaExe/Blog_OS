@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { splitFragments } from '../../engine/narrative.js'
-import { useAiConsent } from '../../lib/aiConsent.jsx'
+import { getAiConsent, useAiConsent } from '../../lib/aiConsent.jsx'
 import { CLOUD_ARCS, plural } from '../../lib/format.js'
 import { InlineError, Notice } from '../ui.jsx'
+import { AiWait } from '../ui/AiWait.jsx'
 import { useArcPick } from '../ui/Motion.jsx'
 import DraftsList from './DraftsList.jsx'
 
@@ -31,9 +32,22 @@ export default function CloudNotesStep({
 
   const fragments = splitFragments(notes)
 
+  /**
+   * В режиме «заметки» нужна хотя бы пара мыслей (движку есть из чего строить
+   * арку). В режиме «готовый черновик» хватает одного текста: автор уже написал
+   * его сам, сохранение не должно блокироваться количеством строк.
+   */
+  const canBuild = mode === 'draft' ? notes.trim().length > 0 : fragments.length >= 2
+
   const build = () => {
-    if (fragments.length < 2) {
-      setLocalError({ code: 'validation_error', message: 'Нужны хотя бы две заметки — по одной мысли в строке.' })
+    if (!canBuild) {
+      setLocalError({
+        code: 'validation_error',
+        message:
+          mode === 'draft'
+            ? 'Вставьте текст черновика — сохранять пока нечего.'
+            : 'Нужны хотя бы две заметки — по одной мысли в строке.',
+      })
       return
     }
     setLocalError(null)
@@ -88,7 +102,7 @@ export default function CloudNotesStep({
               type="button"
               className="btn btn-primary"
               onClick={build}
-              disabled={generating || fragments.length < 2}
+              disabled={generating || !canBuild}
             >
               {generating ? 'Собираем черновик…' : mode === 'notes' ? 'Собрать черновик' : 'Сохранить как черновик'}
             </button>
@@ -104,6 +118,7 @@ export default function CloudNotesStep({
               {fragments.length} {plural(fragments.length, 'фрагмент', 'фрагмента', 'фрагментов')} · сохраняется на сервере
             </span>
           </div>
+          <AiWait active={generating} ai={getAiConsent() === 'granted'} label="Собираем черновик" />
         </section>
 
         <section className="card">

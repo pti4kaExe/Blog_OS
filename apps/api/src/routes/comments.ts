@@ -8,6 +8,7 @@ import { ownComment, ownSource } from '../repositories/access.ts'
 import * as comments from '../repositories/comments.ts'
 import * as sources from '../repositories/sources.ts'
 import {
+  DiscussionsUnavailableError,
   PlatformError,
   scanPlatform,
   type PlatformName,
@@ -87,6 +88,22 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
     try {
       scanned = await scanPlatform(platform, String(source.source_url), body.limit)
     } catch (error) {
+      // Обсуждения технически недоступны (у Telegram отключён публичный виджет):
+      // это не сбой площадки и не «ничего не найдено». Отдаём 200 с причиной и
+      // подсказкой, чтобы интерфейс не врал автору.
+      if (error instanceof DiscussionsUnavailableError) {
+        await sources.markScanFailed(sourceId, error.hint)
+        return reply.status(200).send({
+          source_id: sourceId,
+          found: 0,
+          created: 0,
+          duplicates: 0,
+          last_scanned_at: null,
+          status: 'unavailable',
+          reason: error.reason,
+          hint: error.hint,
+        })
+      }
       if (error instanceof AppError) throw error
       const platformName = error instanceof PlatformError ? error.platform : platform
       await sources.markScanFailed(

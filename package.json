@@ -32,7 +32,8 @@
     "db:migrate": "npm run db:migrate -w @blogos/api",
     "db:seed": "npm run db:seed -w @blogos/api",
     "db:reset": "npm run db:reset -w @blogos/api",
-    "verify": "npm run test && npm run build"
+    "verify": "npm run test && npm run build",
+    "check:web-assets": "node scripts/check-web-assets.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.2.17"

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import api from '../../api/client.js'
 import { apiErrorMessage, isOffline } from '../../lib/format.js'
 import { Field, InlineError, Loading, Notice, Tag, TextInput } from '../ui.jsx'
@@ -6,12 +6,16 @@ import VoiceMark from '../ui/VoiceMark.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
 
 /**
- * Экран входа в облачный режим.
+ * Экран входа в облачный режим. Три способа, по убыванию удобства:
  *
- * Если приложение открыто внутри Telegram, `window.Telegram.WebApp.initData`
- * есть на старте — вход выполняется автоматически через `POST /auth/telegram`.
- * Без Telegram остаётся dev-форма (`telegram_id`, имя): на сервере она работает
- * при `DEV_AUTH=1` (docs/DECISIONS.md, № 12).
+ *  1. Приложение открыто как Telegram Mini App — `initData` проверяется подписью.
+ *  2. Обычный браузер: «Войти через Telegram» → сайт получает одноразовый код →
+ *     человек нажимает Start в боте → сайт опрашивает статус и получает JWT.
+ *     Это работает на публичном сайте без Telegram внутри страницы.
+ *  3. Dev-вход (`telegram_id` + имя) — только если сервер отдал `dev_auth: true`.
+ *     Нужен для локальной проверки; на проде выключен.
+ *
+ * Доступные способы приходят из `GET /health`: `telegram_auth`, `dev_auth`.
  */
 export default function LoginScreen({ onLogin, onUseLocal }) {
   const [telegramId, setTelegramId] = useState('200600')
@@ -21,6 +25,28 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
   const [telegramAuto, setTelegramAuto] = useState('idle') // idle | trying | failed
   const autoStarted = useRef(false)
 
+  // Возможности сервера: пока не ответил — показываем dev-форму (локальная разработка).
+  const [capabilities, setCapabilities] = useState(null)
+  const [botState, setBotState] = useState('idle') // idle | waiting | expired
+  const [botLink, setBotLink] = useState(null) // {code, bot_url, expires_at}
+  const [secondsLeft, setSecondsLeft] = useState(0)
+  const [copied, setCopied] = useState(false)
+  const pollTimer = useRef(null)
+  const deadlineRef = useRef(0)
+  const [healthKey, setHealthKey] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    // Таймаут с запасом на пробуждение бесплатного хостинга (30–60 с).
+    // Фолбэк — «сервер недоступен», а не «dev-вход доступен»: иначе на проде,
+    // где dev-вход выключен, показывалась форма, которая не могла войти.
+    api.health(20000)
+      .then((result) => { if (!cancelled) setCapabilities(result) })
+      .catch(() => { if (!cancelled) setCapabilities({ telegram_auth: false, dev_auth: false, unavailable: true }) })
+    return () => { cancelled = true }
+  }, [healthKey])
+
+  // Автоматический вход внутри Telegram.
   useEffect(() => {
     const initData = window.Telegram?.WebApp?.initData
     if (!initData || autoStarted.current) return
@@ -35,6 +61,83 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
         setBusy(false)
       })
   }, [onLogin])
+
+  const stopPolling = useCallback(() => {
+    if (pollTimer.current) {
+      clearInterval(pollTimer.current)
+      pollTimer.current = null
+    }
+  }, [])
+
+  useEffect(() => stopPolling, [stopPolling])
+
+  const startBotLogin = async () => {
+    setError(null)
+    setBusy(true)
+    try {
+      const link = await api.auth.startTelegramLogin()
+      setBotLink(link)
+      setBotState('waiting')
+      deadlineRef.current = new Date(link.expires_at).getTime()
+      setSecondsLeft(Math.max(0, Math.round((deadlineRef.current - Date.now()) / 1000)))
+      window.open(link.bot_url, '_blank', 'noopener,noreferrer')
+      beginPolling(link.code)
+    } catch (startError) {
+      setError(startError)
+      setBusy(false)
+    }
+  }
+
+  const beginPolling = (code) => {
+    stopPolling()
+    pollTimer.current = setInterval(async () => {
+      const left = Math.round((deadlineRef.current - Date.now()) / 1000)
+      setSecondsLeft(Math.max(0, left))
+      if (left <= 0) {
+        stopPolling()
+        setBotState('expired')
+        setBusy(false)
+        return
+      }
+      try {
+        const result = await api.auth.telegramLoginStatus(code)
+        if (result.status === 'confirmed' && result.token) {
+          stopPolling()
+          await onLogin({ token: result.token, user: result.user, expires_at: result.expires_at })
+        } else if (result.status === 'expired') {
+          stopPolling()
+          setBotState('expired')
+          setBusy(false)
+        }
+      } catch (pollError) {
+        // Сетевой сбой не прерывает ожидание: человек мог ещё не нажать Start.
+        if (!isOffline(pollError)) {
+          stopPolling()
+          setError(pollError)
+          setBusy(false)
+        }
+      }
+    }, 2000)
+  }
+
+  const cancelBotLogin = () => {
+    stopPolling()
+    setBotState('idle')
+    setBotLink(null)
+    setBusy(false)
+    setSecondsLeft(0)
+  }
+
+  const copyLink = async () => {
+    if (!botLink) return
+    try {
+      await navigator.clipboard.writeText(botLink.bot_url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setError({ code: 'clipboard_unavailable', message: 'Не удалось скопировать — выделите ссылку вручную' })
+    }
+  }
 
   const submit = async (event) => {
     event.preventDefault()
@@ -66,6 +169,10 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
     )
   }
 
+  const botAvailable = capabilities?.telegram_auth === true
+  const devAvailable = capabilities?.dev_auth !== false
+  const botUsername = capabilities?.telegram_bot_username ?? ''
+
   return (
     <>
       {/* Бренд-зона — единственное место, где движение работает на
@@ -87,85 +194,141 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
       <section className="card">
         <div className="card-head">
           <div>
-            <h2>Вход</h2>
+            <h2>Вход в облачный режим</h2>
             <p>Аккаунт создаётся при первом входе — отдельной регистрации нет.</p>
           </div>
         </div>
 
         {telegramAuto === 'failed' && (
-          <div className="mb-4">
+          <div style={{ marginBottom: 14 }}>
             <Notice kind="warn">
               Автоматический вход через Telegram не удался — {apiErrorMessage(error)}.
-              Открытая сессия продолжает работать. Можно войти по форме ниже.
+              Открытая сессия продолжает работать.
             </Notice>
           </div>
         )}
 
-        <form onSubmit={submit}>
-          <div className="form-grid">
-            {/* Имя первым: это единственное поле, которое человек
-                действительно про себя заполняет. Номер — служебный, и
-                стоит вторым. */}
-            <Field label="Как вас называть" hint="Так к вам будет обращаться интерфейс." htmlFor="login-name">
-              <TextInput
-                id="login-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Демо-автор"
-                autoComplete="off"
-              />
-            </Field>
-            <Field
-              label="Номер в Telegram"
-              hint="Отличает вас от других авторов. Для демонстрации подойдёт 200600."
-              htmlFor="login-telegram-id"
-            >
-              <TextInput
-                id="login-telegram-id"
-                inputMode="numeric"
-                value={telegramId}
-                onChange={(event) => setTelegramId(event.target.value)}
-                placeholder="200600"
-                autoComplete="off"
-              />
-            </Field>
+        {capabilities?.unavailable && (
+          <div style={{ marginBottom: 14 }}>
+            <Notice kind="warn">
+              Сервер не ответил — возможно, он просыпается после простоя: на бесплатном тарифе
+              это занимает до минуты. Подождите немного и проверьте снова.
+            </Notice>
+            <div className="btn-row" style={{ marginTop: 8 }}>
+              <button type="button" className="btn btn-sm" onClick={() => setHealthKey((key) => key + 1)}>
+                Проверить снова
+              </button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={onUseLocal}>
+                Работать локально
+              </button>
+            </div>
           </div>
+        )}
 
-          <InlineError error={error} />
-
-          <div className="btn-row mt-4">
-            <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? 'Входим…' : 'Войти'}
+        {botAvailable && botState !== 'waiting' && (
+          <div style={{ marginBottom: 18 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={startBotLogin}
+              disabled={busy}
+              style={{ width: '100%' }}
+            >
+              {busy ? 'Готовим ссылку…' : 'Войти через Telegram'}
             </button>
+            <p className="faint" style={{ marginTop: 8 }}>
+              Откроется чат с ботом{botUsername ? ` @${botUsername}` : ''} — нажмите в нём «Start»,
+              и вход завершится на сайте автоматически.
+            </p>
+            {botState === 'expired' && (
+              <p className="faint" style={{ marginTop: 4 }}>
+                Ссылка устарела — нажмите кнопку ещё раз.
+              </p>
+            )}
+          </div>
+        )}
+
+        {botState === 'waiting' && botLink && (
+          <div style={{ marginBottom: 18 }}>
+            <Notice kind="warn">
+              Ждём подтверждения в Telegram: осталось {secondsLeft} с. Откройте бота и нажмите
+              «Start».
+            </Notice>
+            <div className="btn-row" style={{ marginTop: 10 }}>
+              <a className="btn btn-primary" href={botLink.bot_url} target="_blank" rel="noreferrer">
+                Открыть бота
+              </a>
+              <button type="button" className="btn btn-ghost" onClick={copyLink}>
+                {copied ? 'Ссылка скопирована' : 'Скопировать ссылку'}
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={cancelBotLogin}>
+                Отменить
+              </button>
+            </div>
+          </div>
+        )}
+
+        {devAvailable && (
+          <>
+            <p className="faint" style={{ margin: '18px 0 10px' }}>или войти без бота</p>
+            <form onSubmit={submit}>
+              <div className="form-grid">
+                {/* Имя первым: это единственное поле, которое человек
+                    действительно про себя заполняет. Номер — служебный,
+                    и стоит вторым. */}
+                <Field label="Как вас называть" hint="Так к вам будет обращаться интерфейс." htmlFor="login-name">
+                  <TextInput
+                    id="login-name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Демо-автор"
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field
+                  label="Номер в Telegram"
+                  hint="Отличает вас от других авторов. Для демонстрации подойдёт 200600."
+                  htmlFor="login-telegram-id"
+                >
+                  <TextInput
+                    id="login-telegram-id"
+                    inputMode="numeric"
+                    value={telegramId}
+                    onChange={(event) => setTelegramId(event.target.value)}
+                    placeholder="200600"
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+
+              <InlineError error={error} />
+
+              <div className="btn-row" style={{ marginTop: 16 }}>
+                <button type="submit" className="btn btn-primary" disabled={busy || botState === 'waiting'}>
+                  {busy ? 'Входим…' : 'Войти без бота'}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={onUseLocal}>
+                  Работать локально
+                </button>
+              </div>
+
+              {error && isOffline(error) && (
+                <p className="faint" style={{ marginTop: 10 }}>
+                  Облачный сервер не отвечает. Локальный режим работает без сети — все четыре шага и
+                  CommentRadar считаются в браузере.
+                </p>
+              )}
+            </form>
+          </>
+        )}
+
+        {!devAvailable && (
+          <div className="btn-row" style={{ marginTop: 16 }}>
             <button type="button" className="btn btn-ghost" onClick={onUseLocal}>
               Работать локально
             </button>
           </div>
-
-          {error && isOffline(error) && (
-            <p className="faint mt-3">
-              Облачный сервер не отвечает. Локальный режим работает без сети — все четыре шага и
-              CommentRadar считаются в браузере.
-            </p>
-          )}
-
-          {/* Служебное — под складку. Эта форма нужна только вне
-              Telegram: внутри него вход происходит сам. Объяснение
-              важно тому, кто разворачивает проект, и мешает тому,
-              кто просто хочет войти. */}
-          <details className="login-tech">
-            <summary>Почему здесь форма, а не кнопка Telegram</summary>
-            <p>
-              Внутри Telegram приложение узнаёт автора само и входит без единого вопроса.
-              В обычном браузере этого способа нет, поэтому остаётся форма: она создаёт
-              или находит автора по имени и номеру.
-            </p>
-            <p>
-              Сервер должен быть запущен с включённым входом по форме
-              (<code>DEV_AUTH=1</code>) — на рабочем сервере этот способ отключают.
-            </p>
-          </details>
-        </form>
+        )}
       </section>
 
       <section className="card">
@@ -173,9 +336,9 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           <div>
             <h2>Что даёт облако</h2>
             <p>
-            Локальный режим доступен в любой момент: сейчас — кнопкой «Работать локально»
-            слева, после входа — внизу боковой панели.
-          </p>
+              Локальный режим доступен в любой момент: сейчас — кнопкой «Работать локально»
+              слева, после входа — внизу боковой панели.
+            </p>
           </div>
         </div>
         <ul className="consent-list mt-0">
@@ -188,6 +351,9 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           <Tag>русский интерфейс</Tag>
           <Tag>AI — только с вашего согласия</Tag>
           <Tag>ключи остаются на сервере</Tag>
+        </div>
+        <div className="notice" style={{ marginTop: 14 }}>
+          Внутри Telegram вход произойдёт автоматически: страницу можно открыть как Mini App.
         </div>
       </section>
       </div>

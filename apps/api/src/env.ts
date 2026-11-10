@@ -73,7 +73,21 @@ const schema = z.object({
 
   JWT_SECRET: z.string().min(16, 'JWT_SECRET короче 16 символов — небезопасно'),
   DEV_AUTH: bool(true),
+
+  // ─── Вход через Telegram-бота ──────────────────────────────────────────────
   TELEGRAM_BOT_TOKEN: z.string().optional().default(''),
+  TELEGRAM_BOT_USERNAME: z.string().optional().default(''),
+  // Секрет webhook: Telegram присылает его в заголовке X-Telegram-Bot-Api-Secret-Token.
+  TELEGRAM_WEBHOOK_SECRET: z.string().optional().default(''),
+  // Публичный адрес API — из него собирается URL webhook для Telegram.
+  PUBLIC_API_URL: z.string().optional().default(''),
+  // Публичный адрес клиента — бот присылает его человеку после входа.
+  PUBLIC_WEB_URL: z.string().optional().default(''),
+  // Сколько живёт код входа. Короткий срок — потому что код одноразовый.
+  LOGIN_CODE_TTL_MINUTES: int(10, 1, 120),
+  // Применять миграции при старте: нужно на бесплатном Render, где нет
+  // preDeployCommand. Для одного инстанса безопасно.
+  RUN_MIGRATIONS_ON_START: bool(false),
 
   LLM_PROVIDER: z.enum(['mock', 'deepseek', 'openai']).default('mock'),
   DEEPSEEK_API_KEY: z.string().optional().default(''),
@@ -82,7 +96,10 @@ const schema = z.object({
   OPENAI_API_KEY: z.string().optional().default(''),
   OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
-  LLM_TIMEOUT_MS: int(45_000, 1_000, 600_000),
+  LLM_TIMEOUT_MS: int(90_000, 1_000, 600_000),
+  // Минимальный max_tokens для ответа. Рассуждающие модели тратят часть лимита
+  // на reasoning, и при малом значении финальный ответ приходит пустым.
+  LLM_MAX_TOKENS_FLOOR: int(8192, 128, 32_000),
   // 1 — mock-провайдер всегда «падает»: проверка отката на правила в тестах и демо.
   LLM_MOCK_FAIL: bool(false),
 

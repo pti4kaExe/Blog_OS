@@ -12,9 +12,14 @@
 import './vite-preload.mjs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { checkWebAssets } from './check-web-assets.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = resolve(here, '../apps/web')
+
+// Сначала проверка адресов статики: абсолютный `/logo.svg` в JSX ломается
+// в подпапке GitHub Pages (был битый логотип в шапке — см. check-web-assets.mjs).
+if (checkWebAssets().length > 0) process.exit(1)
 
 const { build } = await import('vite')
 

@@ -2,7 +2,7 @@
  * Проверка контракта сервера без сети и без фоновых процессов:
  *   - применяет миграции на чистой in-memory базе;
  *   - собирает приложение;
- *   - считает зарегистрированные доменные методы (по ТЗ — 59 в корне
+ *   - считает зарегистрированные методы (59 доменных + 3 входа через бота)
  *     и столько же под алиасом /api/v1);
  *   - дёргает /health и несколько ключевых методов через app.inject().
  *
@@ -68,7 +68,7 @@ const domainRoutes = routes.filter(
 const aliasRoutes = routes.filter((r) => r.path.startsWith('/api/v1'))
 
 console.log(`маршрутов всего: ${routes.length}`)
-console.log(`доменных в корне: ${domainRoutes.length} (по контракту 59)`)
+console.log(`методов в корне: ${domainRoutes.length} (59 доменных + 3 входа через бота = 62)`)
 console.log(`алиас /api/v1: ${aliasRoutes.length}`)
 
 const groups = new Map()
@@ -103,9 +103,9 @@ console.log('GET /api/v1/users/me (алиас, без токена) →', aliasH
 await app.close()
 await closeDb()
 
-if (rootMethods !== 59) {
-  console.error(`\nРАСХОЖДЕНИЕ: методов ${rootMethods}, по контракту 59`)
+if (rootMethods !== 62) {
+  console.error(`\nРАСХОЖДЕНИЕ: методов ${rootMethods}, ожидается 62`)
   process.exitCode = 1
 } else {
-  console.log('\nКонтракт выполнен: 59 доменных методов.')
+  console.log('\nКонтракт выполнен: 62 метода (59 доменных + 3 входа через бота).')
 }

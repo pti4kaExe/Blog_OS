@@ -17,7 +17,12 @@
 
 const DEFAULT_BASE = 'http://localhost:3000'
 export const TOKEN_KEY = 'blogos.token.v1'
-const DEFAULT_TIMEOUT = 20000
+// Обычные запросы. Учитываем холодный старт бесплатного Render: сервис
+// просыпается 30–60 секунд, поэтому 20 с мало даже для списков.
+const DEFAULT_TIMEOUT = 45000
+// Вызовы с моделью: бесплатная рассуждающая модель отвечает 7–43 секунды,
+// плюс возможное пробуждение сервиса. Меньший таймаут обрывает работу кнопки.
+const AI_TIMEOUT = 120000
 
 /** Адрес API: `VITE_API_URL` из .env, по умолчанию локальный сервер. */
 export const API_BASE = String(
@@ -95,7 +100,7 @@ function networkError(timedOut) {
     code: timedOut ? 'timeout' : 'network_error',
     offline: true,
     message: timedOut
-      ? 'Сервер не ответил за 20 секунд'
+      ? 'Сервер не ответил вовремя. Бесплатный хостинг мог уснуть — подождите полминуты и повторите: работа не потеряна.'
       : 'Сервер недоступен',
   })
 }
@@ -215,13 +220,19 @@ export const api = {
   token: { get: getToken, set: setToken, clear: clearToken },
   itemsOf,
 
-  /** Служебная проверка доступности сервера (для баннера «облако недоступно»). */
-  async health(timeout = 6000) {
+  /**
+   * Служебная проверка доступности сервера (для баннера «облако недоступно»).
+   *
+   * Таймаут не 6 секунд, как было: бесплатный Render просыпается 30–60 секунд,
+   * и короткая проверка показывала «сервер недоступен» новым посетителям,
+   * хотя сервер просто спал.
+   */
+  async health(timeout = 15000) {
     return request('GET', '/health', { timeout })
   },
 
   /** Проверяет, что сервер отвечает. Не падает: возвращает {reachable, error}. */
-  async probe(timeout = 6000) {
+  async probe(timeout = 15000) {
     try {
       await request('GET', '/health', { timeout })
       return { reachable: true, error: null }
@@ -231,10 +242,14 @@ export const api = {
     }
   },
 
-  /* 1. Вход и пользователь — 4 метода */
+  /* 1. Вход и пользователь — 4 метода + 3 метода входа через бота */
   auth: {
     /** `{initData}` для Telegram или `{telegram_id, name}` в DEV_AUTH=1. */
     telegram: (body) => post('/auth/telegram', body),
+    /** Одноразовый код и ссылка на бота: `{code, bot_url, expires_at}`. */
+    startTelegramLogin: () => post('/auth/telegram/start', {}),
+    /** Опрос статуса: `{status: pending|confirmed|expired, token?, user?}`. */
+    telegramLoginStatus: (code) => get('/auth/telegram/status', { code }),
   },
   users: {
     me: () => get('/users/me'),
@@ -256,7 +271,7 @@ export const api = {
   tov: {
     get: (profileId) => get(`/author-profiles/${id(profileId)}/tov`),
     put: (profileId, body) => put(`/author-profiles/${id(profileId)}/tov`, body),
-    analyze: (profileId, body) => post(`/author-profiles/${id(profileId)}/tov/analyze`, body),
+    analyze: (profileId, body) => post(`/author-profiles/${id(profileId)}/tov/analyze`, body, { timeout: AI_TIMEOUT }),
   },
 
   /* 4. Посты — 6 методов */
@@ -266,7 +281,7 @@ export const api = {
     get: (profileId, postId) => get(`/author-profiles/${id(profileId)}/posts/${id(postId)}`),
     update: (profileId, postId, body) => patch(`/author-profiles/${id(profileId)}/posts/${id(postId)}`, body),
     remove: (profileId, postId) => del(`/author-profiles/${id(profileId)}/posts/${id(postId)}`),
-    import: (profileId, body) => post(`/author-profiles/${id(profileId)}/posts/import`, body),
+    import: (profileId, body) => post(`/author-profiles/${id(profileId)}/posts/import`, body, { timeout: AI_TIMEOUT }),
   },
 
   /* 5. Черновики — 7 методов */
@@ -276,7 +291,7 @@ export const api = {
     get: (draftId) => get(`/drafts/${id(draftId)}`),
     update: (draftId, body) => patch(`/drafts/${id(draftId)}`, body),
     remove: (draftId) => del(`/drafts/${id(draftId)}`),
-    generate: (profileId, body) => post(`/author-profiles/${id(profileId)}/drafts/generate`, body),
+    generate: (profileId, body) => post(`/author-profiles/${id(profileId)}/drafts/generate`, body, { timeout: AI_TIMEOUT }),
     publish: (draftId, body) => post(`/drafts/${id(draftId)}/publish`, body || {}),
   },
 
@@ -293,7 +308,7 @@ export const api = {
 
   /* 6. Проверка — 3 метода */
   lint: {
-    run: (draftId, body) => post(`/drafts/${id(draftId)}/lint`, body),
+    run: (draftId, body) => post(`/drafts/${id(draftId)}/lint`, body, { timeout: AI_TIMEOUT }),
     reports: (draftId, query) => get(`/drafts/${id(draftId)}/lint-reports`, query),
     getReport: (reportId) => get(`/lint-reports/${id(reportId)}`),
   },
@@ -314,7 +329,7 @@ export const api = {
     get: (commentId) => get(`/comments/${id(commentId)}`),
     update: (commentId, body) => patch(`/comments/${id(commentId)}`, body),
     remove: (commentId) => del(`/comments/${id(commentId)}`),
-    scan: (sourceId, body) => post(`/sources/${id(sourceId)}/comments/scan`, body || {}),
+    scan: (sourceId, body) => post(`/sources/${id(sourceId)}/comments/scan`, body || {}, { timeout: AI_TIMEOUT }),
   },
 
   /* 9. Варианты ответа — 6 методов */
@@ -324,7 +339,7 @@ export const api = {
     get: (responseId) => get(`/responses/${id(responseId)}`),
     update: (responseId, body) => patch(`/responses/${id(responseId)}`, body),
     remove: (responseId) => del(`/responses/${id(responseId)}`),
-    generate: (commentId, body) => post(`/comments/${id(commentId)}/responses/generate`, body || {}),
+    generate: (commentId, body) => post(`/comments/${id(commentId)}/responses/generate`, body || {}, { timeout: AI_TIMEOUT }),
   },
 
   /* 10. База знаний — 6 методов */

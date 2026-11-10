@@ -188,19 +188,48 @@ curl -s -I -H "Origin: <client-url>" <api-url>/health | findstr /i access-contro
 
 ## 6. Вход на проде
 
-`DEV_AUTH=0`, поэтому вход — только через Telegram `initData`.
+Два способа, оба дают один и тот же JWT на 30 дней.
 
-1. Создайте бота у [@BotFather](https://t.me/BotFather) (если ещё нет).
-2. `/newapp` → выберите бота → укажите URL `<client-url>` (HTTPS).
-3. `TELEGRAM_BOT_TOKEN` положите в Render → Environment как secret. После
-   изменения переменных сервис перезапустится.
-4. Откройте мини-приложение из Telegram: клиент передаёт `initData` автоматически
-   (`window.Telegram.WebApp.initData`), сервер проверяет HMAC-SHA256 и выдаёт JWT
-   на 30 дней.
+### 6.1. Вход через Telegram-бота (основной для браузера)
 
-Для скриншотов без Telegram допустим временный dev-вход: поставьте на Render
-`DEV_AUTH=1`, войдите через форму (`telegram_id` + имя), затем **обязательно**
-верните `DEV_AUTH=0`. В логах и на скриншотах отмечайте, что это dev-режим.
+Схема: сайт выдаёт одноразовый код → человек нажимает Start в боте → бот
+подтверждает код через webhook → сайт опрашивает статус и получает токен.
+
+1. Создайте бота у [@BotFather](https://t.me/BotFather): `/newbot` → имя → username
+   (например `blogos_login_bot`). Запишите **токен** и **username**.
+2. В Render → Environment добавьте:
+
+   | Переменная | Значение |
+   |---|---|
+   | `TELEGRAM_BOT_TOKEN` | токен из BotFather |
+   | `TELEGRAM_BOT_USERNAME` | username без `@` |
+   | `TELEGRAM_WEBHOOK_SECRET` | случайная строка, например `openssl rand -hex 24` |
+   | `PUBLIC_API_URL` | `<api-url>` (без слэша на конце) |
+   | `PUBLIC_WEB_URL` | `<client-url>` |
+   | `RUN_MIGRATIONS_ON_START` | `1` — на free-плане нет preDeployCommand |
+   | `DEV_AUTH` | `0` — после того как вход через бота проверен |
+
+3. Перезапустите сервис (изменение переменных само вызывает деплой). В логах
+   должна появиться строка `Telegram webhook: <api-url>/telegram/webhook`.
+   Если её нет — проверьте `PUBLIC_API_URL` и токен.
+4. Проверка: на сайте «Войти через Telegram» → откроется бот → Start → сайт
+   сам войдёт. Статус webhook можно проверить у Telegram:
+   `https://api.telegram.org/bot<токен>/getWebhookInfo` (поле `last_error_message`
+   должно быть пустым).
+5. После успешной проверки **выключите `DEV_AUTH`**: пока он включён, любой может
+   войти по `telegram_id` и имени.
+
+### 6.2. Вход внутри Telegram (Mini App)
+
+1. `/newapp` → выберите бота → укажите URL `<client-url>` (HTTPS).
+2. Откройте мини-приложение из Telegram: клиент передаёт `initData` автоматически
+   (`window.Telegram.WebApp.initData`), сервер проверяет HMAC-SHA256.
+3. Кнопка меню бота открывает клиент как Mini App (можно поставить через
+   `/setmenubutton` в BotFather или `setChatMenuButton` в API).
+
+Если нужен временный dev-вход для скриншотов: `DEV_AUTH=1`, форма
+(`telegram_id` + имя), затем **обязательно** вернуть `DEV_AUTH=0` и отметить
+в материалах, что это dev-режим.
 
 ## 7. Прогрев перед демонстрацией
 
@@ -336,10 +365,10 @@ curl -s "<api-url>/generation-runs?limit=5" -H "Authorization: Bearer <token>"
 - `npm run db:reset` — схема пересоздана, 14 таблиц;
 - `npm run db:seed` — демо-данные (2 пользователя, 4 канала, 10 эталонов, посты, комментарии, векторы);
 - `npm run test:engine` — 49 из 49;
-- `npm run test:api` — 93 из 93 на PGlite в памяти;
+- `npm run test:api` — 109 из 109 на PGlite в памяти (включая 9 тестов входа через бота);
 - `npm run test:e2e` — 57 из 57 по HTTP на PGlite в памяти;
-- `npm run test:db` — 14 таблиц, 17 внешних ключей, каскады/триггеры/HNSW;
-- `npm run test:contract` — 11 проверок, включая 59 операций OpenAPI;
+- `npm run test:db` — 14 доменных таблиц (+ `login_codes`, `_migrations`), 17 внешних ключей, каскады/триггеры/HNSW;
+- `npm run test:contract` — 11 проверок, включая 62 операции OpenAPI;
 - `npm run typecheck` — без ошибок;
 - `npm run build` — `apps/web/dist` и `apps/api/dist`;
 - `npm run start` — запуск собранного API, `GET /health` → 200 (`db: ok`);
@@ -347,13 +376,17 @@ curl -s "<api-url>/generation-runs?limit=5" -H "Authorization: Bearer <token>"
   `author-profiles/{id}/usage`, алиас `/api/v1/...`, `golden-dataset` → 200;
 - `render.yaml`, `vercel.json`, `.github/workflows/ci.yml`, `Dockerfile` —
   статическая проверка структуры/ключей и путей (YAML разобран, JSON валиден,
-  источники `COPY` существуют).
+  источники `COPY` существуют);
+- **живой вход через бота** (проверено на проде 5 ноября 2026): `POST /auth/telegram/start`
+  → `201` с ссылкой на @blogos_login_bot, webhook зарегистрирован Telegram без ошибок
+  (`getWebhookInfo.last_error_message` пуст), подтверждение кода через webhook → статус
+  `confirmed` → `/users/me` с полученным JWT → `200`; после `DEV_AUTH=0` dev-вход отвечает
+  `400 dev_auth_disabled`.
 
-Не проверено (нет внешней сети/Docker-демона в среде подготовки): реальный деплой
-Render/Vercel, сборка `Dockerfile`, работа с живыми ключами Neon/Telegram/LLM и
-площадок, а также `node --watch` (в песочнице запрещён запуск дочернего процесса —
-использован прямой `node apps/api/src/server.ts`). Эти шаги выполняются по
-инструкции выше; результаты проверок фиксируйте в issue/отчёте, а не в README.
+Не проверено в среде подготовки: реальный деплой Render/Vercel, сборка `Dockerfile`,
+работа с живыми ключами Telegram/LLM и площадок, а также `node --watch` (в песочнице
+запрещён запуск дочернего процесса — использован прямой `node apps/api/src/server.ts`).
+Эти шаги выполняются по инструкции выше.
 
 ## 14. Справочные ограничения бесплатных тарифов
 
@@ -364,3 +397,39 @@ Render/Vercel, сборка `Dockerfile`, работа с живыми ключ�
 | Neon free | 1 ГБ хранилища на проект, 100 CU-часов в месяц; вычисления останавливаются через ~5 минут простоя; история восстановления — 6 часов; 10 ветвей на проект. Есть пулер соединений |
 | Render free | web service засыпает после ~15 минут простоя и просыпается около минуты; 750 free instance hours в месяц; откат — только к двум последним предыдущим деплоям; нет `preDeployCommand`, Shell, one-off jobs и дисков |
 | Vercel Hobby | статика в пределах лимитов тарифа: одна параллельная сборка, до 45 минут на сборку, 100 деплоев в сутки; домены `*.vercel.app` и preview-домены на каждый деплой (их нужно учитывать в `CORS_ORIGIN`) |
+
+## 15. Фактическое развёртывание BlogOS
+
+Развёрнуто 5 ноября 2026 на бесплатных тарифах. Эти данные — состояние на момент
+деплоя; при переезде обновляйте раздел.
+
+| Компонент | Значение |
+|---|---|
+| Клиент | GitHub Pages: https://pti4kaexe.github.io/Blog_OS/ (workflow `deploy-pages.yml`, сборка с `main`) |
+| API | Render, сервис `blogos-api`, id `srv-dbm839t6e07s73beht00`, регион `virginia`, план `free`: https://blogos-api-shlm.onrender.com |
+| База | Neon, проект `summer-night-83571170` (организация управляется через Vercel), отдельная база `blogos`, PostgreSQL 17, pgvector 0.8.0. Новые проекты Neon по API недоступны — поэтому база создана внутри существующего проекта |
+| Переменная клиента | GitHub → Settings → Secrets and variables → Actions → Variables: `VITE_API_URL=https://blogos-api-shlm.onrender.com` |
+| Вход | **через Telegram-бота @blogos_login_bot**, `DEV_AUTH=0`: сайт → «Войти через Telegram» → Start в боте → JWT. Одноразовые коды живут 10 минут. Демо-аккаунты 200600/100500 остались в базе, но вход под ними возможен только с их Telegram-аккаунтов |
+| AI | `LLM_PROVIDER=openai` + OpenRouter, модель `dots-studio/dots-3-note-preview:free`; ключ хранится в переменных Render |
+| Эмбеддинги | `EMBEDDINGS_PROVIDER=mock` — RAG работает, но не семантически |
+
+Порядок, которым это было сделано (он же — воспроизведение):
+
+1. Neon: база `blogos` в проекте, `pgvector` включён.
+2. Локально с `DATABASE_URL` облачной базы: `npm run db:migrate`, `npm run db:seed`.
+3. Render: сервис создан через API (`POST /v1/services`), переменные — отдельным
+   запросом `PUT /v1/services/{id}/env-vars` (в теле создания сервиса они не
+   применяются — проверено), затем `POST /v1/services/{id}/deploys`.
+4. GitHub: переменная `VITE_API_URL` и ручной запуск `deploy-pages.yml`.
+5. Проверки: `/health` → 200, CORS с `https://pti4kaexe.github.io`, dev-вход,
+   сквозной сценарий `node scripts/smoke-http.mjs` с `API_URL` на Render — 19/19,
+   AI-вызовы в облаке (`rules+llm`), адрес API присутствует в бандле клиента.
+
+Ключи, которыми создавались ресурсы (Neon API, Render API), после деплоя
+рекомендуется отозвать: Neon → Settings → API keys, Render → Account Settings →
+API Keys. Для повторного деплоя нужен новый ключ.
+
+Особенности free-тарифов, которые заметны на демонстрации: Render засыпает после
+~15 минут простоя (первый запрос 30–60 с), AI отвечает 7–43 с, Pages отдаёт только
+статику (бэкенд — на Render).
+

@@ -107,17 +107,24 @@ const EXPECTED_TABLES = [
   'users',
 ]
 
+// Служебные таблицы вне 14 доменных: журнал миграций и одноразовые коды входа.
+// Вторая появилась с входом через Telegram-бота (миграция 003).
+const SERVICE_TABLES = ['_migrations', 'login_codes']
+
 const tables = (await q(
   `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`,
 )).map((r) => r.tablename)
 
+const domainTables = tables.filter((t) => !SERVICE_TABLES.includes(t))
+const extraTables = domainTables.filter((t) => !EXPECTED_TABLES.includes(t))
+
 record(
-  'Ровно 14 таблиц',
-  '14 таблиц: ' + EXPECTED_TABLES.join(', '),
-  `${tables.length} таблиц: ${tables.join(', ')}`,
-  tables.length === 14 && EXPECTED_TABLES.every((t) => tables.includes(t)),
-  tables.filter((t) => !EXPECTED_TABLES.includes(t)).length
-    ? `Лишние: ${tables.filter((t) => !EXPECTED_TABLES.includes(t)).join(', ')}`
+  'Ровно 14 доменных таблиц (+ служебные _migrations, login_codes)',
+  '14 доменных: ' + EXPECTED_TABLES.join(', '),
+  `${tables.length} всего, из них доменных ${domainTables.length}: ${domainTables.join(', ')}`,
+  domainTables.length === 14 && EXPECTED_TABLES.every((t) => domainTables.includes(t)),
+  extraTables.length
+    ? `Лишние доменные таблицы: ${extraTables.join(', ')}`
     : 'Состав совпадает',
 )
 
@@ -964,15 +971,19 @@ group('6. Идемпотентность DDL и служебные катало�
   }
   const after = await one(
     `SELECT (SELECT count(*)::int FROM pg_tables WHERE schemaname='public') AS tables,
+            (SELECT count(*)::int FROM pg_tables
+              WHERE schemaname='public' AND tablename <> ALL(ARRAY['_migrations','login_codes'])) AS domain_tables,
             (SELECT count(*)::int FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
               JOIN pg_namespace n ON n.oid=t.relnamespace
               WHERE c.contype='f' AND n.nspname='public') AS fks`,
   )
   record(
-    'Повторное применение db/sql/001 + 002 (идемпотентность)',
-    'повторный запуск не падает; 14 таблиц и 17 FK остаются',
-    reapplyError ? `ошибка: ${reapplyError}` : `повторный запуск прошёл: ${JSON.stringify(after)}`,
-    !reapplyError && Number(after.tables) === 14 && Number(after.fks) === 17,
+    'Повторное применение всех миграций (идемпотентность)',
+    'повторный запуск не падает; 14 доменных таблиц + служебные и 17 FK остаются',
+    reapplyError
+      ? `ошибка: ${reapplyError}`
+      : `повторный запуск прошёл: ${JSON.stringify(after)}`,
+    !reapplyError && Number(after.domain_tables) === 14 && Number(after.fks) === 17,
     reapplyError ?? undefined,
   )
 }

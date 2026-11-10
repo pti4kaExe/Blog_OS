@@ -12,6 +12,7 @@ import { env, isProd } from './env.ts'
 import { AppError, fromPostgresError, fromZodError } from './errors.ts'
 import { registerRoutes } from './routes/index.ts'
 import { pingDb } from './db.ts'
+import { botUsername, telegramLoginConfigured } from './services/telegramBot.ts'
 
 export interface RegisteredRoute {
   method: string
@@ -82,6 +83,25 @@ export async function buildApp(): Promise<FastifyInstance> {
         },
       })
     }
+
+    // Остальные ошибки разбора запроса от Fastify (например, «тело пустое при
+    // content-type: application/json») — это ошибка клиента, а не сбой сервера:
+    // отдаём её 4xx с тем же конвертом, а не 500.
+    const fastifyStatus = (error as { statusCode?: unknown }).statusCode
+    if (
+      typeof fastifyStatus === 'number' &&
+      fastifyStatus >= 400 &&
+      fastifyStatus < 500 &&
+      !(error as { validation?: unknown }).validation
+    ) {
+      return reply.status(fastifyStatus).send({
+        error: {
+          code: 'validation_error',
+          message: 'Запрос сформирован неверно',
+          details: { reason: String((error as { code?: unknown }).code ?? 'bad_request') },
+        },
+      })
+    }
     request.log.error({ err: error }, 'необработанная ошибка')
     return reply.status(500).send({
       error: { code: 'internal', message: 'Внутренняя ошибка сервера', details: {} },
@@ -99,6 +119,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   })
 
   // Проверка живости: по ней Render и демонстрация прогревают холодный старт.
+  // Флаги входа отдаются клиенту, чтобы он показал только доступные способы.
   app.get('/health', async () => {
     const db = (await pingDb()) ? 'ok' : 'down'
     return {
@@ -108,6 +129,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       llm: env.LLM_PROVIDER,
       embeddings: env.EMBEDDINGS_PROVIDER,
       dev_auth: env.DEV_AUTH,
+      telegram_auth: telegramLoginConfigured(),
+      telegram_bot_username: telegramLoginConfigured() ? botUsername() : null,
       time: new Date().toISOString(),
     }
   })

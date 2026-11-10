@@ -66,7 +66,7 @@ export async function dbOne<T = Record<string, unknown>>(
 export async function api<T = Record<string, unknown>>(
   method: HttpMethod,
   url: string,
-  options: { token?: string; body?: unknown; query?: Record<string, unknown> } = {},
+  options: { token?: string; body?: unknown; query?: Record<string, unknown>; headers?: Record<string, string> } = {},
 ): Promise<ApiResponse<T>> {
   const instance = await bootstrap()
   let path = url
@@ -80,6 +80,7 @@ export async function api<T = Record<string, unknown>>(
   }
   const headers: Record<string, string> = {}
   if (options.token) headers.authorization = `Bearer ${options.token}`
+  if (options.headers) Object.assign(headers, options.headers)
   const response = await instance.inject({
     method,
     url: path,

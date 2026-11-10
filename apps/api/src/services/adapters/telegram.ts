@@ -1,13 +1,16 @@
 /**
  * Telegram-адаптер.
  *
- * Импорт постов — публичная веб-версия t.me/s/<channel> (без токена бота).
- * Сканирование обсуждений — публичные embed-страницы поста
- * t.me/<channel>/<id>?embed=1&discussion=1: у Bot API нет метода чтения
- * комментариев канала, поэтому текст обсуждения берётся из публичной версии
- * (условия живого Telegram проверяются при подключении — docs/DECISIONS.md).
- * Парсер устойчив к вёрстке tgme_widget_message и не тянет cheerio.
+ * Импорт постов — публичная веб-версия t.me/s/<channel> (работает без токена).
+ *
+ * Сканирование обсуждений: публичный виджет комментариев Telegram отключил
+ * (embed-страница поста отвечает «Comments Discussion is not available at the
+ * moment»), поэтому канал больше не отдаёт обсуждения публично. Адаптер это
+ * распознаёт и сообщает явной причиной — чтобы автор не видел ложное
+ * «обсуждений нет». Рабочий путь для обсуждений: бот, добавленный в чат
+ * (сообщения приходят через webhook), или ручное добавление комментариев.
  */
+import { DiscussionsUnavailableError } from './types.ts'
 import { fetchText, ensureHttpUrl } from './http.ts'
 import type {
   ImportedPost,
@@ -32,6 +35,15 @@ const ENTITIES: Record<string, string> = {
   '&#39;': "'",
   '&nbsp;': ' ',
 }
+
+/** Признак того, что Telegram выключил публичный виджет обсуждений. */
+const DISCUSSIONS_CLOSED = /Comments Discussion is not available at the moment/i
+
+export const DISCUSSIONS_UNAVAILABLE_REASON = 'telegram_discussions_closed'
+export const DISCUSSIONS_UNAVAILABLE_HINT =
+  'Telegram не отдаёт обсуждения канала публично: публичный виджет комментариев отключён. ' +
+  'Добавьте комментарии вручную или заведите источник-чат и добавьте в него бота — ' +
+  'тогда новые сообщения будут приходить в ленту автоматически.'
 
 function decodeEntities(value: string): string {
   return value
@@ -110,8 +122,8 @@ export class TelegramAdapter implements PlatformAdapter {
     const channel = parseChannel(options.sourceUrl)
     const html = await fetchText(`https://t.me/s/${channel}`)
     const posts = parseMessages(html).slice(0, Math.min(20, Math.max(options.limit, 1)))
-    const comments: ScannedComment[] = []
 
+    const comments: ScannedComment[] = []
     for (const post of posts) {
       const postId = post.dataPost.split('/')[1]
       if (!postId) continue
@@ -121,6 +133,15 @@ export class TelegramAdapter implements PlatformAdapter {
       } catch {
         // У поста может не быть обсуждения — это не отказ площадки.
         continue
+      }
+      // Telegram отвечает этой фразой, когда публичный виджет комментариев
+      // отключён. Повторять бессмысленно: причина не в конкретном посте.
+      if (DISCUSSIONS_CLOSED.test(embedHtml)) {
+        throw new DiscussionsUnavailableError(
+          'telegram',
+          DISCUSSIONS_UNAVAILABLE_REASON,
+          DISCUSSIONS_UNAVAILABLE_HINT,
+        )
       }
       for (const message of parseMessages(embedHtml)) {
         if (message.dataPost === post.dataPost) continue
