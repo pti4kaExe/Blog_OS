@@ -12,6 +12,7 @@ import {
 } from '../ui.jsx'
 import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { PanelReveal, Reveal, Stagger } from '../ui/Motion.jsx'
+import { useToast } from '../ui/Toasts.jsx'
 
 const PART_LABELS = {
   reference: 'отсылка к посту',
@@ -76,6 +77,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
 
   const [useLlm, setUseLlm] = useState(getAiConsent() === 'granted')
   const consent = useAiConsent()
+  const toast = useToast()
 
   /* Профиль стиля нужен для ранжирования ленты по темам автора (ТЗ, раздел 4).
      404 — профиль ещё не построен: лента тогда идёт в порядке сервера. */
@@ -381,6 +383,9 @@ export default function CloudRadarView({ channel, onUseLocal }) {
     }
   }
 
+  /* Сохранение правки ничего не меняет на экране: список перечитывается,
+     и текст в поле остаётся тем же. Без ответа человек не знает,
+     сохранилось ли, и жмёт кнопку ещё раз. */
   const saveResponseEdit = async (response) => {
     const text = edits[response.id] ?? ''
     if (!text.trim()) return
@@ -389,6 +394,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
     try {
       await api.responses.update(response.id, { edited_text: text })
       setResponsesKey((key) => key + 1)
+      toast('Правка ответа сохранена')
     } catch (error) {
       setResponseError({ id: response.id, error })
     } finally {
