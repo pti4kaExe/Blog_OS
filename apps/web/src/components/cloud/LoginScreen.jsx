@@ -87,7 +87,7 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
       <section className="card">
         <div className="card-head">
           <div>
-            <h2>Вход в облачный режим</h2>
+            <h2>Вход</h2>
             <p>Аккаунт создаётся при первом входе — отдельной регистрации нет.</p>
           </div>
         </div>
@@ -96,16 +96,28 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           <div style={{ marginBottom: 14 }}>
             <Notice kind="warn">
               Автоматический вход через Telegram не удался — {apiErrorMessage(error)}.
-              Открытая сессия продолжает работать. Можно войти dev-методом.
+              Открытая сессия продолжает работать. Можно войти по форме ниже.
             </Notice>
           </div>
         )}
 
         <form onSubmit={submit}>
           <div className="form-grid">
+            {/* Имя первым: это единственное поле, которое человек
+                действительно про себя заполняет. Номер — служебный, и
+                стоит вторым. */}
+            <Field label="Как вас называть" hint="Так к вам будет обращаться интерфейс." htmlFor="login-name">
+              <TextInput
+                id="login-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Демо-автор"
+                autoComplete="off"
+              />
+            </Field>
             <Field
-              label="Ваш ID в Telegram"
-              hint="Это dev-вход для разработки. Внутри Telegram вход происходит сам, без этой формы. Для демо подойдёт 200600."
+              label="Номер в Telegram"
+              hint="Отличает вас от других авторов. Для демонстрации подойдёт 200600."
               htmlFor="login-telegram-id"
             >
               <TextInput
@@ -114,15 +126,6 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
                 value={telegramId}
                 onChange={(event) => setTelegramId(event.target.value)}
                 placeholder="200600"
-                autoComplete="off"
-              />
-            </Field>
-            <Field label="Имя автора" hint="Так вас будет называть интерфейс." htmlFor="login-name">
-              <TextInput
-                id="login-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Демо-автор"
                 autoComplete="off"
               />
             </Field>
@@ -145,6 +148,23 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
               CommentRadar считаются в браузере.
             </p>
           )}
+
+          {/* Служебное — под складку. Эта форма нужна только вне
+              Telegram: внутри него вход происходит сам. Объяснение
+              важно тому, кто разворачивает проект, и мешает тому,
+              кто просто хочет войти. */}
+          <details className="login-tech">
+            <summary>Почему здесь форма, а не кнопка Telegram</summary>
+            <p>
+              Внутри Telegram приложение узнаёт автора само и входит без единого вопроса.
+              В обычном браузере этого способа нет, поэтому остаётся форма: она создаёт
+              или находит автора по имени и номеру.
+            </p>
+            <p>
+              Сервер должен быть запущен с включённым входом по форме
+              (<code>DEV_AUTH=1</code>) — на рабочем сервере этот способ отключают.
+            </p>
+          </details>
         </form>
       </section>
 
@@ -159,19 +179,15 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           </div>
         </div>
         <ul className="consent-list" style={{ marginTop: 0 }}>
-          <li>Профиль стиля и черновики сохраняются на сервере, а не только в браузере.</li>
-          <li>История проверок AntiCringe, сравнение с профилем стиля и публикация в архив.</li>
-          <li>CommentRadar сканирует реальные площадки: Telegram, Instagram, YouTube.</li>
-          <li>База знаний с RAG-поиском и журнал расходов на AI.</li>
+          <li>Профиль стиля, черновики и архив живут на сервере, а не в одном этом браузере.</li>
+          <li>История проверок: видно, как текст менялся от правки к правке.</li>
+          <li>CommentRadar следит за Telegram, Instagram и YouTube и приносит обсуждения по вашим темам.</li>
+          <li>Факты о вас, на которые опирается движок, чтобы не выдумывать цифры за вас.</li>
         </ul>
         <div className="tags" style={{ marginTop: 14 }}>
-          <Tag>JWT в localStorage</Tag>
           <Tag>русский интерфейс</Tag>
-          <Tag>без ключей в клиенте</Tag>
-        </div>
-        <div className="notice" style={{ marginTop: 14 }}>
-          Внутри Telegram вход произойдёт автоматически. Вне Telegram сервер должен быть запущен
-          с <code>DEV_AUTH=1</code>.
+          <Tag>AI — только с вашего согласия</Tag>
+          <Tag>ключи остаются на сервере</Tag>
         </div>
       </section>
       </div>
