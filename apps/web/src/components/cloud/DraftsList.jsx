@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
-import { apiErrorMessage, DRAFT_STATUSES, fmtDateTime, plural } from '../../lib/format.js'
+import {
+  apiErrorMessage, arcLabel, DRAFT_STATUSES, fmtDateTime, plural,
+} from '../../lib/format.js'
 import {
   ConfirmDialog, EmptyState, ErrorState, InlineError, StatusTag, Tag,
 } from '../ui.jsx'
@@ -120,7 +122,7 @@ export default function DraftsList({
                   <span className="list-item-title">{draft.title || 'Без названия'}</span>
                   <StatusTag list={DRAFT_STATUSES} value={draft.status} />
                   {draft.origin === 'narrative_engine' && <Tag>собран движком</Tag>}
-                  {draft.arc && <Tag>{draft.arc}</Tag>}
+                  {draft.arc && <Tag>{arcLabel(draft.arc)}</Tag>}
                   <div className="spacer" />
                   <span className="list-item-meta">обновлён {fmtDateTime(draft.updated_at)}</span>
                 </div>
