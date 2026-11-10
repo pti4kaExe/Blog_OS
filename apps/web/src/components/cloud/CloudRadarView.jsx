@@ -450,7 +450,11 @@ export default function CloudRadarView({ channel, onUseLocal }) {
               <p>Telegram, Instagram, YouTube или ручные источники.</p>
             </div>
             <div className="spacer" />
-            {sourcesState === 'ready' && <span className="faint">{sources.length}</span>}
+            {sourcesState === 'ready' && (
+              <span className="faint">
+                {sources.length} {plural(sources.length, 'источник', 'источника', 'источников')}
+              </span>
+            )}
           </div>
 
           {sourcesState === 'loading' && (
@@ -607,8 +611,8 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                 </button>
               )}
             >
-              Запустите сканирование — комментарии появятся здесь. Сканировать чаще, чем раз в
-              минуту, нельзя (сервер ответит 429).
+              Запустите сканирование — комментарии появятся здесь. Сканировать можно
+              не чаще раза в минуту.
             </EmptyState>
           )}
 
@@ -707,7 +711,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                 <div style={{ marginBottom: 12 }}>
                   <Notice kind="good">
                     Варианты собраны{generateInfo.verifiedWithoutAi ? ' без AI — только правилами' : ''}.
-                    {generateInfo.basedOnPostId ? ` Опора — пост №${generateInfo.basedOnPostId}.` : ''}
+                    {generateInfo.basedOnPostId ? ' Опора — ваш пост из архива.' : ''}
                   </Notice>
                 </div>
               )}

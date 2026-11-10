@@ -366,7 +366,7 @@ export default function CloudCheckStep({
             <h2>Итог проверки</h2>
             <p>
               {report
-                ? `Отчёт №${report.report.id} · ${fmtDateTime(report.report.created_at)} · ${LINT_ENGINE_LABELS[report.report.engine] || report.report.engine}`
+                ? `Проверено ${fmtDateTime(report.report.created_at)} · ${LINT_ENGINE_LABELS[report.report.engine] || report.report.engine}`
                 : 'Проверка ещё не запускалась в этой сессии'}
             </p>
           </div>
@@ -443,7 +443,7 @@ export default function CloudCheckStep({
 
         {published && !publishResult ? (
           <Notice kind="good">
-            Черновик уже опубликован{publishedPostId ? ` — пост №${publishedPostId} в архиве BlogOS` : ''}.
+            Черновик уже опубликован{publishedPostId ? ' — пост лежит в архиве BlogOS' : ''}.
           </Notice>
         ) : publishResult ? (
           <Notice kind="good">
@@ -451,7 +451,7 @@ export default function CloudCheckStep({
             {publishedLink ? (
               <> <a href={publishedLink} target="_blank" rel="noreferrer">Открыть пост</a></>
             ) : (
-              <> Ссылка на площадку не создаётся: BlogOS фиксирует публикацию в архиве (пост №{publishResult.post?.id}).</>
+              <> Ссылка на площадку не создаётся: BlogOS фиксирует публикацию в своём архиве.</>
             )}
           </Notice>
         ) : (
@@ -714,7 +714,7 @@ export default function CloudCheckStep({
 
       <Modal
         open={Boolean(historyDetail)}
-        title={historyDetail ? `Отчёт №${historyDetail.id} · оценка ${historyDetail.score}` : 'Отчёт'}
+        title={historyDetail ? `Проверка ${fmtDateTime(historyDetail.created_at)} · оценка ${historyDetail.score}` : 'Отчёт проверки'}
         onClose={() => setHistoryDetail(null)}
         wide
       >
