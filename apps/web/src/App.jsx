@@ -2,6 +2,7 @@ import { useState } from 'react'
 import LocalApp from './components/LocalApp.jsx'
 import CloudApp from './components/cloud/CloudApp.jsx'
 import CommandPalette from './components/ui/CommandPalette.jsx'
+import { ToastProvider } from './components/ui/Toasts.jsx'
 import { CommandsProvider, useRegisterCommands } from './lib/commands.jsx'
 import { useTheme } from './lib/theme.js'
 
@@ -90,12 +91,14 @@ export default function App() {
 
   return (
     <CommandsProvider>
-      {mode === 'local'
-        ? <LocalApp onUseCloud={() => changeMode('cloud')} />
-        : <CloudApp onUseLocal={() => changeMode('local')} />}
+      <ToastProvider>
+        {mode === 'local'
+          ? <LocalApp onUseCloud={() => changeMode('cloud')} />
+          : <CloudApp onUseLocal={() => changeMode('local')} />}
 
-      <ShellCommands mode={mode} changeMode={changeMode} />
-      <CommandPalette />
+        <ShellCommands mode={mode} changeMode={changeMode} />
+        <CommandPalette />
+      </ToastProvider>
     </CommandsProvider>
   )
 }
