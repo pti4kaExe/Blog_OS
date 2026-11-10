@@ -40,11 +40,11 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
     event.preventDefault()
     const id = Number(telegramId)
     if (!Number.isFinite(id) || id <= 0) {
-      setError({ message: 'telegram_id должен быть положительным числом', code: 'validation_error' })
+      setError({ message: 'Номер в Telegram — это целое положительное число.', code: 'validation_error' })
       return
     }
     if (!name.trim()) {
-      setError({ message: 'Укажите имя автора', code: 'validation_error' })
+      setError({ message: 'Напишите, как вас называть.', code: 'validation_error' })
       return
     }
     setBusy(true)

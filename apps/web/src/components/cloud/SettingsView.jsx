@@ -138,7 +138,7 @@ export default function SettingsView({
 
               <dl className="deflist" style={{ marginTop: 20 }}>
                 <div><dt>Роль</dt><dd>{roleLabel}</dd></div>
-                <div><dt>Вход</dt><dd>Telegram ID {user?.telegram_id ?? '—'}</dd></div>
+                <div><dt>Вход</dt><dd>Telegram, номер {user?.telegram_id ?? '—'}</dd></div>
                 <div><dt>Каналов</dt><dd>{channels.length} {plural(channels.length, 'канал', 'канала', 'каналов')}</dd></div>
                 <div><dt>В сервисе с</dt><dd>{fmtDateTime(user?.created_at)}</dd></div>
               </dl>
