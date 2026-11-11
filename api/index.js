@@ -65,7 +65,9 @@ async function internalRoute(req) {
     }
   }
   if (url.startsWith('/internal/register-webhook')) {
-    await registerWebhook()
+    // Адрес можно передать параметром: на Vercel переменная PUBLIC_ может быть недоступна.
+    const override = new URL(url, 'https://x').searchParams.get('url') ?? undefined
+    await registerWebhook(override)
     return { status: 200, body: { ok: true } }
   }
   return null

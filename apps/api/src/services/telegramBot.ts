@@ -86,14 +86,17 @@ async function callApi<T>(method: string, payload: Record<string, unknown> = {})
 }
 
 /** Регистрирует webhook в Telegram. Без PUBLIC_API_URL ничего не делает. */
-export async function registerWebhook(): Promise<{ configured: boolean; url?: string }> {
-  const publicUrl = env.PUBLIC_API_URL.trim().replace(/\/$/, '')
+export async function registerWebhook(
+  overrideUrl?: string,
+): Promise<{ configured: boolean; url?: string }> {
+  // Адрес можно передать явно (внутренний вызов на serverless) или взять из env.
+  const publicUrl = (overrideUrl ?? env.PUBLIC_API_URL).trim().replace(/\/$/, '')
   if (!telegramLoginConfigured() || !publicUrl) return { configured: false }
   const url = `${publicUrl}/telegram/webhook`
   const payload: Record<string, unknown> = {
     url,
     allowed_updates: ['message'],
-    drop_pending_updates: true,
+    drop_pending_updates: false,
   }
   if (env.TELEGRAM_WEBHOOK_SECRET) payload.secret_token = env.TELEGRAM_WEBHOOK_SECRET
   await callApi<boolean>('setWebhook', payload)

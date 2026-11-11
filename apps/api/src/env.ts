@@ -145,6 +145,15 @@ if (!parsed.success) {
 
 export const env = parsed.data
 
+// Vercel не разрешает помечать секретом переменные с префиксом PUBLIC_.
+// Принимаем альтернативные имена без префикса — значение то же самое.
+if (!env.PUBLIC_API_URL) {
+  env.PUBLIC_API_URL = (process.env.BLOGOS_API_URL ?? process.env.API_PUBLIC_URL ?? '').trim()
+}
+if (!env.PUBLIC_WEB_URL) {
+  env.PUBLIC_WEB_URL = (process.env.BLOGOS_WEB_URL ?? process.env.WEB_PUBLIC_URL ?? '').trim()
+}
+
 export const isProd = env.NODE_ENV === 'production'
 export const isTest = env.NODE_ENV === 'test'
 
