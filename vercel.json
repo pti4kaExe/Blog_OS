@@ -6,10 +6,7 @@
     "api/index.js": {
       "maxDuration": 60,
       "memory": 1024,
-      "includeFiles": [
-        "db/sql/**",
-        "packages/engine/**"
-      ]
+      "includeFiles": "db/sql/**"
     }
   },
   "rewrites": [
