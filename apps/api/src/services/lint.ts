@@ -20,6 +20,8 @@ export interface ApiIssue {
   end: number | null
   explanation: string
   suggestion: string
+  /** Текст замены для автоправки; null — править вручную. */
+  fix: string | null
   severity: 'high' | 'medium' | 'low'
   fixable: boolean
   source?: 'rules' | 'llm'
@@ -69,6 +71,7 @@ export function rulesIssues(engineIssues: EngineIssue[]): ApiIssue[] {
           ? `Заменить на «${issue.fix}»`
           : 'Переформулируйте фрагмент',
       severity: normalizeSeverity(issue.severity),
+      fix: typeof issue.fix === 'string' && issue.fix.length > 0 ? issue.fix : null,
       fixable: typeof issue.fix === 'string' && start !== null && end !== null,
       source: 'rules',
     }
@@ -99,6 +102,8 @@ export interface LlmLintIssue {
   end?: number
   explanation?: string
   suggestion?: string
+  /** Готовая замена для quote: модель возвращает её вместе с замечанием. */
+  fix?: string
   severity?: string
 }
 
@@ -182,6 +187,16 @@ export function normalizeLlmIssues(raw: unknown, text: string): ApiIssue[] {
     end = located.end
     const effectiveQuote = located.quote
 
+    // Текст замены от модели: принимаем только осмысленную короткую строку,
+    // иначе оставляем замечание «править вручную».
+    const rawFix = typeof item.fix === 'string' ? item.fix.trim() : ''
+    const fix =
+      rawFix &&
+      rawFix.length <= 200 &&
+      rawFix.toLowerCase() !== effectiveQuote.toLowerCase()
+        ? rawFix
+        : null
+
     result.push({
       id: `llm-${type}-${start}`,
       type: typeOfCategory(category),
@@ -191,8 +206,9 @@ export function normalizeLlmIssues(raw: unknown, text: string): ApiIssue[] {
       end,
       explanation: String(item.explanation ?? 'Замечание модели'),
       suggestion: String(item.suggestion ?? 'Переформулируйте фрагмент'),
+      fix,
       severity: normalizeSeverity(item.severity),
-      fixable: false,
+      fixable: Boolean(fix),
       source: 'llm',
     })
   }

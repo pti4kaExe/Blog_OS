@@ -305,7 +305,8 @@ AntiCringe: правиловый слой всегда, LLM — второй с�
         "explanation": "Клише: фраза не несёт смысла",
         "suggestion": "Убрать оборот",
         "severity": "medium",
-        "fixable": true
+        "fix": "замените фрагмент на этот текст",
+      "fixable": true
       }
     ]
   },

@@ -2325,6 +2325,9 @@ components:
         suggestion: { type: string }
         severity: { type: string, enum: [low, medium, high] }
         fixable: { type: boolean }
+        fix:
+          type: [string, 'null']
+          description: Готовый текст замены для автоправки; null — править вручную.
     LintReport:
       type: object
       additionalProperties: false

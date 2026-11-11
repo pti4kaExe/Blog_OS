@@ -148,7 +148,21 @@ export default function CloudCheckStep({
       const byRange = fixIndex.get(`${issue.start}:${issue.end}`)
       if (byRange) return byRange
     }
-    if (issue.quote) return fixIndex.get(`q:${issue.quote}`) || null
+    if (issue.quote) {
+      const byQuote = fixIndex.get(`q:${issue.quote}`)
+      if (byQuote) return byQuote
+    }
+    // Замечание пришло с сервера с готовой заменой (в том числе от AI) —
+    // применяем как обычную правиловую правку.
+    if (issue.fixable && issue.fix && issue.start !== null && issue.start !== undefined) {
+      return {
+        start: issue.start,
+        end: issue.end,
+        quote: issue.quote,
+        fix: issue.fix,
+        ruleId: issue.id,
+      }
+    }
     return null
   }, [fixIndex])
 

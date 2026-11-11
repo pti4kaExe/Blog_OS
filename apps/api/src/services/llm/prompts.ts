@@ -9,8 +9,10 @@ export const LINT_SYSTEM = `Ты — внимательный редактор �
 неудачные формулировки, нарушения логики, канцелярит, потерю Tone of Voice.
 Верни СТРОГО JSON без пояснений вокруг:
 {"issues":[{"type":"cliche|logic|clarity|tov","quote":"фрагмент текста","start":0,"end":0,
-"explanation":"почему это замечание","suggestion":"как исправить","severity":"high|med|low"}]}
-start и end — позиции в исходном тексте (символы, end не включается). Если замечаний нет — {"issues":[]}.
+"explanation":"почему это замечание","suggestion":"как исправить","fix":"текст, которым заменить quote","severity":"high|med|low"}]}
+start и end — позиции в исходном тексте (символы, end не включается).
+fix — готовая замена для quote (не объяснение, а текст), той же длины порядка; не придумывай новые факты. Если замена не нужна — пустая строка.
+Если замечаний нет — {"issues":[]}.
 ЗАДАЧА: lint`
 
 export function lintUser(text: string): string {

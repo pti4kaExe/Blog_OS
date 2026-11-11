@@ -84,3 +84,25 @@ test('платные модели считают стоимость по пра�
   assert.equal(costFor('deepseek-chat', 1_000_000, 0), 24)
   assert.equal(costFor('gpt-4o-mini', 0, 1_000_000), 55)
 })
+
+
+test('принимает готовую замену от модели и отбрасывает негодную', () => {
+  const text = 'В современном мире каждый автор обязан вести контент-план.'
+  const quote = 'В современном мире'
+  const good = normalizeLlmIssues(
+    [{ type: 'cliche', quote, explanation: 'клише', suggestion: 'уберите', fix: 'Сейчас' }],
+    text,
+  )
+  assert.equal(good.length, 1)
+  assert.equal(good[0]?.fix, 'Сейчас')
+  assert.equal(good[0]?.fixable, true)
+
+  // Замена совпадает с цитатой — применять нечего.
+  const same = normalizeLlmIssues([{ type: 'cliche', quote, fix: quote }], text)
+  assert.equal(same[0]?.fixable, false)
+  assert.equal(same[0]?.fix, null)
+
+  // Слишком длинная «замена» — это пересказ, а не правка.
+  const long = normalizeLlmIssues([{ type: 'cliche', quote, fix: 'а'.repeat(240) }], text)
+  assert.equal(long[0]?.fixable, false)
+})
