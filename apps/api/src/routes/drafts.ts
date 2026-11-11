@@ -7,6 +7,7 @@ import { listQuerySchema, parseBody, parseQuery, paramsId, toListOptions } from 
 import { defaultContentType, exceededLimit, hasUnfilledGaps } from '../lib/text.ts'
 import { ownDraft, ownProfile } from '../repositories/access.ts'
 import * as drafts from '../repositories/drafts.ts'
+import * as knowledgeRepo from '../repositories/knowledge.ts'
 import * as posts from '../repositories/posts.ts'
 import * as tovRepo from '../repositories/tov.ts'
 import { splitFragments } from '@blogos/engine'
@@ -153,13 +154,21 @@ export async function draftRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const budget = await assertAiBudget(profileId, { strict: strictAiOf(body) })
+      const useLlm = body.use_llm === true
+      // До 5 последних фактов автора: с ними модель не выдумывает опыт.
+      // Без LLM запрос к базе знаний не нужен.
+      const knowledge = useLlm ? await knowledgeRepo.listRecent(profileId, 5) : []
+      const facts = knowledge
+        .map((row) => String(row.content ?? '').trim())
+        .filter((fact) => fact.length > 0)
       const narrative = await buildNarrative({
         notes,
         arc: body.arc ?? null,
         mode: body.mode,
         profile: toEngineProfile(tovRow),
+        facts,
         authorId: profileId,
-        useLlm: body.use_llm === true,
+        useLlm,
         budgetBlocked: budget.blocked,
       })
 

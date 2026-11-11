@@ -311,7 +311,8 @@ export async function runLint(options: LintOptions): Promise<LintOutcome> {
     authorId: options.authorId,
     taskType: 'lint',
     system: LINT_SYSTEM,
-    user: lintUser(options.text),
+    // Профиль — эталон для замечаний tov; без профиля промпт остаётся прежним.
+    user: lintUser(options.text, options.profile),
     json: true,
     maxTokens: 1200,
   })

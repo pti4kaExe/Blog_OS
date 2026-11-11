@@ -19,17 +19,18 @@ function dismissedChannels() {
  * Чеклист первого запуска.
  *
  * Пустые экраны — самая результативная точка онбординга: человек видит,
- * что продукт умеет, и чего не хватает именно ему. До этого новый автор
- * попадал на шаг 1 конвейера и не знал, что в облаке есть ещё архив,
- * база знаний и CommentRadar.
+ * что продукт умеет, и чего не хватает именно ему. Здесь только линейный
+ * путь «канал → стиль → первый черновик»: остальные разделы (архив,
+ * база знаний, CommentRadar) открываются из навигации, а не конкурируют
+ * с первым запуском за внимание.
  *
- * Чеклист считается по реальным данным канала (четыре запроса), держится,
+ * Чеклист считается по реальным данным канала (три запроса), держится,
  * пока не выполнены все шаги, и закрывается навсегда для этого канала —
  * выбор лежит в браузере, отдельного поля в базе для него нет.
  */
 export default function Onboarding({ channel, onGo }) {
   const [state, setState] = useState('loading')
-  const [done, setDone] = useState({ tov: false, draft: false, source: false, knowledge: false })
+  const [done, setDone] = useState({ channel: false, tov: false, draft: false })
   const [hidden, setHidden] = useState(() => dismissedChannels().includes(String(channel.id)))
   const [expanded, setExpanded] = useState(false)
 
@@ -38,17 +39,20 @@ export default function Onboarding({ channel, onGo }) {
     let alive = true
     setState('loading')
     Promise.allSettled([
+      api.posts.list(channel.id, { limit: 1 }),
       api.tov.get(channel.id),
       api.drafts.list(channel.id, { limit: 1 }),
-      api.sources.list(channel.id, { limit: 1 }),
-      api.knowledge.list(channel.id, { limit: 1 }),
-    ]).then(([tov, drafts, sources, knowledge]) => {
+    ]).then(([posts, tov, drafts]) => {
       if (!alive) return
+      const styleReady = tov.status === 'fulfilled' && Boolean(tov.value)
       setDone({
-        tov: tov.status === 'fulfilled' && Boolean(tov.value),
+        /* Первый шаг закрывается любым из двух входов в разбор: импортом
+           постов по ссылке или текстами, вставленными руками. Иначе автор,
+           который выбрал второй путь, навсегда видел бы «1 из 3». */
+        channel: styleReady
+          || (posts.status === 'fulfilled' && itemsOf(posts.value).length > 0),
+        tov: styleReady,
         draft: drafts.status === 'fulfilled' && itemsOf(drafts.value).length > 0,
-        source: sources.status === 'fulfilled' && itemsOf(sources.value).length > 0,
-        knowledge: knowledge.status === 'fulfilled' && itemsOf(knowledge.value).length > 0,
       })
       setState('ready')
     })
@@ -68,10 +72,17 @@ export default function Onboarding({ channel, onGo }) {
 
   const steps = [
     {
+      key: 'channel',
+      title: 'Подключить канал',
+      text: 'Вставьте ссылку на свой Telegram-канал — BlogOS загрузит посты и возьмёт их за образец вашего голоса. Или вставьте 2–3 текста вручную на этом же шаге.',
+      action: 'Перейти к шагу 1',
+      go: () => onGo('pipeline', 1),
+    },
+    {
       key: 'tov',
-      title: 'Разобрать свой стиль',
-      text: 'Вставьте 2–3 своих поста — система построит карточку Tone of Voice. Без неё остальные шаги работают вслепую.',
-      action: 'Перейти к стилю',
+      title: 'Разобрать стиль',
+      text: 'По постам канала или по 2–3 своим текстам система соберёт профиль Tone of Voice. Без него черновик получится усреднённым.',
+      action: 'Перейти к разбору стиля',
       go: () => onGo('pipeline', 1),
     },
     {
@@ -81,20 +92,6 @@ export default function Onboarding({ channel, onGo }) {
       action: 'Перейти к заметкам',
       go: () => onGo('pipeline', 2),
     },
-    {
-      key: 'knowledge',
-      title: 'Добавить факты о себе',
-      text: 'Цифры, опыт, стек. Движок опирается на них вместо того, чтобы выдумывать — и оставляет пропуск там, где факта нет.',
-      action: 'Открыть базу знаний',
-      go: () => onGo('knowledge'),
-    },
-    {
-      key: 'source',
-      title: 'Подключить источник обсуждений',
-      text: 'CommentRadar найдёт разговоры по вашим темам и соберёт черновик комментария в вашем голосе.',
-      action: 'Открыть CommentRadar',
-      go: () => onGo('radar'),
-    },
   ]
 
   const completed = steps.filter((step) => done[step.key]).length
@@ -103,7 +100,7 @@ export default function Onboarding({ channel, onGo }) {
   /* Пока не сделано ничего, чеклист — главное на экране: человек только
      что завёл канал и не знает, с чего начинать. Как только первый шаг
      пройден, он превращается в строку прогресса и уступает место работе:
-     карточка занимала 522 точки над конвейером на всех четырёх шагах, и
+     карточка занимала 522 точки над конвейером на каждом его шаге, и
      поле ввода заметок начиналось ниже сгиба. Развернуть можно в любой
      момент, скрыть навсегда — как и раньше. */
   const open = expanded || completed === 0
@@ -114,7 +111,7 @@ export default function Onboarding({ channel, onGo }) {
         <div className="onboarding-line">
           <span className="onboarding-title">С чего начать</span>
           <span className="faint">
-            {completed} из {steps.length} {plural(steps.length, 'шага', 'шагов', 'шагов')}
+            {completed} {plural(completed, 'шаг', 'шага', 'шагов')} из {steps.length}
           </span>
           <span className="onboarding-bar" aria-hidden="true">
             <i style={{ width: `${(completed / steps.length) * 100}%` }} />
@@ -136,7 +133,9 @@ export default function Onboarding({ channel, onGo }) {
       <div className="card-head">
         <div>
           <h2>С чего начать</h2>
-          <p>Канал «{channel.name}» готов на {completed} из {steps.length} шагов.</p>
+          <p>
+            Канал «{channel.name}»: пройдено {completed} {plural(completed, 'шаг', 'шага', 'шагов')} из {steps.length}.
+          </p>
         </div>
         <div className="spacer" />
         {completed > 0 && (
@@ -158,9 +157,11 @@ export default function Onboarding({ channel, onGo }) {
             <div className="checklist-body">
               <div className="checklist-title">{step.title}</div>
               <div className="checklist-text">{step.text}</div>
-              {!done[step.key] && (
-                <button type="button" className="btn btn-sm" onClick={step.go}>{step.action}</button>
-              )}
+              {/* Кнопка остаётся и у выполненного шага: к своему стилю или
+                  черновику возвращаются и после того, как галочка получена. */}
+              <button type="button" className="btn btn-sm" onClick={step.go}>
+                {done[step.key] ? 'Открыть снова' : step.action}
+              </button>
             </div>
           </li>
         ))}

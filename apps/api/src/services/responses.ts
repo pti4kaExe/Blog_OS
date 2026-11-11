@@ -133,6 +133,8 @@ export async function generateResponses(
       commentText: options.commentText,
       count: options.count,
       styleHint: styleHint(options.tovRow),
+      // Тот же профиль, что у генерации и проверки: голос автора в ответе.
+      profile: toEngineProfile(options.tovRow),
       knowledge: options.knowledge,
     }),
     json: true,

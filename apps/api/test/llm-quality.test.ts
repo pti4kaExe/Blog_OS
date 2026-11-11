@@ -1,11 +1,18 @@
 /**
  * Модульные проверки слоя LLM без сети и без базы:
  *  - замечание модели принимается только с цитатой из текста автора;
- *  - цена модели считается по прайсу, а не «молча ноль» для известных моделей.
+ *  - цена модели считается по прайсу, а не «молча ноль» для известных моделей;
+ *  - промпты генерации, проверки и ответов содержат профиль стиля и факты автора.
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizeLlmIssues } from '../src/services/lint.ts'
+import {
+  lintUser,
+  narrativeUser,
+  profileBlock,
+  responseUser,
+} from '../src/services/llm/prompts.ts'
 import { costFor, priceFor, PRICING } from '../src/services/llm/pricing.ts'
 
 const TEXT =
@@ -105,4 +112,127 @@ test('принимает готовую замену от модели и отб
   // Слишком длинная «замена» — это пересказ, а не правка.
   const long = normalizeLlmIssues([{ type: 'cliche', quote, fix: 'а'.repeat(240) }], text)
   assert.equal(long[0]?.fixable, false)
+})
+
+const NOTES = 'Первая заметка про план.\nВторая заметка про регулярность.\nТретья заметка про результат.'
+
+const FACTS = ['Веду канал про контент-маркетинг с 2021 года.', 'Пишу по вторникам и четвергам.']
+
+/** Длинный пример обрезается до 500 символов; хвост в промпт попасть не должен. */
+const LONG_SAMPLE = `${'А'.repeat(490)}${'Б'.repeat(100)}ХВОСТЗАПРЕДЕЛОМ`
+
+const PROFILE = {
+  address: 'ты',
+  avgSentenceLen: 9.5,
+  firstPersonPer100Words: 3.4,
+  stopWords: ['просто', 'качественный'],
+  topTerms: [
+    { stem: 'план', label: 'планирование', weight: 9.1 },
+    { stem: 'контент', label: 'контент', weight: 7.4 },
+  ],
+  signaturePhrases: ['если коротко', 'по делу'],
+  samples: [LONG_SAMPLE, 'Второй пример поста автора.'],
+}
+
+/** Текст после последнего «ВХОД:» — то, что mock-провайдер считает данными. */
+function inputOf(prompt: string): string {
+  return prompt.slice(prompt.lastIndexOf('ВХОД:') + 'ВХОД:'.length).trim()
+}
+
+test('narrativeUser: профиль автора и факты попадают в промпт', () => {
+  const prompt = narrativeUser(NOTES, 'story_case', PROFILE, FACTS)
+
+  assert.ok(prompt.includes('ПРОФИЛЬ АВТОРА'), 'нужен блок профиля')
+  assert.ok(prompt.includes('обращение к читателю: ты'), 'обращение из профиля')
+  assert.ok(prompt.includes('средняя длина фразы: 9.5'), 'средняя длина фразы')
+  assert.ok(prompt.includes('доля «я»: 3.4'), 'доля первого лица')
+  assert.ok(prompt.includes('просто'), 'стоп-слово должно быть в промпте')
+  assert.ok(prompt.includes('планирование'), 'топ-тема канала (label)')
+  assert.ok(prompt.includes('если коротко'), 'фраза-подпись')
+  assert.ok(prompt.includes('Второй пример поста автора'), 'примеры постов автора')
+  assert.ok(prompt.includes('ФАКТЫ АВТОРА'), 'нужен блок фактов')
+  assert.ok(prompt.includes('Веду канал про контент-маркетинг с 2021 года'), 'текст факта')
+  assert.ok(prompt.includes('Не используй стоп-слова'), 'запрет стоп-слов')
+  assert.ok(prompt.includes('используй только факты из блока «ФАКТЫ АВТОРА»'), 'запрет выдумок')
+
+  // Профиль и факты — до «ВХОД:»: mock получает только заметки автора.
+  assert.equal(inputOf(prompt), NOTES)
+  assert.ok(prompt.indexOf('ПРОФИЛЬ АВТОРА') < prompt.lastIndexOf('ВХОД:'))
+  assert.ok(prompt.indexOf('ФАКТЫ АВТОРА') < prompt.lastIndexOf('ВХОД:'))
+})
+
+test('narrativeUser: пример поста обрезан до 500 символов', () => {
+  const prompt = narrativeUser(NOTES, null, PROFILE, [])
+  assert.ok(prompt.includes('А'.repeat(490)), 'начало примера сохраняется')
+  assert.equal(prompt.includes('ХВОСТЗАПРЕДЕЛОМ'), false, 'хвост длинного примера не нужен')
+})
+
+test('narrativeUser: без профиля и фактов промпт остаётся прежним', () => {
+  const prompt = narrativeUser(NOTES, null, null, [])
+  assert.equal(prompt.includes('ПРОФИЛЬ АВТОРА'), false)
+  assert.equal(prompt.includes('ФАКТЫ АВТОРА'), false)
+  assert.ok(prompt.startsWith('Собери пост из заметок.'))
+  assert.equal(inputOf(prompt), NOTES)
+  assert.equal(profileBlock(null), null)
+  assert.equal(profileBlock({}), null)
+})
+
+test('narrativeUser: факты без профиля всё равно ограничивают модель', () => {
+  const prompt = narrativeUser(NOTES, null, null, FACTS)
+  assert.equal(prompt.includes('ПРОФИЛЬ АВТОРА'), false)
+  assert.ok(prompt.includes('ФАКТЫ АВТОРА'))
+  assert.ok(prompt.includes('используй только факты из блока «ФАКТЫ АВТОРА»'))
+  assert.equal(inputOf(prompt), NOTES)
+})
+
+test('narrativeUser: топ-темы и фразы-подписи ограничены по количеству', () => {
+  const topTerms = Array.from({ length: 10 }, (_, index) => ({
+    stem: `тема${String(index)}`,
+    label: `тема-${String(index)}`,
+    weight: 10 - index,
+  }))
+  const signaturePhrases = Array.from({ length: 7 }, (_, index) => `фраза номер ${String(index)}`)
+  const samples = ['Первый пример.', 'Второй пример.', 'Третий пример.']
+  const prompt = narrativeUser(NOTES, null, { topTerms, signaturePhrases, samples }, [])
+
+  assert.ok(prompt.includes('тема-7'), 'восьмая тема ещё входит')
+  assert.equal(prompt.includes('тема-8'), false, 'девятая тема уже лишняя')
+  assert.ok(prompt.includes('фраза номер 4'), 'пятая фраза ещё входит')
+  assert.equal(prompt.includes('фраза номер 5'), false, 'шестая фраза уже лишняя')
+  assert.ok(prompt.includes('Второй пример.'))
+  assert.equal(prompt.includes('Третий пример.'), false, 'достаточно двух примеров')
+})
+
+test('lintUser: профиль даёт эталон для замечаний tov', () => {
+  const withProfile = lintUser(TEXT, PROFILE)
+  assert.ok(withProfile.includes('ПРОФИЛЬ АВТОРА'))
+  assert.ok(withProfile.includes('просто'), 'стоп-слово')
+  assert.ok(withProfile.includes('планирование'), 'топ-тема')
+  assert.ok(withProfile.includes('Считай отклонением от профиля'))
+  assert.equal(inputOf(withProfile), TEXT)
+})
+
+test('lintUser: без профиля поведение прежнее', () => {
+  const legacy = `Проверь текст черновика. Верни только JSON.\n\nВХОД:\n${TEXT}`
+  assert.equal(lintUser(TEXT), legacy)
+  assert.equal(lintUser(TEXT, null), legacy)
+  assert.equal(lintUser(TEXT).includes('ПРОФИЛЬ АВТОРА'), false)
+})
+
+test('responseUser: профиль и факты автора в промпте ответа', () => {
+  const prompt = responseUser({
+    commentText: 'А как вы планируете контент?',
+    count: 2,
+    styleHint: 'обращение: ты',
+    knowledge: FACTS,
+    profile: PROFILE,
+  })
+  assert.ok(prompt.includes('ПРОФИЛЬ АВТОРА'))
+  assert.ok(prompt.includes('просто'))
+  assert.ok(prompt.includes('планирование'))
+  assert.ok(prompt.includes('ФАКТЫ АВТОРА'))
+  assert.ok(prompt.includes('Веду канал про контент-маркетинг с 2021 года'))
+  assert.ok(prompt.includes('Не используй стоп-слова'))
+  assert.equal(inputOf(prompt), 'А как вы планируете контент?')
+  assert.ok(prompt.indexOf('ФАКТЫ АВТОРА') < prompt.lastIndexOf('ВХОД:'))
 })

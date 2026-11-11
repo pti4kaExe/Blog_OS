@@ -42,6 +42,9 @@ export default function CloudStyleStep({
      предлагать ли разбор по архиву: сам разбор делает сервер, он же и
      берёт три последние публикации. */
   const [archiveCount, setArchiveCount] = useState(0)
+  /* Пока список постов не ответил, «канал не подключён» — не факт:
+     без этого флага подсказка мигала бы у тех, у кого посты уже есть. */
+  const [archiveLoading, setArchiveLoading] = useState(true)
   // Ссылка на свой канал: по ней импортируем посты и строим профиль стиля.
   const [archiveUrl, setArchiveUrl] = useState('')
   const [importing, setImporting] = useState(false)
@@ -50,9 +53,11 @@ export default function CloudStyleStep({
   useEffect(() => {
     let alive = true
     setArchiveCount(0)
+    setArchiveLoading(true)
     api.posts.list(channel.id, { limit: 3 })
       .then((payload) => { if (alive) setArchiveCount(itemsOf(payload).length) })
       .catch(() => { /* архив недоступен — просто не предлагаем этот путь */ })
+      .finally(() => { if (alive) setArchiveLoading(false) })
     return () => { alive = false }
   }, [channel.id])
 
@@ -200,6 +205,13 @@ export default function CloudStyleStep({
             <div>
               <h2>Ваши прошлые посты</h2>
               <p>2–3 текста, которые вы считаете «своими по голосу». Они сохраняются в вашем канале.</p>
+              {!tov && !archiveLoading && archiveCount === 0 && chars === 0 && (
+                <p className="mt-2">
+                  Профиль стиля обязателен: без него BlogOS не знает ваших интонаций
+                  и соберёт усреднённый текст. Вставьте 2–3 своих поста ниже или
+                  подключите канал — подойдёт любой способ.
+                </p>
+              )}
             </div>
             {tov && <AiBadge withoutAi={rulesOnly} />}
           </div>

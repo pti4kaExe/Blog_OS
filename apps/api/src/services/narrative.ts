@@ -63,6 +63,8 @@ export interface NarrativeOptions {
   arc: string | null
   mode: 'notes' | 'draft'
   profile: EngineProfile | null
+  /** Факты автора из базы знаний — единственный источник фактов для модели. */
+  facts?: string[]
   authorId: number
   useLlm: boolean
   budgetBlocked: boolean
@@ -164,7 +166,9 @@ export async function buildNarrative(options: NarrativeOptions): Promise<Narrati
     authorId: options.authorId,
     taskType: 'narrative_generate',
     system: NARRATIVE_SYSTEM,
-    user: narrativeUser(options.notes, options.arc),
+    // Профиль и факты уходят в промпт до «ВХОД:»: модель пишет голосом автора
+    // и не выдумывает опыт, которого нет в базе знаний.
+    user: narrativeUser(options.notes, options.arc, options.profile, options.facts),
     json: true,
     maxTokens: 1600,
   })

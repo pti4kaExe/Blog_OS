@@ -3,7 +3,7 @@ import api from '../../api/client.js'
 import { useRegisterCommands } from '../../lib/commands.jsx'
 import { apiErrorMessage } from '../../lib/format.js'
 import { scrollNodeIntoView } from '../../lib/scroll.js'
-import { InlineError, Loading, Notice } from '../ui.jsx'
+import { EmptyState, InlineError, Loading, Notice } from '../ui.jsx'
 import ProgressRail from '../ui/ProgressRail.jsx'
 import StepTransition from '../ui/StepTransition.jsx'
 import CloudStyleStep from './CloudStyleStep.jsx'
@@ -185,9 +185,14 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
     return 'idle'
   }
 
+  const styleReady = tovState === 'ready' && Boolean(tov)
+
+  /* Второй шаг открыт всегда: без профиля стиля он показывает объяснение,
+     а не молчаливый отказ в навигации. Шаги 3–4 по-прежнему требуют
+     готовый черновик — там показывать нечего, пока его нет. */
   const stepAvailable = (n) => {
     if (n === 1) return true
-    if (n === 2) return tovState === 'ready' && Boolean(tov)
+    if (n === 2) return true
     if (n === 3) return Boolean(draft)
     if (n === 4) return Boolean(draft)
     return false
@@ -196,8 +201,9 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
   /* Шаг, запрошенный снаружи, — из чеклиста «С чего начать».
      Номер шага живёт здесь и наружу не выходит, поэтому чеклист не
      переключает его сам, а просит: «открой второй». Если шаг ещё
-     недоступен (стиль не разобран), открываем первый — там и начинается
-     то, чего не хватает.
+     недоступен (нет черновика), открываем первый — там и начинается
+     то, чего не хватает. Второй шаг доступен всегда: без профиля стиля
+     он сам объясняет, чего не хватает, и уводит на первый.
 
      Заодно подводим экран к полосе шагов: чеклист стоит выше, и без
      этого нажатие выглядело бы так же, как раньше, — будто ничего
@@ -263,7 +269,7 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
         />
       )}
 
-      {step === 2 && (
+      {step === 2 && (styleReady ? (
         <CloudNotesStep
           channel={channel}
           mode={mode}
@@ -282,7 +288,38 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
           setDraftsRefreshKey={setDraftsRefreshKey}
           onUseLocal={onUseLocal}
         />
-      )}
+      ) : (
+        <section className="card">
+          <EmptyState
+            title="Сначала разберите стиль"
+            action={(
+              <div className="btn-row" style={{ justifyContent: 'center' }}>
+                <button type="button" className="btn btn-primary" onClick={() => goStep(1)}>
+                  Перейти к шагу 1
+                </button>
+                {tovState === 'error' && (
+                  <button type="button" className="btn btn-sm btn-ghost" onClick={reloadTov}>
+                    Повторить загрузку
+                  </button>
+                )}
+              </div>
+            )}
+          >
+            <p className="mb-0">
+              Без профиля Tone of Voice движок соберёт усреднённый текст: он не будет
+              знать ваших интонаций, любимых оборотов и запрещённых слов. Профиль
+              строится на шаге 1 — по постам канала или по 2–3 текстам, вставленным
+              вручную.
+            </p>
+            {tovState === 'loading' && (
+              <p className="faint mt-3 mb-0">
+                Профиль ещё загружается — если он уже готов, этот шаг откроется сам.
+              </p>
+            )}
+            {tovState === 'error' && <InlineError error={tovError} />}
+          </EmptyState>
+        </section>
+      ))}
 
       {step === 3 && draft && (
         <CloudDraftStep

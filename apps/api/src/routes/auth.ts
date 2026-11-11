@@ -23,6 +23,7 @@ import * as users from '../repositories/users.ts'
 import { assertRateAllowed } from '../services/authRateLimit.ts'
 import { claimCode, cleanupOldCodes, confirmCode, createCode, expireCode, getCode } from '../services/loginCodes.ts'
 import { ingestChatMessage } from '../services/telegramChatIngest.ts'
+import { handleBotMessage } from '../services/telegramOnboarding.ts'
 import {
   botUsername,
   displayName,
@@ -209,6 +210,31 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         )
       }
       return reply.status(200).send({ ok: true })
+    }
+
+    // Онбординг в личном чате: /start без кода и ссылка на канал. Вызывается
+    // до /start login_<код>: команда входа возвращает handled: false и дальше
+    // обрабатывается прежней веткой, поэтому вход не меняется.
+    if (message.chat.type === 'private') {
+      try {
+        const onboarding = await handleBotMessage({ message })
+        if (onboarding.handled) {
+          if (onboarding.reply) {
+            try {
+              await sendMessage(chatId, onboarding.reply)
+            } catch (error) {
+              // sendMessage и сам глотает ошибки, но сбой отправки не должен
+              // ронять webhook даже при будущих изменениях клиента.
+              request.log.warn({ err: error }, 'ответ бота не отправлен')
+            }
+          }
+          return reply.status(200).send({ ok: true })
+        }
+      } catch (error) {
+        // Ошибка онбординга не должна ломать доставку update: логируем и
+        // отдаём прежнее поведение (ссылка на сайт / вход по коду).
+        request.log.warn({ err: error }, 'онбординг в боте не выполнен')
+      }
     }
 
     if (!text.startsWith('/start')) {
