@@ -92,6 +92,12 @@ export function engineProfileFromTov(tov) {
     exclamationShare: pickNumber(source, 'exclamationShare'),
     bureaucracyPer100Words: pickNumber(source, 'bureaucracyPer100Words'),
     address: pickString(source, 'address') || (typeof tov?.tone === 'string' ? tov.tone : null),
+    // Правила автора: массив строк из профиля (snake_case приходит от API).
+    stopWords: Array.isArray(tov?.stop_words)
+      ? tov.stop_words
+      : Array.isArray(tov?.stopWords)
+        ? tov.stopWords
+        : [],
   }
   const known = Object.values(profile).filter((value) => typeof value === 'number')
   // Сравнение имеет смысл, когда известна хотя бы длина фразы и ещё одна метрика.

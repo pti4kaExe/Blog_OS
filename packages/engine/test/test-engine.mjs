@@ -93,6 +93,20 @@ const ranked = rankDiscussions(DEMO_DISCUSSIONS, profile)
 check('лента отсортирована по релевантности', ranked.every((d, i) => i === 0 || ranked[i - 1].matchScore >= d.matchScore))
 check('нерелевантное обсуждение внизу', ranked[ranked.length - 1].matchScore < 20, String(ranked[ranked.length - 1].matchScore))
 check('у лидера есть совпавшие темы', ranked[0].matchedTerms.length > 0)
+
+console.log('\n— правила AntiCringe автора —')
+const rulesProfile = { ...profile, stopWords: ['синергия', 'в современном мире'] }
+const rulesText = 'Мы создаём синергию. В современном мире это важно, но неделя прошла спокойно.'
+const rulesReport = lint(rulesText, rulesProfile)
+const stopHits = rulesReport.issues.filter((issue) => issue.ruleId === 'tov:stopword')
+check('слово найдено в другой словоформе', stopHits.some((hit) => hit.quote.toLowerCase() === 'синергию'), JSON.stringify(stopHits.map((h) => h.quote)))
+check('оборот найден целиком', stopHits.some((hit) => hit.quote.toLowerCase() === 'в современном мире'), JSON.stringify(stopHits.map((h) => h.quote)))
+check('правило попало в группу Tone of Voice', stopHits.every((hit) => hit.category === 'tov'))
+check('без профиля правило молчит', lint('Мы создаём синергию и пишем посты.', null).issues.every((issue) => issue.ruleId !== 'tov:stopword'))
+check('пустой список правил ничего не ломает', lint('Мы создаём синергию.', { ...profile, stopWords: [] }).issues.every((issue) => issue.ruleId !== 'tov:stopword'))
+const boundaryProfile = { ...profile, stopWords: ['не'] }
+check('короткое слово не срабатывает внутри другого', lint('Неделя прошла спокойно, я написал два поста.', boundaryProfile).issues.every((issue) => issue.ruleId !== 'tov:stopword'))
+
 const drafts = ranked.slice(0, 6).map((d) => draftComment(d, profile))
 check('черновик опирается на пост автора', drafts.every((d) => d.evidence !== null))
 check('черновик оставляет пропуск для автора', drafts.every((d) => hasGaps(d.text)))

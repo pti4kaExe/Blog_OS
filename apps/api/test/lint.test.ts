@@ -90,6 +90,37 @@ test('POST /drafts/{id}/lint с use_llm=false → engine=rules, verified_without
   assert.equal(response.body.verified_without_ai, true)
 })
 
+test('правила AntiCringe автора попадают в отчёт проверки', async () => {
+  const { token, profile, draft } = await makeDraft(
+    'Мы создаём синергию на каждом шаге. В современном мире без этого нельзя, но неделя прошла спокойно.',
+  )
+  // Автор задаёт свои правила в профиле стиля (как из настроек канала).
+  const saved = await api('PUT', `/author-profiles/${String(profile.id)}/tov`, {
+    token,
+    body: {
+      tone: 'ты',
+      slang: [],
+      stop_words: ['синергия', 'в современном мире'],
+      favorite_phrases: [],
+      metrics: null,
+    },
+  })
+  assert.equal(saved.status, 200)
+
+  const response = await api<{ lint_report: { issues: Array<{ type: string; quote: string | null; explanation: string }> } }>(
+    'POST',
+    `/drafts/${String(draft.id)}/lint`,
+    { token, body: { use_llm: false } },
+  )
+  assert.equal(response.status, 201)
+  // В контракте `type` — это группа проверки, поэтому свои правила ищем по тексту
+  // объяснения: оно приходит из правила «Запрещённое слово».
+  const stopIssues = response.body.lint_report.issues.filter((issue) => String(issue.explanation || '').includes('AntiCringe'))
+  assert.ok(stopIssues.length >= 2, JSON.stringify(response.body.lint_report.issues.map((i) => i.explanation)))
+  assert.ok(stopIssues.some((issue) => String(issue.quote).toLowerCase() === 'синергию'))
+  assert.ok(stopIssues.some((issue) => String(issue.quote).toLowerCase() === 'в современном мире'))
+})
+
 test('пустой текст → 422 empty_text', async () => {
   const { token, draft } = await makeDraft('   ')
   const response = await api<{ error: { code: string; details: { reason?: string } } }>(
