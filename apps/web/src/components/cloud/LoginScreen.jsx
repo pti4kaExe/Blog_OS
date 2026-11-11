@@ -27,7 +27,8 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
 
   // Возможности сервера: пока не ответил — показываем dev-форму (локальная разработка).
   const [capabilities, setCapabilities] = useState(null)
-  const [botState, setBotState] = useState('idle') // idle | waiting | expired
+  const [botState, setBotState] = useState('idle') // idle | waiting | expired | used
+  const [popupBlocked, setPopupBlocked] = useState(false)
   const [botLink, setBotLink] = useState(null) // {code, bot_url, expires_at}
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [copied, setCopied] = useState(false)
@@ -80,7 +81,8 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
       setBotState('waiting')
       deadlineRef.current = new Date(link.expires_at).getTime()
       setSecondsLeft(Math.max(0, Math.round((deadlineRef.current - Date.now()) / 1000)))
-      window.open(link.bot_url, '_blank', 'noopener,noreferrer')
+      const opened = window.open(link.bot_url, '_blank', 'noopener,noreferrer')
+      if (!opened) setPopupBlocked(true)
       beginPolling(link.code)
     } catch (startError) {
       setError(startError)
@@ -104,9 +106,10 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
         if (result.status === 'confirmed' && result.token) {
           stopPolling()
           await onLogin({ token: result.token, user: result.user, expires_at: result.expires_at })
-        } else if (result.status === 'expired') {
+        } else if (result.status === 'expired' || result.status === 'used') {
           stopPolling()
-          setBotState('expired')
+          // Код одноразовый: если его уже обменяли на токен, второй раз не дадим.
+          setBotState(result.status === 'used' ? 'used' : 'expired')
           setBusy(false)
         }
       } catch (pollError) {
@@ -170,7 +173,9 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
   }
 
   const botAvailable = capabilities?.telegram_auth === true
-  const devAvailable = capabilities?.dev_auth !== false
+  // Пока возможности сервера неизвестны, dev-форму не показываем: на проде
+  // она вернула бы 400 dev_auth_disabled. Показываем только при явном true.
+  const devAvailable = capabilities?.dev_auth === true
   const botUsername = capabilities?.telegram_bot_username ?? ''
 
   return (
@@ -240,6 +245,11 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
               Откроется чат с ботом{botUsername ? ` @${botUsername}` : ''} — нажмите в нём «Start»,
               и вход завершится на сайте автоматически.
             </p>
+            {botState === 'used' && (
+              <p className="faint" style={{ marginTop: 4 }}>
+                Этот код входа уже использован. Запросите новый — нажмите кнопку ещё раз.
+              </p>
+            )}
             {botState === 'expired' && (
               <p className="faint" style={{ marginTop: 4 }}>
                 Ссылка устарела — нажмите кнопку ещё раз.
@@ -248,7 +258,12 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           </div>
         )}
 
-        {botState === 'waiting' && botLink && (
+        {popupBlocked && botState === 'waiting' && (
+              <p className="faint" style={{ marginTop: 4 }}>
+                Браузер заблокировал окно бота — откройте ссылку ниже вручную.
+              </p>
+            )}
+            {botState === 'waiting' && botLink && (
           <div style={{ marginBottom: 18 }}>
             <Notice kind="warn">
               Ждём подтверждения в Telegram: осталось {secondsLeft} с. Откройте бота и нажмите

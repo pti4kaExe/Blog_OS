@@ -203,7 +203,7 @@ export default function SettingsView({
                       {onEditChannel && (
                         <>
                           {' · '}
-                          <button type="button" className="linkish" onClick={onEditChannel}>
+                          <button type="button" className="linkish" onClick={() => onEditChannel(activeChannel)}>
                             {limit ? 'изменить' : 'задать лимит'}
                           </button>
                         </>

@@ -12,6 +12,7 @@ import { env, isProd } from './env.ts'
 import { AppError, fromPostgresError, fromZodError } from './errors.ts'
 import { registerRoutes } from './routes/index.ts'
 import { pingDb } from './db.ts'
+import { assertRateAllowed } from './services/authRateLimit.ts'
 import { botUsername, telegramLoginConfigured } from './services/telegramBot.ts'
 
 export interface RegisteredRoute {
@@ -34,8 +35,11 @@ export async function buildApp(): Promise<FastifyInstance> {
       transport: isProd ? undefined : { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } },
       redact: ['req.headers.authorization', 'req.headers.cookie'],
     },
-    bodyLimit: 1024 * 1024,
-    trustProxy: true,
+    // JSON-API не принимает файлов: половины мегабайта хватает даже длинному посту.
+    bodyLimit: 512 * 1024,
+    // Доверяем только ближайшему прокси (Render). Если доверять всем,
+    // клиент подделает X-Forwarded-For и обойдёт лимиты, которые считаются по IP.
+    trustProxy: (_address: string, hop: number) => hop === 0,
   })
 
   // Учёт маршрутов: контракт фиксирует ровно 59 доменных методов.
@@ -50,8 +54,46 @@ export async function buildApp(): Promise<FastifyInstance> {
   })
 
   await app.register(cors, {
+    // env.CORS_ORIGIN — уже список origin'ов (схема разбирает запятую).
     origin: env.CORS_ORIGIN.includes('*') ? true : env.CORS_ORIGIN,
     credentials: false,
+  })
+
+
+
+  /**
+   * Общий предохранитель от флуда: сколько запросов в минуту принимаем с одного IP.
+   *
+   * Точечные лимиты (вход через бота, сканирование) строже и живут в роутерах.
+   * Здесь — грубая защита от потока запросов, который может съесть CPU и трафик.
+   * /health исключён: его дёргает прогрев и мониторинг.
+   *
+   * Значение по умолчанию разное: в проде — 240, локально и в тестах — 5000,
+   * чтобы тесты не упирались в лимит. Переопределяется RATE_LIMIT_PER_MINUTE.
+   */
+  app.addHook('onRequest', async (request) => {
+    const url = request.url ?? ''
+    if (url.startsWith('/health')) return
+    const configured = Number(process.env.RATE_LIMIT_PER_MINUTE)
+    const limit = Number.isFinite(configured) && configured > 0
+      ? configured
+      : (isProd ? 240 : 5000)
+    assertRateAllowed(`global:${request.ip}`, limit, 60_000, 'Слишком много запросов с одного адреса')
+  })
+
+  // Базовые заголовки безопасности для API. CORS настроен отдельно ниже;
+  // здесь — то, что защищает от подмены типа контента, встраивания в iframe,
+  // утечки referer и избыточных разрешений браузера.
+  app.addHook('onSend', async (request, reply, payload) => {
+    reply.header('x-content-type-options', 'nosniff')
+    reply.header('x-frame-options', 'DENY')
+    reply.header('referrer-policy', 'no-referrer')
+    reply.header('permissions-policy', 'camera=(), microphone=(), geolocation=()')
+    reply.header('cross-origin-opener-policy', 'same-origin')
+    if (isProd) {
+      reply.header('strict-transport-security', 'max-age=31536000; includeSubDomains')
+    }
+    return payload
   })
 
   // Единый конверт ошибок. Внутренний текст — в лог, наружу — безопасное сообщение.
@@ -118,16 +160,23 @@ export async function buildApp(): Promise<FastifyInstance> {
     })
   })
 
-  // Проверка живости: по ней Render и демонстрация прогревают холодный старт.
-  // Флаги входа отдаются клиенту, чтобы он показал только доступные способы.
-  app.get('/health', async () => {
-    const db = (await pingDb()) ? 'ok' : 'down'
+  /**
+   * Проверка живости.
+   *
+   * `?light=1` — без обращения к базе. Нужен для прогрева: бесплатный хостинг
+   * засыпает без трафика, и внешний пингер раз в 10 минут держит процесс живым.
+   * Лёгкий режим не будит базу (у Neon свой лимит вычислений), поэтому прогрев
+   * не тратит его впустую. Флаги входа отдаются и здесь: они не требуют базы.
+   */
+  app.get('/health', async (request) => {
+    const query = (request.query ?? {}) as { light?: unknown }
+    const light = query.light === '1' || query.light === 'true' || query.light === true
+    const db = light ? 'skipped' : (await pingDb()) ? 'ok' : 'down'
+    const healthy = db === 'ok' || db === 'skipped'
     return {
-      status: db === 'ok' ? 'ok' : 'degraded',
+      status: healthy ? 'ok' : 'degraded',
       db,
       version: '2.0.0',
-      llm: env.LLM_PROVIDER,
-      embeddings: env.EMBEDDINGS_PROVIDER,
       dev_auth: env.DEV_AUTH,
       telegram_auth: telegramLoginConfigured(),
       telegram_bot_username: telegramLoginConfigured() ? botUsername() : null,

@@ -72,7 +72,7 @@ const schema = z.object({
   REDIS_URL: z.string().optional().default(''),
 
   JWT_SECRET: z.string().min(16, 'JWT_SECRET короче 16 символов — небезопасно'),
-  DEV_AUTH: bool(true),
+  DEV_AUTH: bool(false),
 
   // ─── Вход через Telegram-бота ──────────────────────────────────────────────
   TELEGRAM_BOT_TOKEN: z.string().optional().default(''),
@@ -84,7 +84,16 @@ const schema = z.object({
   // Публичный адрес клиента — бот присылает его человеку после входа.
   PUBLIC_WEB_URL: z.string().optional().default(''),
   // Сколько живёт код входа. Короткий срок — потому что код одноразовый.
-  LOGIN_CODE_TTL_MINUTES: int(10, 1, 120),
+  // Код входа живёт 5 минут: он уходит в браузер и логи, длинный TTL — лишний риск.
+  LOGIN_CODE_TTL_MINUTES: int(5, 1, 120),
+  // Лимит расходов на AI по умолчанию для нового канала. Ноль означал бы
+  // «без лимита»: именно эта дыра позволяла тратить ключ владельца без границ.
+  DEFAULT_MONTHLY_COST_LIMIT: int(100, 1, 1000000),
+  // Сколько AI-вызовов в минуту принимаем с одного канала (защита от цикла).
+  AI_CALLS_PER_MINUTE: int(10, 1, 1000),
+  // Проверять сертификат PostgreSQL. Neon поддерживает проверяемые сертификаты;
+  // включайте на проде, когда убедились, что цепочка проходит.
+  DB_SSL_VERIFY: bool(false),
   // Применять миграции при старте: нужно на бесплатном Render, где нет
   // preDeployCommand. Для одного инстанса безопасно.
   RUN_MIGRATIONS_ON_START: bool(false),

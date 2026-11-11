@@ -34,12 +34,17 @@
          автора от типовой SaaS-панели. Inter — интерфейсный текст, он не
          должен спорить с антиквой. Системный стек остаётся запасным: без
          сети шрифты не загрузятся, и интерфейс обязан остаться читаемым. -->
+    <link rel="preconnect" href="https://blogos-api-shlm.onrender.com" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Шрифты не блокируют первый рендер: системный стек уже прописан в CSS -->
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap" /></noscript>
     <!-- Цвет строки браузера на мобильных. Должен совпадать с
          --surface-base из styles/tokens.css: иначе рамка браузера и
          экран приложения выглядят из разных продуктов. -->
@@ -66,6 +71,13 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="padding:24px;font-family:system-ui,sans-serif;line-height:1.5">
+        <h1>BlogOS</h1>
+        <p>Для работы нужен JavaScript: приложение считает проверку текста прямо в браузере.</p>
+        <p>Включите JavaScript и обновите страницу.</p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

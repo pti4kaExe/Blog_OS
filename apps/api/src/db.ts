@@ -100,7 +100,11 @@ async function init(): Promise<void> {
       max: env.NODE_ENV === 'test' ? 4 : 10,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
-      ssl: /localhost|127\.0\.0\.1/.test(env.DATABASE_URL) ? undefined : { rejectUnauthorized: false },
+      // Проверку сертификата включаем явно: DB_SSL_VERIFY=1. Пока по умолчанию
+    // выключена, чтобы не уронить прод при неполной цепочке — это в дорожной карте.
+    ssl: /localhost|127\.0\.0\.1/.test(env.DATABASE_URL)
+      ? undefined
+      : { rejectUnauthorized: env.DB_SSL_VERIFY },
     })
     pool.on('error', (err) => console.error('[db] ошибка простаивающего соединения:', err.message))
     return

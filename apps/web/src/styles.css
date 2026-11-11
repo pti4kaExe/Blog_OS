@@ -123,7 +123,7 @@
   padding: 0 var(--sp-2) var(--sp-1);
   font-size: var(--t-caption-size); letter-spacing: 0.04em;
   font-weight: var(--t-caption-fw); text-transform: uppercase;
-  color: var(--label-quaternary);
+  color: var(--label-tertiary);
 }
 .side-list { display: flex; flex-direction: column; gap: 2px; }
 
@@ -1249,7 +1249,7 @@ button.list-btn { width: 100%; }
   font-size: var(--t-title3-size); font-weight: 500;
   letter-spacing: var(--t-title3-ls);
 }
-.palette-input:focus { outline: none; }
+.palette-input:focus { outline: none; box-shadow: var(--focus-ring); border-radius: 10px; }
 .palette-input::placeholder { color: var(--label-tertiary); font-weight: 400; }
 
 .palette-list { overflow-y: auto; padding: var(--sp-2); }
@@ -1755,4 +1755,12 @@ button.list-btn { width: 100%; }
 .login-tech p {
   font-size: var(--t-footnote-size); color: var(--label-secondary);
   margin: var(--sp-2) 0 0; max-width: var(--measure);
+}
+
+/* Горизонтальная строка формы: используется блоком правил AntiCringe. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
 }

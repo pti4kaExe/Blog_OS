@@ -8,7 +8,8 @@ name: Deploy web client to GitHub Pages
 # показывает «сервер недоступен», а локальный работает полностью в браузере.
 on:
   push:
-    branches: [main, front/pipeline-screen]
+    # Только main: рабочая ветка фронтенда не должна попадать на прод-сайт.
+    branches: [main]
   workflow_dispatch: {}
 
 permissions:

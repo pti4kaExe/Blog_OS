@@ -81,7 +81,8 @@ test('старт возвращает код, ссылку на бота и ср
   const body = response.body as { code: string; bot_url: string; expires_at: string; ttl_minutes: number }
   assert.match(body.code, /^[0-9a-f]{16}$/)
   assert.equal(body.bot_url, `https://t.me/${BOT_USERNAME}?start=login_${body.code}`)
-  assert.equal(body.ttl_minutes, 10)
+  // TTL кода входа: 5 минут по умолчанию (было 10 — сократили по аудиту).
+  assert.equal(body.ttl_minutes, 5)
   const row = await dbOne<{ status: string }>('SELECT status FROM login_codes WHERE code = $1', [body.code])
   assert.equal(row?.status, 'pending')
 })
@@ -123,6 +124,26 @@ test('webhook подтверждает код, а статус отдаёт то
   assert.equal(Number(afterSecond?.telegram_id), telegramId)
 
   await api('DELETE', '/users/me', { token: body.token })
+})
+
+test('Второй опрос статуса не выдаёт токен (код одноразовый)', async () => {
+  setBotEnv()
+  const started = await api('POST', '/auth/telegram/start', { body: {} })
+  const code = (started.body as { code: string }).code
+
+  const hook = await sendWebhook(startUpdate(code, nextTelegramId()))
+  assert.equal(hook.status, 200)
+
+  const first = await api<{ status: string; token?: string }>('GET', `/auth/telegram/status?code=${code}`)
+  assert.equal(first.status, 200)
+  assert.equal(first.body.status, 'confirmed')
+  assert.ok(first.body.token)
+
+  // Код одноразовый: повторный опрос токен не выдаёт.
+  const second = await api<{ status: string; token?: string }>('GET', `/auth/telegram/status?code=${code}`)
+  assert.equal(second.status, 200)
+  assert.equal(second.body.status, 'used')
+  assert.equal(second.body.token, undefined)
 })
 
 test('webhook без секрета и с неверным секретом отклоняется', async () => {

@@ -3,6 +3,23 @@ import { query, queryOne, type QueryParam } from '../db.ts'
 import { cursorCondition, paginate, type ListOptions, type ListResult } from '../lib/query.ts'
 import type { Row } from './access.ts'
 
+/**
+ * Чистит текст ошибки площадки перед сохранением и показом автору.
+ *
+ * Ошибки адаптеров содержат URL запроса, а у Instagram/YouTube в URL лежит
+ * access_token/key. Хранить и отдавать такой текст нельзя: GET /sources/{id}
+ * отдаёт last_scan_error автору, и ключ приложения утекал бы вместе с ним.
+ * Оставляем понятную причину без query-параметров и без длинных токенов.
+ */
+export function sanitizePlatformError(message: string): string {
+  return String(message)
+    // query-параметры целиком: там живут access_token, key, sig и прочее
+    .replace(/\?[^\s"']*/g, "")
+    // на всякий случай — длинные токены и hex-строки
+    .replace(/\b(sk|pk|rnd|napi|Bearer)[-_A-Za-z0-9]{8,}/g, "$1…")
+    .replace(/\b[A-Fa-f0-9]{24,}\b/g, "…")
+    .slice(0, 300)
+}
 export interface CreateSourceInput {
   name: string
   source_type: string
@@ -125,7 +142,7 @@ export async function markScanFailed(sourceId: number, errorMessage: string): Pr
     `UPDATE sources
         SET last_scan_status = 'failed', last_scan_error = $2
       WHERE id = $1`,
-    [sourceId, errorMessage.slice(0, 500)],
+    [sourceId, sanitizePlatformError(errorMessage)],
   )
 }
 

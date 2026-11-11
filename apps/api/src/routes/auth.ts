@@ -21,7 +21,7 @@ import { unauthorized, validationError, notConfigured } from '../errors.ts'
 import { parseBody } from '../lib/query.ts'
 import * as users from '../repositories/users.ts'
 import { assertRateAllowed } from '../services/authRateLimit.ts'
-import { cleanupOldCodes, confirmCode, createCode, expireCode, getCode } from '../services/loginCodes.ts'
+import { claimCode, cleanupOldCodes, confirmCode, createCode, expireCode, getCode } from '../services/loginCodes.ts'
 import { ingestChatMessage } from '../services/telegramChatIngest.ts'
 import {
   botUsername,
@@ -146,6 +146,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       await expireCode(row.code)
       return reply.status(200).send({ status: 'expired' })
     }
+    // Код уже обменяли на токен: второй раз токен не выдаём (одноразовость).
+    if (row.status === 'used') {
+      return reply.status(200).send({ status: 'used' })
+    }
     if (row.status !== 'confirmed' || !row.user_id) {
       return reply.status(200).send({
         status: row.status,
@@ -153,7 +157,13 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       })
     }
 
-    const user = await users.getById(row.user_id)
+    // Атомарно забираем код: два параллельных опроса не выдадут два токена.
+    const claimed = await claimCode(row.code)
+    if (!claimed) {
+      return reply.status(200).send({ status: 'used' })
+    }
+
+    const user = await users.getById(claimed.user_id as number)
     if (!user) throw unauthorized('Пользователь удалён')
     const issued = await signToken(user)
     return reply.status(200).send({

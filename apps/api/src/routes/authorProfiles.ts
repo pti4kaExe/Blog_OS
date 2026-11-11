@@ -1,6 +1,7 @@
 /** Группа 2. Каналы — 6 методов. */
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { env } from '../env.ts'
 import { requireUser } from '../auth.ts'
 import { unprocessable } from '../errors.ts'
 import { listQuerySchema, parseBody, parseQuery, paramsId, toListOptions } from '../lib/query.ts'
@@ -54,7 +55,7 @@ export async function authorProfileRoutes(app: FastifyInstance): Promise<void> {
       platform: body.platform,
       description: body.description ?? null,
       content_settings: body.content_settings ?? null,
-      monthly_cost_limit: body.monthly_cost_limit ?? null,
+      monthly_cost_limit: body.monthly_cost_limit ?? env.DEFAULT_MONTHLY_COST_LIMIT,
     })
     return reply.status(201).send(created)
   })

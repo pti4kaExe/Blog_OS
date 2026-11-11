@@ -68,6 +68,8 @@ export default function CloudApp({ onUseLocal }) {
   const [channelBusy, setChannelBusy] = useState(false)
   const [channelError, setChannelError] = useState(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  // Канал, который собираемся удалить: в модалке может быть открыт НЕ активный канал.
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
 
@@ -248,15 +250,18 @@ export default function CloudApp({ onUseLocal }) {
   }
 
   const confirmDelete = async () => {
-    if (!activeChannel) return
+    // Удаляем именно цель подтверждения, а не случайно активный канал.
+    const target = deleteTarget
+    if (!target) return
     setDeleteBusy(true)
     setDeleteError(null)
     try {
-      await api.profiles.remove(activeChannel.id)
-      const rest = channels.filter((channel) => String(channel.id) !== String(activeChannel.id))
+      await api.profiles.remove(target.id)
+      const rest = channels.filter((channel) => String(channel.id) !== String(target.id))
       setChannels(rest)
       setActiveId(rest.length ? String(rest[0].id) : null)
       setDeleteOpen(false)
+      setDeleteTarget(null)
     } catch (error) {
       setDeleteError(error)
     } finally {
@@ -539,6 +544,8 @@ export default function CloudApp({ onUseLocal }) {
         error={channelError}
         onSubmit={submitChannel}
         onDelete={() => {
+          // Запоминаем канал из модалки: подтверждение должно удалять его, а не активный.
+          setDeleteTarget(channelModal.channel)
           setChannelModal({ open: false, channel: null })
           setDeleteError(null)
           setDeleteOpen(true)
@@ -553,10 +560,10 @@ export default function CloudApp({ onUseLocal }) {
         busy={deleteBusy}
         danger
         onConfirm={confirmDelete}
-        onCancel={() => { setDeleteOpen(false); setDeleteError(null) }}
+        onCancel={() => { setDeleteOpen(false); setDeleteError(null); setDeleteTarget(null) }}
       >
         <p className="mt-0">
-          Канал «{activeChannel?.name}» удалится вместе со стилем, постами, черновиками, источниками,
+          Канал «{deleteTarget?.name}» удалится вместе со стилем, постами, черновиками, источниками,
           комментариями и базой знаний. Журнал расходов на AI сохранится.
         </p>
         {deleteError && <InlineError error={deleteError} />}

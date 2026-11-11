@@ -48,6 +48,9 @@ export default function Accordion({ title, meta, open, onToggle, actions, childr
         animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
         transition={reduced ? { duration: 0.01 } : spring.move}
         style={{ overflow: 'hidden' }}
+        // Свёрнутое тело не должно быть в Tab-порядке: внутри бывают кнопки.
+        inert={open ? undefined : ''}
+        aria-hidden={open ? undefined : true}
       >
         <div className="accordion-body">
           {children}

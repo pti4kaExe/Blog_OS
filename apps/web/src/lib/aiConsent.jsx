@@ -65,7 +65,15 @@ export function useAiConsent() {
     if (action) action.run(granted)
   }
 
-  const cancel = () => setPending(null)
+  /**
+   * Отмена окна = «сделать без AI», а не «ничего не делать»: раньше Esc молча
+   * отменял действие пользователя, и кнопка выглядела нерабочей.
+   */
+  const cancel = () => {
+    const action = pending
+    setPending(null)
+    if (action) action.run(false)
+  }
 
   return {
     decision,

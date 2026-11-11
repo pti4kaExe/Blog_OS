@@ -7,9 +7,10 @@
  * ai_budget_exceeded (details.fallback = "rules"). lint/generate никогда
  * не падают из-за лимита: они отдают результат правил с verified_without_ai.
  */
-import { env } from '../env.ts'
+import { env, isProd } from '../env.ts'
 import { budgetExceeded, notFound } from '../errors.ts'
 import { query, queryOne, toNum } from '../db.ts'
+import { assertRateAllowed } from './authRateLimit.ts'
 
 export interface BudgetState {
   authorProfileId: number
@@ -79,6 +80,14 @@ export async function assertAiBudget(
   authorId: number,
   options: { strict?: boolean } = {},
 ): Promise<BudgetState> {
+  // Цикл AI-вызовов дороже любого лимита расходов: 10 вызовов в минуту на канал
+  // в проде отсекают сценарий «крутим модель, пока не кончится ключ».
+  const configured = Number(process.env.AI_CALLS_PER_MINUTE)
+  const limit = Number.isFinite(configured) && configured > 0
+    ? configured
+    : (isProd ? env.AI_CALLS_PER_MINUTE : 1000)
+  assertRateAllowed(`ai:${authorId}`, limit, 60_000, "Слишком много AI-вызовов: подождите минуту")
+
   const state = await getBudgetState(authorId)
   if (state.blocked && options.strict) throw budgetExceeded()
   return state

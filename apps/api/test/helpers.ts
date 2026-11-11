@@ -11,6 +11,8 @@ import type { FastifyInstance } from 'fastify'
 export interface ApiResponse<T = Record<string, unknown>> {
   status: number
   body: T
+  /** Заголовки ответа: нужны для проверки CORS и заголовков безопасности. */
+  headers: Record<string, string>
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
@@ -96,7 +98,11 @@ export async function api<T = Record<string, unknown>>(
       body = text
     }
   }
-  return { status: response.statusCode, body: body as T }
+  return {
+    status: response.statusCode,
+    body: body as T,
+    headers: (response.headers ?? {}) as Record<string, string>,
+  }
 }
 
 export function nextTelegramId(): number {

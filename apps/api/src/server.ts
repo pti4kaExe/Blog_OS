@@ -1,5 +1,5 @@
 import { buildApp } from './app.ts'
-import { env } from './env.ts'
+import { env, isProd } from './env.ts'
 import { closeDb } from './db.ts'
 import { applyMigrations } from './migrations.ts'
 import { cleanupOldCodes } from './services/loginCodes.ts'

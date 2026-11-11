@@ -11,9 +11,10 @@
  */
 import { randomBytes } from 'node:crypto'
 import { query, queryOne } from '../db.ts'
+import type { Row } from '../repositories/access.ts'
 import { env } from '../env.ts'
 
-export type LoginCodeStatus = 'pending' | 'confirmed' | 'expired'
+export type LoginCodeStatus = 'pending' | 'confirmed' | 'expired' | 'used'
 
 export interface LoginCodeRow {
   code: string
@@ -86,4 +87,19 @@ export async function cleanupOldCodes(): Promise<number> {
     `DELETE FROM login_codes WHERE created_at < now() - interval '1 day' RETURNING code`,
   )
   return rows.length
+}
+
+/**
+ * Атомарно «использует» подтверждённый код: после этого токен по нему не выдаётся.
+ *
+ * Раньше статус опрашивали сколько угодно раз, и каждый опрос confirmed
+ * выпускал новый JWT. Теперь ровно один обмен: кто первый, того и токен.
+ */
+export async function claimCode(code: string): Promise<Row | null> {
+  return queryOne<Row>(
+    `UPDATE login_codes SET status = 'used', used_at = now()
+      WHERE code = $1 AND status = 'confirmed'
+      RETURNING *`,
+    [code],
+  )
 }

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import ErrorBoundary from './components/ui/ErrorBoundary.jsx'
 import './styles.css'
 
 /* Витрина фундамента — служебная страница, открывается по ?фундамент.
@@ -15,8 +16,10 @@ const root = (window.__blogosRoot ||= ReactDOM.createRoot(container))
 
 root.render(
   <React.StrictMode>
-    {showFoundation
-      ? <Suspense fallback={null}><FoundationShowcase /></Suspense>
-      : <App />}
+    <ErrorBoundary>
+      {showFoundation
+        ? <Suspense fallback={null}><FoundationShowcase /></Suspense>
+        : <App />}
+    </ErrorBoundary>
   </React.StrictMode>,
 )
