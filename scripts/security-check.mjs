@@ -1,5 +1,6 @@
 // Живые проверки безопасности: что уже включено, что ждёт деплоя API.
-const API = 'https://blogos-api-shlm.onrender.com'
+// Адрес API: по умолчанию продакшен на Vercel, можно переопределить API_URL.
+const API = process.env.API_URL || 'https://blog-os-gules.vercel.app'
 const results = []
 const add = (name, ok, detail) => {
   results.push({ name, ok, detail })

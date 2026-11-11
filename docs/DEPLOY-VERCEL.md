@@ -105,3 +105,30 @@ curl -s -o /dev/null -w '%{time_total}\n' "https://blogos-api.vercel.app/health?
 
 Сравнение: Render после простоя отвечал 30–60 секунд, Vercel — обычно < 2 секунд
 даже «холодным».
+
+
+## Фактическое состояние (11 ноября 2026)
+
+| Параметр | Значение |
+|---|---|
+| Проект Vercel | `blog-os` (team Elizabeth Ozerova, Hobby) |
+| Прод-адрес API | https://blog-os-gules.vercel.app |
+| Клиент | https://pti4kaexe.github.io/Blog_OS/ (переменная `VITE_API_URL` = прод-адрес API) |
+| Webhook бота | https://blog-os-gules.vercel.app/telegram/webhook (`getWebhookInfo`: ошибок нет) |
+| Миграции | применены все 5 файлов; `/internal/migrate` → `{"applied":[],"skipped":5,"tables":15}` |
+| Скорость | 0,68 с первый запрос, 0,21–0,22 с повторные |
+| Проверки безопасности | `scripts/security-check.mjs`: 13/13 |
+| Запасной стенд | Render `blogos-api` (старый код, может спать) |
+
+Что сделано при переезде:
+
+1. `api/index.js` — serverless-вход Fastify (`app.server.emit('request', req, res)`).
+2. `vercel.json` — сборка API, `installCommand: npm install --include=dev` (иначе
+   `tsc` не ставится), `outputDirectory: public` (Vercel требует статический выход),
+   `includeFiles: "db/sql/**"` (SQL нужен миграциям).
+3. `public/index.html` — служебная заглушка для статического выхода.
+4. Внутренние операции `/internal/migrate` и `/internal/register-webhook` под
+   секретом `MIGRATE_TOKEN`; адрес для вебхука можно передать параметром
+   `?url=…` (переменная с префиксом `PUBLIC_` в Vercel не может быть секретной).
+5. `POST /internal/migrate` и `/internal/register-webhook` после настройки можно
+   отключить, удалив `MIGRATE_TOKEN` из переменных.
