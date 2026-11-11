@@ -19,3 +19,6 @@ coverage/
 _scratch/
 # Локальное состояние плагина дизайн-ревью (не часть продукта).
 .impeccable/
+
+# Vercel
+.vercel/
