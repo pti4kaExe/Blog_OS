@@ -95,7 +95,30 @@ export default function CloudNotesStep({
           />
 
           <InlineError error={localError} />
-          {generateError && <InlineError error={generateError} />}
+          {generateError && generateError.code !== 'notes_too_thin' && <InlineError error={generateError} />}
+          {generateError?.code === 'notes_too_thin' && (
+            <Notice kind="warn">
+              <div style={{ marginBottom: 6 }}>{generateError.message}</div>
+              <div className="faint" style={{ marginBottom: 8 }}>{generateError.details?.hint}</div>
+              {Array.isArray(generateError.details?.topics) && generateError.details.topics.length > 0 && (
+                <>
+                  <div className="faint" style={{ marginBottom: 6 }}>Темы вашего канала — нажмите, чтобы добавить заметку:</div>
+                  <div className="tags">
+                    {generateError.details.topics.map((topic) => (
+                      <button
+                        key={topic}
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => setNotes((prev) => (prev.trim() ? prev + '\n' : '') + topic)}
+                      >
+                        {topic}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </Notice>
+          )}
 
           <div className="btn-row mt-4">
             <button

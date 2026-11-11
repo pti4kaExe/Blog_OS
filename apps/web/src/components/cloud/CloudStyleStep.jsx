@@ -5,7 +5,7 @@ import { getAiConsent, useAiConsent } from '../../lib/aiConsent.jsx'
 import { analysisSummary } from '../../lib/tov.js'
 import { fmtDateTime, isOffline, plural } from '../../lib/format.js'
 import {
-  AiBadge, ErrorState, InlineError, Notice, Toggle,
+  AiBadge, ErrorState, InlineError, Notice, TextInput, Toggle,
 } from '../ui.jsx'
 import { AiWait } from '../ui/AiWait.jsx'
 import TovCard from '../TovCard.jsx'
@@ -42,6 +42,9 @@ export default function CloudStyleStep({
      предлагать ли разбор по архиву: сам разбор делает сервер, он же и
      берёт три последние публикации. */
   const [archiveCount, setArchiveCount] = useState(0)
+  // Ссылка на свой канал: по ней импортируем посты и строим профиль стиля.
+  const [archiveUrl, setArchiveUrl] = useState('')
+  const [importing, setImporting] = useState(false)
   const consent = useAiConsent()
 
   useEffect(() => {
@@ -99,6 +102,42 @@ export default function CloudStyleStep({
    * за условием, которого никто не выполнял: архив обещали текстом и
    * не давали.
    */
+
+  /**
+   * Подключение канала: берём публикации по ссылке и сразу разбираем стиль.
+   *
+   * Зачем: без профиля стиля Narrative Engine собирает текст «из общих правил»,
+   * и получается усреднённый бред. Поэтому сначала источник голоса автора —
+   * свой канал, потом уже черновики.
+   */
+  const importChannel = async () => {
+    const url = archiveUrl.trim()
+    if (!url) {
+      setError({ code: 'validation_error', message: 'Вставьте ссылку на канал, например https://t.me/your_channel' })
+      return
+    }
+    setImporting(true)
+    setError(null)
+    try {
+      await api.posts.import(channel.id, { source_url: url, limit: 10 })
+      const payload = await api.posts.list(channel.id, { limit: 3 })
+      const count = itemsOf(payload).length
+      setArchiveCount(count)
+      if (count === 0) {
+        setError({
+          code: 'validation_error',
+          message: 'Посты не загрузились. Проверьте ссылку: канал должен быть публичным (https://t.me/имя_канала).',
+        })
+        return
+      }
+      analyzeArchive()
+    } catch (importError) {
+      setError(importError)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const analyzeArchive = () => {
     consent.ensure(async (granted) => {
       setBusy(true)
@@ -176,6 +215,35 @@ export default function CloudStyleStep({
               />
             </div>
           ))}
+
+          {archiveCount === 0 && (
+            <div className="mt-4">
+              <Notice kind="warn">
+                <div style={{ marginBottom: 8 }}>
+                  Самый точный профиль — по вашему каналу. Вставьте ссылку: BlogOS загрузит
+                  последние посты и разберёт стиль автоматически.
+                </div>
+                <div className="row" style={{ gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 220 }}>
+                    <TextInput
+                      id="style-channel-url"
+                      value={archiveUrl}
+                      onChange={(event) => setArchiveUrl(event.target.value)}
+                      placeholder="https://t.me/your_channel"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={importChannel}
+                    disabled={importing || busy}
+                  >
+                    {importing ? 'Загружаем посты…' : 'Подключить канал'}
+                  </button>
+                </div>
+              </Notice>
+            </div>
+          )}
 
           {archiveCount > 0 && (
             <div className="mt-4">

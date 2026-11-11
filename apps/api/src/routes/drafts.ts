@@ -9,6 +9,7 @@ import { ownDraft, ownProfile } from '../repositories/access.ts'
 import * as drafts from '../repositories/drafts.ts'
 import * as posts from '../repositories/posts.ts'
 import * as tovRepo from '../repositories/tov.ts'
+import { splitFragments } from '@blogos/engine'
 import { assertAiBudget } from '../services/cost.ts'
 import { recalcPostEmbeddings } from '../services/embeddings/store.ts'
 import { buildNarrative } from '../services/narrative.ts'
@@ -129,8 +130,29 @@ export async function draftRoutes(app: FastifyInstance): Promise<void> {
         throw unprocessable('Заметки пусты — собирать нечего', { reason: 'empty_notes' })
       }
 
-      const budget = await assertAiBudget(profileId, { strict: strictAiOf(body) })
       const tovRow = await tovRepo.getByAuthor(request.user!.id, profileId)
+
+      // Тонкие заметки: движок не сможет построить арку и вернёт сырые строки —
+      // это выглядит как «бред, который не зависит от арки». Лучше сказать честно
+      // и подсказать темы канала, чем показывать такой «черновик».
+      if (splitFragments(notes).length < 2) {
+        const metrics = (tovRow?.metrics ?? {}) as Record<string, unknown>
+        const topTerms = Array.isArray(metrics.topTerms) ? metrics.topTerms : []
+        const topics = topTerms
+          .map((term) => (term && typeof term === 'object' ? (term as { label?: unknown }).label : term))
+          .filter((label): label is string => typeof label === 'string' && label.trim().length > 0)
+          .slice(0, 6)
+        throw unprocessable(
+          'Нужно хотя бы две мысли в заметках: по одной строке на мысль. Из одной строки структура не собирается',
+          {
+            reason: 'notes_too_thin',
+            hint: 'Напишите 4–6 коротких строк — что случилось, что вы поняли, что посоветуете. Либо возьмите готовый черновик на вкладке «Готовый черновик».',
+            ...(topics.length ? { topics } : {}),
+          },
+        )
+      }
+
+      const budget = await assertAiBudget(profileId, { strict: strictAiOf(body) })
       const narrative = await buildNarrative({
         notes,
         arc: body.arc ?? null,
