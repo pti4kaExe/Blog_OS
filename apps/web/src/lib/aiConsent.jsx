@@ -79,6 +79,16 @@ export function useAiConsent() {
   }
 }
 
+/**
+ * Окно согласия.
+ *
+ * Оба решения продолжают начатое действие, и только третья кнопка его
+ * отменяет. Раньше отмена была единственным, что делали Esc и крестик, —
+ * причём молча: человек нажимал «Собрать черновик», закрывал окно и
+ * оставался перед прежним экраном без единого слова о том, что сборка
+ * не запущена. Теперь выход назван словами и стоит в ряду с остальными,
+ * а строка под кнопками говорит, что делает закрытие.
+ */
 function AiConsentModal({ open, onResolve, onCancel }) {
   return (
     <Modal
@@ -93,6 +103,9 @@ function AiConsentModal({ open, onResolve, onCancel }) {
           <button type="button" className="btn btn-ghost" onClick={() => onResolve(false)}>
             Только правила, без AI
           </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>
+            Не сейчас
+          </button>
         </div>
       )}
     >
@@ -105,6 +118,10 @@ function AiConsentModal({ open, onResolve, onCancel }) {
         <li>Отказ не мешает работе: результат будет помечен «проверено без AI».</li>
         <li>Решение можно изменить переключателем AI на любом шаге.</li>
       </ul>
+      <p className="field-hint" style={{ marginBottom: 0 }}>
+        Любая из первых двух кнопок продолжает начатое действие. «Не сейчас»,
+        Esc и крестик отменяют его — ничего не отправится и не соберётся.
+      </p>
     </Modal>
   )
 }

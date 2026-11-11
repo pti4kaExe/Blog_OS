@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
-import { apiErrorMessage, DRAFT_STATUSES, fmtDateTime, plural } from '../../lib/format.js'
 import {
-  ConfirmDialog, EmptyState, ErrorState, InlineError, Loading, StatusTag, Tag,
+  apiErrorMessage, arcLabel, DRAFT_STATUSES, fmtDateTime, plural,
+} from '../../lib/format.js'
+import {
+  ConfirmDialog, EmptyState, ErrorState, InlineError, StatusTag, Tag,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 
 const FILTERS = [
   { value: '', label: 'Все' },
@@ -63,7 +66,7 @@ export default function DraftsList({
   }
 
   return (
-    <section className="card" style={{ marginTop: 16 }}>
+    <section className="card mt-4">
       <div className="card-head">
         <div>
           <h2>Мои черновики</h2>
@@ -90,7 +93,9 @@ export default function DraftsList({
         ))}
       </div>
 
-      {state === 'loading' && <Loading label="Загружаем черновики…" />}
+      {state === 'loading' && (
+        <SkeletonRegion loading label="Загружаем черновики…" fallback={<SkeletonList rows={3} />} />
+      )}
 
       {state === 'error' && (
         <ErrorState error={error} onRetry={reload}>
@@ -117,7 +122,7 @@ export default function DraftsList({
                   <span className="list-item-title">{draft.title || 'Без названия'}</span>
                   <StatusTag list={DRAFT_STATUSES} value={draft.status} />
                   {draft.origin === 'narrative_engine' && <Tag>собран движком</Tag>}
-                  {draft.arc && <Tag>{draft.arc}</Tag>}
+                  {draft.arc && <Tag>{arcLabel(draft.arc)}</Tag>}
                   <div className="spacer" />
                   <span className="list-item-meta">обновлён {fmtDateTime(draft.updated_at)}</span>
                 </div>
@@ -156,7 +161,7 @@ export default function DraftsList({
         onConfirm={remove}
         onCancel={() => { setDeleteTarget(null); setDeleteError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Черновик «{deleteTarget?.title || 'Без названия'}» и все его отчёты AntiCringe удалятся
           без возможности восстановления.
         </p>

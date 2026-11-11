@@ -40,8 +40,11 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap"
     />
-    <meta name="theme-color" content="#1a1512" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#f5f0e8" media="(prefers-color-scheme: light)" />
+    <!-- Цвет строки браузера на мобильных. Должен совпадать с
+         --surface-base из styles/tokens.css: иначе рамка браузера и
+         экран приложения выглядят из разных продуктов. -->
+    <meta name="theme-color" content="#16161A" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
     <title>BlogOS — пост в вашем стиле, проверенный до публикации</title>
     <meta name="description" content="BlogOS: собирает пост из сырых заметок в авторском стиле и проверяет черновик на клише, логические ошибки и отклонения от Tone of Voice." />
     <script>

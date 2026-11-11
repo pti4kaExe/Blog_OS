@@ -268,9 +268,23 @@ const REASON_MESSAGES = {
 
 /**
  * Понятный русский текст ошибки. Используется везде, где показывается сбой.
+ *
+ * Про приоритет текстов. Ответ сервера приходит кодом (`validation_error`,
+ * `conflict`, …), и общая фраза из `CODE_MESSAGES` — единственное, что можно
+ * сказать автору: сам `message` у сервера технический. Но экраны проверяют
+ * ввод и до запроса, и там `message` написан под конкретное поле — «Нужны
+ * хотя бы две заметки». Раньше общий текст побеждал всегда, и все такие
+ * подсказки превращались в «Проверьте заполненные поля».
+ *
+ * Разделяет их `status`: он есть у любой ошибки, пришедшей по сети
+ * (`ApiError` ставит его всегда, мок — тоже), и его нет у объекта, который
+ * экран собрал сам. Пары «нет статуса, но есть код» достаточно: так
+ * случайное исключение JS сюда не попадёт и разбирается как прежде.
  */
 export function apiErrorMessage(error) {
   if (!error) return ''
+  /* Короткая запись `setError('текст')` — текст уже готов к показу. */
+  if (typeof error === 'string') return error
   if (isOffline(error)) {
     return error.code === 'timeout' && error.message
       ? `${error.message}. Проверьте, запущен ли сервер, или включите локальный режим.`
@@ -281,6 +295,7 @@ export function apiErrorMessage(error) {
   if (error.details && error.details.platform) {
     return `${CODE_MESSAGES[error.code] || error.message} Площадка: ${error.details.platform}.`
   }
+  if (error.status === undefined && error.code && error.message) return error.message
   return CODE_MESSAGES[error.code] || error.message || 'Не удалось выполнить запрос.'
 }
 

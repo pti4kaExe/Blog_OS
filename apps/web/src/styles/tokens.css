@@ -148,32 +148,36 @@
   /* Текст: нейтральный, без оттенка. */
   --label-primary: #F2F2F4;
   --label-secondary: #9A9AA3;
-  --label-tertiary: #68686F;
+  /* Третий уровень несёт счётчики, даты, подсказки полей и объяснение
+     недоступного шага — текст, который читают, а не узор. На #68686F он
+     давал 3.0:1 на карточке при норме 4.5:1. #8E8E99 оставляет его тихим
+     (5.1:1 на карточке, 4.6:1 на самой светлой поверхности), но читаемым. */
+  --label-tertiary: #8E8E99;
   --label-quaternary: rgba(242, 242, 244, 0.22);
 
   --hairline: rgba(255, 255, 255, 0.08);
   --hairline-strong: rgba(255, 255, 255, 0.16);
 
-  /* Синий — единственный цветной акцент. #5B8DEF на фоне даёт больше
+  /* Синий — единственный цветной акцент. #4191ED на фоне даёт больше
      7:1 — читается как текст. Используется только для действия, фокуса
      и одного активного индикатора; не для тегов и статус-бейджей. */
-  --tint: #5B8DEF;
-  --tint-hover: #76A0F5;
-  --tint-soft: rgba(91, 141, 239, 0.14);
-  --tint-edge: rgba(91, 141, 239, 0.4);
-  --tint-label: #86AAF7;
+  --tint: #4191ED;
+  --tint-hover: #5FA5F3;
+  --tint-soft: rgba(65, 145, 237, 0.14);
+  --tint-edge: rgba(65, 145, 237, 0.4);
+  --tint-label: #70AFF6;
   --on-tint: #0E0E10;
-  --tint-wash: #E3EBFD;
+  --tint-wash: #DEECFD;
 
   /* Главное действие — синяя заливка, градиент сверху вниз. */
-  --action-bg: #5B8DEF;
-  --action-bg-hover: #76A0F5;
-  --action-grad: linear-gradient(180deg, #6B9AF2 0%, #4575DE 100%);
-  --action-grad-hover: linear-gradient(180deg, #7FA8F6 0%, #5584E8 100%);
+  --action-bg: #4191ED;
+  --action-bg-hover: #5FA5F3;
+  --action-grad: linear-gradient(180deg, #559EF0 0%, #2679D8 100%);
+  --action-grad-hover: linear-gradient(180deg, #6CACF5 0%, #3889E4 100%);
   --action-fg: #0B0F19;
 
-  --glow-tint: 0 0 0 1px rgba(91, 141, 239, 0.3), 0 10px 32px -14px rgba(91, 141, 239, 0.5);
-  --glow-action: 0 8px 26px -12px rgba(91, 141, 239, 0.55);
+  --glow-tint: 0 0 0 1px rgba(65, 145, 237, 0.3), 0 10px 32px -14px rgba(65, 145, 237, 0.5);
+  --glow-action: 0 8px 26px -12px rgba(65, 145, 237, 0.55);
 
   /* Статусы — приглушённая шкала, независимая от акцента; у каждой
      свой характер, а не три копии синего в разных масках. */
@@ -181,13 +185,13 @@
   --caution: #D9B35C;
   --warning: #E0975A;
   --danger: #E2685F;
-  --info: #8FAED9;
+  --info: #8BAFD8;
 
   --success-soft: rgba(123, 190, 142, 0.14);
   --caution-soft: rgba(217, 179, 92, 0.14);
   --warning-soft: rgba(224, 151, 90, 0.14);
   --danger-soft: rgba(226, 104, 95, 0.14);
-  --info-soft: rgba(143, 174, 217, 0.14);
+  --info-soft: rgba(139, 175, 216, 0.14);
 
   --success-edge: rgba(123, 190, 142, 0.34);
   --caution-edge: rgba(217, 179, 92, 0.32);
@@ -195,6 +199,10 @@
   --danger-edge: rgba(226, 104, 95, 0.36);
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.44);
+  /* Чем карточка отделена от фона. В тёмной теме это делает светлота:
+     #1E1E23 заметно светлее фона #16161A, и тень лишь подпирает край. */
+  --card-edge: var(--hairline);
+  --card-shadow: var(--shadow-1);
   --shadow-2: 0 10px 30px -12px rgba(0, 0, 0, 0.64), 0 1px 2px rgba(0, 0, 0, 0.46);
   --shadow-3: 0 32px 80px -24px rgba(0, 0, 0, 0.78), 0 6px 18px rgba(0, 0, 0, 0.4);
 
@@ -205,16 +213,16 @@
   --material-edge: rgba(255, 255, 255, 0.09);
   --scrim: rgba(4, 4, 6, 0.64);
 
-  --brand-from: #8FAEF7;
-  --brand-to: #3A63D8;
+  --brand-from: #79B3F5;
+  --brand-to: #256CBC;
   --on-brand: #0B0F19;
-  --voice-ribbon-1: rgba(91, 141, 239, 0.55);
-  --voice-ribbon-2: rgba(58, 99, 216, 0.42);
-  --voice-ribbon-3: rgba(143, 174, 247, 0.3);
-  --voice-rim: rgba(226, 234, 250, 0.85);
-  --voice-haze: rgba(58, 99, 216, 0.22);
-  --voice-glass-top: rgba(143, 174, 247, 0.46);
-  --voice-glass-bottom: rgba(58, 99, 216, 0.3);
+  --voice-ribbon-1: rgba(65, 145, 237, 0.55);
+  --voice-ribbon-2: rgba(37, 108, 188, 0.42);
+  --voice-ribbon-3: rgba(121, 179, 245, 0.3);
+  --voice-rim: rgba(223, 235, 249, 0.85);
+  --voice-haze: rgba(37, 108, 188, 0.22);
+  --voice-glass-top: rgba(121, 179, 245, 0.46);
+  --voice-glass-bottom: rgba(37, 108, 188, 0.3);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -236,41 +244,43 @@
 
   --label-primary: #121214;
   --label-secondary: #55555C;
-  --label-tertiary: #87878F;
+  /* То же и на бумаге: #87878F давал 3.56:1 на белом. #6E6E78 — 5.0:1
+     на белом и 4.5:1 на самой тёмной из светлых поверхностей. */
+  --label-tertiary: #6E6E78;
   --label-quaternary: rgba(18, 18, 20, 0.26);
 
   --hairline: rgba(18, 18, 20, 0.1);
   --hairline-strong: rgba(18, 18, 20, 0.2);
 
   /* Тот же синий, затемнённый до читаемого на белом: больше 5:1. */
-  --tint: #3A63D8;
-  --tint-hover: #2E51B8;
-  --tint-soft: rgba(58, 99, 216, 0.1);
-  --tint-edge: rgba(58, 99, 216, 0.34);
-  --tint-label: #2E51B8;
+  --tint: #256CBC;
+  --tint-hover: #265A96;
+  --tint-soft: rgba(37, 108, 188, 0.1);
+  --tint-edge: rgba(37, 108, 188, 0.34);
+  --tint-label: #265A96;
   --on-tint: #FFFFFF;
-  --tint-wash: #E3EBFD;
+  --tint-wash: #DEECFD;
 
-  --action-bg: #3A63D8;
-  --action-bg-hover: #2E51B8;
-  --action-grad: linear-gradient(180deg, #4572E3 0%, #2E51B8 100%);
-  --action-grad-hover: linear-gradient(180deg, #3A63D8 0%, #24409A 100%);
+  --action-bg: #256CBC;
+  --action-bg-hover: #265A96;
+  --action-grad: linear-gradient(180deg, #2178DB 0%, #265A96 100%);
+  --action-grad-hover: linear-gradient(180deg, #256CBC 0%, #1D487B 100%);
   --action-fg: #FFFFFF;
 
-  --glow-tint: 0 0 0 1px rgba(58, 99, 216, 0.22), 0 10px 28px -16px rgba(58, 99, 216, 0.4);
-  --glow-action: 0 8px 22px -12px rgba(58, 99, 216, 0.45);
+  --glow-tint: 0 0 0 1px rgba(37, 108, 188, 0.22), 0 10px 28px -16px rgba(37, 108, 188, 0.4);
+  --glow-action: 0 8px 22px -12px rgba(37, 108, 188, 0.45);
 
   --success: #2E7D4F;
   --caution: #8A6300;
   --warning: #9A4B14;
   --danger: #B23327;
-  --info: #2C5696;
+  --info: #29588D;
 
   --success-soft: rgba(46, 125, 79, 0.12);
   --caution-soft: rgba(138, 99, 0, 0.12);
   --warning-soft: rgba(154, 75, 20, 0.12);
   --danger-soft: rgba(178, 51, 39, 0.12);
-  --info-soft: rgba(44, 86, 150, 0.12);
+  --info-soft: rgba(41, 88, 141, 0.12);
 
   --success-edge: rgba(46, 125, 79, 0.3);
   --caution-edge: rgba(138, 99, 0, 0.3);
@@ -278,6 +288,12 @@
   --danger-edge: rgba(178, 51, 39, 0.3);
 
   --shadow-1: 0 1px 2px rgba(18, 18, 20, 0.07);
+  /* На бумаге карточка того же белого, что и фон, — отделить её может
+     только край и тень. Прежних 1px/7% не хватало: карточка читалась
+     как кусок того же листа. Тень мягкая и широкая, чтобы лист всё-таки
+     лежал на столе, а не был на нём нарисован. */
+  --card-edge: rgba(18, 18, 20, 0.14);
+  --card-shadow: 0 1px 2px rgba(18, 18, 20, 0.05), 0 10px 26px -14px rgba(18, 18, 20, 0.22);
   --shadow-2: 0 10px 26px -12px rgba(18, 18, 20, 0.16), 0 1px 3px rgba(18, 18, 20, 0.07);
   --shadow-3: 0 30px 70px -24px rgba(18, 18, 20, 0.22), 0 6px 16px rgba(18, 18, 20, 0.09);
 
@@ -288,24 +304,24 @@
   --material-edge: rgba(255, 255, 255, 0.9);
   --scrim: rgba(10, 10, 12, 0.34);
 
-  --brand-from: #5B8DEF;
-  --brand-to: #2E51B8;
+  --brand-from: #4191ED;
+  --brand-to: #265A96;
   --on-brand: #FFFFFF;
-  --voice-ribbon-1: rgba(58, 99, 216, 0.32);
-  --voice-ribbon-2: rgba(46, 81, 184, 0.26);
-  --voice-ribbon-3: rgba(91, 141, 239, 0.22);
-  --voice-rim: rgba(46, 81, 184, 0.6);
-  --voice-haze: rgba(91, 141, 239, 0.2);
-  --voice-glass-top: rgba(91, 141, 239, 0.32);
-  --voice-glass-bottom: rgba(46, 81, 184, 0.46);
+  --voice-ribbon-1: rgba(37, 108, 188, 0.32);
+  --voice-ribbon-2: rgba(38, 90, 150, 0.26);
+  --voice-ribbon-3: rgba(65, 145, 237, 0.22);
+  --voice-rim: rgba(38, 90, 150, 0.6);
+  --voice-haze: rgba(65, 145, 237, 0.2);
+  --voice-glass-top: rgba(65, 145, 237, 0.32);
+  --voice-glass-bottom: rgba(38, 90, 150, 0.46);
 }
 
 /* Фокус-кольцо: внутреннее кольцо цветом фона, внешнее — акцентное. */
 :root {
   --focus-ring: 0 0 0 2px var(--surface-base), 0 0 0 4px var(--tint);
-  --focus-halo: 0 0 0 3px rgba(91, 141, 239, 0.4);
+  --focus-halo: 0 0 0 3px rgba(65, 145, 237, 0.4);
 }
-:root[data-theme='light'] { --focus-halo: 0 0 0 3px rgba(58, 99, 216, 0.28); }
+:root[data-theme='light'] { --focus-halo: 0 0 0 3px rgba(37, 108, 188, 0.28); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    4. Системные настройки доступности

@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
 import { CATEGORIES, applyFixes, isFixable, lint as engineLint } from '../../engine/anticringe.js'
 import { getAiConsent, useAiConsent } from '../../lib/aiConsent.jsx'
 import { engineProfileFromTov } from '../../lib/tov.js'
+import { scrollNodeIntoView } from '../../lib/scroll.js'
 import {
   apiErrorMessage, arcLabel, DRAFT_STATUSES, fmtDateTime, hasUnfilledGaps,
   isOffline, LINT_ENGINE_LABELS, plural, unfilledGaps,
 } from '../../lib/format.js'
 import {
-  AiBadge, CopyButton, DownloadButton, ErrorState, InlineError, Loading, Modal, Notice, ScoreRing,
+  AiBadge, CopyButton, DownloadButton, ErrorState, InlineError, Modal, Notice, ScoreRing,
   StatusTag, Tag, Toggle,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { AnimatePresence } from 'motion/react'
 import { AiWait } from '../ui/AiWait.jsx'
 import { Reveal, ResultReveal, Stagger } from '../ui/Motion.jsx'
@@ -111,6 +113,12 @@ export default function CloudCheckStep({
   const [historyError, setHistoryError] = useState(null)
   const [historyDetail, setHistoryDetail] = useState(null)
 
+  /* Карточка итога и признак «итог только что пришёл по кнопке».
+     Флаг надёжнее сравнения номеров отчёта: отчёт может приехать и
+     вместе с черновиком, при входе на шаг, — туда везти не нужно. */
+  const resultRef = useRef(null)
+  const scrollToResult = useRef(false)
+
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState(null)
   const [publishResult, setPublishResult] = useState(null)
@@ -174,6 +182,24 @@ export default function CloudCheckStep({
     loadHistory()
   }, [loadHistory])
 
+  /**
+   * Подвести к итогу, когда он приходит.
+   *
+   * Кольцо с оценкой стоит ниже сгиба: человек нажимает «Проверить» и
+   * остаётся перед прежним экраном, а результат — вместе с анимацией
+   * набора дуги — проигрывается там, куда он не смотрит.
+   *
+   * Везём экран только когда есть что показать и этого не видно: если
+   * итог и так на экране, дёргать его незачем. Отступ сверху — под
+   * липкую полосу заголовка, иначе она накрывает первую строку.
+   */
+  useEffect(() => {
+    if (!scrollToResult.current) return
+    scrollToResult.current = false
+
+    scrollNodeIntoView(resultRef.current)
+  }, [report])
+
   /* ------------------------------- проверка ------------------------------- */
 
   const saveAndLint = useCallback(async (nextText, { llm = useLlm } = {}) => {
@@ -201,6 +227,7 @@ export default function CloudCheckStep({
         }
       }
       setReport(normalizeReport(result))
+      scrollToResult.current = true
       await loadHistory()
     } catch (error) {
       // если PATCH не прошёл — возвращаем текст, который точно сохранён на сервере
@@ -379,13 +406,13 @@ export default function CloudCheckStep({
 
   return (
     <div className="grid-2">
-      <section className="card">
+      <section className="card" ref={resultRef}>
         <div className="card-head">
           <div>
             <h2>Итог проверки</h2>
             <p>
               {report
-                ? `Отчёт №${report.report.id} · ${fmtDateTime(report.report.created_at)} · ${LINT_ENGINE_LABELS[report.report.engine] || report.report.engine}`
+                ? `Проверено ${fmtDateTime(report.report.created_at)} · ${LINT_ENGINE_LABELS[report.report.engine] || report.report.engine}`
                 : 'Проверка ещё не запускалась в этой сессии'}
             </p>
           </div>
@@ -394,7 +421,7 @@ export default function CloudCheckStep({
         </div>
 
         {!report && (
-          <div className="state" style={{ marginBottom: 16 }}>
+          <div className="state mb-4">
             <div className="state-title">Запустите AntiCringe</div>
             <div className="state-text">
               Правиловый слой работает всегда и бесплатно. AI — второй слой: его можно
@@ -405,7 +432,7 @@ export default function CloudCheckStep({
 
         {report && (
           <ResultReveal replay={report.report.id}>
-            <div className="score-wrap" style={{ marginBottom: 16 }}>
+            <div className="score-wrap mb-4">
               <ScoreRing score={score ?? 0} tone={toneFor(score)} />
               <div>
                 <div className="grade" data-tone={toneFor(score)}>{report.verdict || verdictFor(score)}</div>
@@ -432,7 +459,7 @@ export default function CloudCheckStep({
             </div>
 
             {report.aiSkippedReason && (
-              <div style={{ marginBottom: 10 }}>
+              <div className="mb-3">
                 <Notice kind="warn">
                   AI-слой не выполнялся ({report.aiSkippedReason === 'budget_exceeded' ? 'лимит расходов исчерпан' : report.aiSkippedReason}).
                   Правиловый слой проверил текст полностью.
@@ -442,11 +469,72 @@ export default function CloudCheckStep({
           </ResultReveal>
         )}
 
-        {ruleNotice && <div style={{ marginBottom: 10 }}><Notice kind="good">{ruleNotice}</Notice></div>}
-        {notice && <div style={{ marginBottom: 10 }}><Notice kind="warn">{notice}</Notice></div>}
-        <InlineError error={lintError} />
+        {/* Решение о публикации — сразу под оценкой.
 
-        <div style={{ margin: '14px 0' }}>
+            Раньше оно стояло последней строкой правой колонки: кнопка
+            «Опубликовать пост» приходилась на 2027-ю точку из 2402,
+            то есть на 84% глубины страницы, за замечаниями, историей
+            проверок и сравнением с профилем. Главное действие продукта
+            нужно было искать прокруткой.
+
+            Теперь вердикт и решение стоят рядом: прочитал оценку —
+            решил, публиковать или править. */}
+        <hr className="hr" />
+
+        <h3>Публикация</h3>
+        <div className="mb-3">
+          <StatusTag list={DRAFT_STATUSES} value={draft.status} />
+          {draft.arc && <span className="faint"> · арка: {arcLabel(draft.arc)}</span>}
+        </div>
+
+        {published && !publishResult ? (
+          <Notice kind="good">
+            Черновик уже опубликован{publishedPostId ? ' — пост лежит в архиве BlogOS' : ''}.
+          </Notice>
+        ) : publishResult ? (
+          <Notice kind="good">
+            Пост опубликован. Черновик переведён в статус «Опубликован».
+            {publishedLink ? (
+              <> <a href={publishedLink} target="_blank" rel="noreferrer">Открыть пост</a></>
+            ) : (
+              <> Ссылка на площадку не создаётся: BlogOS фиксирует публикацию в своём архиве.</>
+            )}
+          </Notice>
+        ) : (
+          <>
+            <p className="faint mt-0">
+              Публикация не отправляет пост на площадку — она фиксирует факт в архиве BlogOS.
+              Нужен статус «Готов к публикации» и отсутствие пропусков <code>[дополните: …]</code>.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={publish}
+              disabled={publishing || hasUnfilledGaps(text)}
+            >
+              {publishing ? 'Публикуем…' : 'Опубликовать пост'}
+            </button>
+            {hasUnfilledGaps(text) && (
+              <p className="faint mb-0">
+                Кнопка заблокирована: сначала заполните пропуски в тексте.
+              </p>
+            )}
+          </>
+        )}
+
+        {publishError && (
+          <div className="mt-3">
+            <Notice kind="error">{apiErrorMessage(publishError)}</Notice>
+            {publishError.details?.reason === 'unfilled_gaps' && gaps.length > 0 && (
+              <p className="faint mb-0">Пропуски: {gaps.join(', ')}</p>
+            )}
+          </div>
+        )}
+
+        {ruleNotice && <div className="mb-3"><Notice kind="good">{ruleNotice}</Notice></div>}
+        {notice && <div className="mb-3"><Notice kind="warn">{notice}</Notice></div>}        <InlineError error={lintError} />
+
+        <div className="my-4">
           <Toggle
             id="lint-use-llm"
             checked={useLlm}
@@ -457,7 +545,7 @@ export default function CloudCheckStep({
           />
         </div>
 
-        <div className="btn-row" style={{ marginBottom: 16 }}>
+        <div className="btn-row mb-4">
           <button type="button" className="btn btn-primary" onClick={runLint} disabled={lintBusy}>
             {lintBusy ? 'Проверяем…' : report ? 'Проверить снова' : 'Проверить в AntiCringe'}
           </button>
@@ -473,7 +561,7 @@ export default function CloudCheckStep({
         </div>
         <AiWait active={lintBusy} ai={useLlm} />
 
-        <div className="card-head" style={{ marginBottom: 8 }}>
+        <div className="card-head mb-2">
           <div><h2 style={{ fontSize: 15 }}>Текст с пометками</h2></div>
           <div className="spacer" />
           <CopyButton text={text} />
@@ -489,7 +577,7 @@ export default function CloudCheckStep({
         )}
 
         {gaps.length > 0 && (
-          <div style={{ marginTop: 12 }}>
+          <div className="mt-3">
             <Notice kind="warn">
               Незаполненные пропуски: {gaps.join(', ')}. Публикация будет заблокирована,
               пока автор не заполнит их своим опытом.
@@ -616,7 +704,9 @@ export default function CloudCheckStep({
         <hr className="hr" />
 
         <h3>История проверок</h3>
-        {historyState === 'loading' && <Loading label="Загружаем историю…" />}
+        {historyState === 'loading' && (
+          <SkeletonRegion loading label="Загружаем историю проверок…" fallback={<SkeletonList rows={3} lines={1} />} />
+        )}
         {historyState === 'error' && (
           <ErrorState error={historyError} onRetry={loadHistory}>
             {isOffline(historyError) && onUseLocal && (
@@ -671,59 +761,8 @@ export default function CloudCheckStep({
           </p>
         )}
 
-        <hr className="hr" />
 
-        <h3>Публикация</h3>
-        <div style={{ marginBottom: 10 }}>
-          <StatusTag list={DRAFT_STATUSES} value={draft.status} />
-          {draft.arc && <span className="faint"> · арка: {arcLabel(draft.arc)}</span>}
-        </div>
-
-        {published && !publishResult ? (
-          <Notice kind="good">
-            Черновик уже опубликован{publishedPostId ? ` — пост №${publishedPostId} в архиве BlogOS` : ''}.
-          </Notice>
-        ) : publishResult ? (
-          <Notice kind="good">
-            Пост опубликован. Черновик переведён в статус «Опубликован».
-            {publishedLink ? (
-              <> <a href={publishedLink} target="_blank" rel="noreferrer">Открыть пост</a></>
-            ) : (
-              <> Ссылка на площадку не создаётся: BlogOS фиксирует публикацию в архиве (пост №{publishResult.post?.id}).</>
-            )}
-          </Notice>
-        ) : (
-          <>
-            <p className="faint" style={{ marginTop: 0 }}>
-              Публикация не отправляет пост на площадку — она фиксирует факт в архиве BlogOS.
-              Нужен статус «Готов к публикации» и отсутствие пропусков <code>[дополните: …]</code>.
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={publish}
-              disabled={publishing || hasUnfilledGaps(text)}
-            >
-              {publishing ? 'Публикуем…' : 'Опубликовать пост'}
-            </button>
-            {hasUnfilledGaps(text) && (
-              <p className="faint" style={{ marginBottom: 0 }}>
-                Кнопка заблокирована: сначала заполните пропуски в тексте.
-              </p>
-            )}
-          </>
-        )}
-
-        {publishError && (
-          <div style={{ marginTop: 10 }}>
-            <Notice kind="error">{apiErrorMessage(publishError)}</Notice>
-            {publishError.details?.reason === 'unfilled_gaps' && gaps.length > 0 && (
-              <p className="faint" style={{ marginBottom: 0 }}>Пропуски: {gaps.join(', ')}</p>
-            )}
-          </div>
-        )}
-
-        <div style={{ marginTop: 14 }}>
+        <div className="mt-4">
           <Notice>
             Отчёт неизменяем: повторная проверка создаёт новую запись в истории.
             Канал: «{channel.name}».
@@ -733,13 +772,13 @@ export default function CloudCheckStep({
 
       <Modal
         open={Boolean(historyDetail)}
-        title={historyDetail ? `Отчёт №${historyDetail.id} · оценка ${historyDetail.score}` : 'Отчёт'}
+        title={historyDetail ? `Проверка ${fmtDateTime(historyDetail.created_at)} · оценка ${historyDetail.score}` : 'Отчёт проверки'}
         onClose={() => setHistoryDetail(null)}
         wide
       >
         {historyDetail && (
           <>
-            <p className="faint" style={{ marginTop: 0 }}>
+            <p className="faint mt-0">
               {fmtDateTime(historyDetail.created_at)} · {LINT_ENGINE_LABELS[historyDetail.engine] || historyDetail.engine}
               {' · '}{verdictFor(historyDetail.score)}
             </p>

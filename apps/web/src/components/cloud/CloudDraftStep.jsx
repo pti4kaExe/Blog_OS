@@ -106,7 +106,10 @@ export default function CloudDraftStep({
 
   const goCheck = async () => {
     if (!text.trim()) {
-      setLocalError('В черновике нет текста — добавьте хотя бы одно предложение.')
+      setLocalError({
+        code: 'validation_error',
+        message: 'В черновике нет текста — добавьте хотя бы одно предложение.',
+      })
       return
     }
     setLocalError(null)
@@ -207,7 +210,7 @@ export default function CloudDraftStep({
         )}
 
         {!build && (
-          <div style={{ marginBottom: 14 }}>
+          <div className="mb-4">
             <Notice>
               Черновик открыт из списка. Блоки арки показываются только для свежей сборки —
               но текст можно править и дальше проверять как обычно.
@@ -215,7 +218,7 @@ export default function CloudDraftStep({
           </div>
         )}
 
-        <div className="card-head" style={{ marginBottom: 8 }}>
+        <div className="card-head mb-2">
           <div><h2 style={{ fontSize: 15 }}>Текст черновика</h2></div>
           <div className="spacer" />
           {/* Лимит площадки виден прямо в редакторе: сервер откажет на 422,
@@ -239,7 +242,7 @@ export default function CloudDraftStep({
         )}
 
         {gapsLeft && (
-          <div style={{ marginTop: 12 }}>
+          <div className="mt-3">
             <Notice kind="warn">
               В тексте есть незаполненные пропуски <code>[дополните: …]</code>. Их нужно заполнить
               своим опытом — с ними публикация и одобрение ответов недоступны.
@@ -250,7 +253,7 @@ export default function CloudDraftStep({
         <InlineError error={localError} />
         {saveError && <InlineError error={saveError} />}
 
-        <div className="btn-row" style={{ marginTop: 16 }}>
+        <div className="btn-row mt-4">
           <button
             type="button"
             className="btn btn-primary"
@@ -276,7 +279,7 @@ export default function CloudDraftStep({
             Мои черновики
           </button>
         </div>
-        {savedAt && <p className="faint" style={{ marginBottom: 0, marginTop: 8 }}>Сохранено в {savedAt.toLocaleTimeString('ru-RU')}</p>}
+        {savedAt && <p className="faint mb-0 mt-2">Сохранено в {savedAt.toLocaleTimeString('ru-RU')}</p>}
       </section>
 
       <section className="card">
@@ -287,7 +290,7 @@ export default function CloudDraftStep({
           </div>
         </div>
 
-        <div className="metrics" style={{ marginBottom: 14 }}>
+        <div className="metrics mb-4">
           <div className="metric">
             <div className="metric-val">{build?.notes_used ?? '—'}</div>
             <div className="metric-key">заметок использовано</div>
@@ -302,7 +305,7 @@ export default function CloudDraftStep({
           </div>
         </div>
 
-        <div style={{ marginBottom: 14 }}>
+        <div className="mb-4">
           <AiBadge withoutAi={verifiedWithoutAi} />
         </div>
 
@@ -312,7 +315,7 @@ export default function CloudDraftStep({
             Ничего — черновик собран целиком из ваших строк.
           </p>
         ) : (
-          <div className="chips" style={{ marginBottom: 12 }}>
+          <div className="chips mb-3">
             {addedByEngine.map((item, index) => (
               <Tag key={`${index}-${typeof item === 'string' ? item : JSON.stringify(item)}`}>
                 {typeof item === 'string' ? item : item.text || JSON.stringify(item)}
@@ -324,7 +327,7 @@ export default function CloudDraftStep({
         <hr className="hr" />
 
         <h3>Название и арка</h3>
-        <div className="form-grid" style={{ marginBottom: 14 }}>
+        <div className="form-grid mb-4">
           <div className="span-2">
             <label className="field">
               <span className="field-label">Название черновика</span>

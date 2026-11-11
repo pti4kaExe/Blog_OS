@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import api from '../../api/client.js'
 import { useRegisterCommands } from '../../lib/commands.jsx'
 import { apiErrorMessage } from '../../lib/format.js'
+import { scrollNodeIntoView } from '../../lib/scroll.js'
 import { InlineError, Loading, Notice } from '../ui.jsx'
 import ProgressRail from '../ui/ProgressRail.jsx'
 import StepTransition from '../ui/StepTransition.jsx'
@@ -21,7 +22,7 @@ const STEPS = [
  * Облачный конвейер: те же четыре шага, но профиль стиля, черновики и отчёты
  * живут на сервере. Локальный режим при этом остаётся полностью рабочим.
  */
-export default function CloudPipeline({ channel, onUseLocal }) {
+export default function CloudPipeline({ channel, onUseLocal, requestedStep, onStepTaken }) {
   const [step, setStep] = useState(1)
   const [direction, setDirection] = useState(1)
 
@@ -192,6 +193,25 @@ export default function CloudPipeline({ channel, onUseLocal }) {
     return false
   }
 
+  /* Шаг, запрошенный снаружи, — из чеклиста «С чего начать».
+     Номер шага живёт здесь и наружу не выходит, поэтому чеклист не
+     переключает его сам, а просит: «открой второй». Если шаг ещё
+     недоступен (стиль не разобран), открываем первый — там и начинается
+     то, чего не хватает.
+
+     Заодно подводим экран к полосе шагов: чеклист стоит выше, и без
+     этого нажатие выглядело бы так же, как раньше, — будто ничего
+     не произошло. */
+  const railRef = useRef(null)
+
+  useEffect(() => {
+    if (!requestedStep) return
+    goStep(stepAvailable(requestedStep) ? requestedStep : 1)
+    onStepTaken?.()
+
+    scrollNodeIntoView(railRef.current)
+  }, [requestedStep])
+
   /* Шаги конвейера в палитре ⌘K: прямой переход на нужный шаг,
      минуя клики по полосе прогресса. */
   useRegisterCommands('cloud-pipeline', () => STEPS.map((item) => ({
@@ -213,12 +233,17 @@ export default function CloudPipeline({ channel, onUseLocal }) {
 
   return (
     <>
-      <ProgressRail
-        steps={STEPS}
-        current={step}
-        available={stepAvailable}
-        onGo={goStep}
-      />
+      {/* Обёртка только ради ссылки на узел: ProgressRail — обычная
+          функция, ref ей не передать, а заводить forwardRef ради одной
+          прокрутки в компоненте, который делят два режима, незачем. */}
+      <div ref={railRef}>
+        <ProgressRail
+          steps={STEPS}
+          current={step}
+          available={stepAvailable}
+          onGo={goStep}
+        />
+      </div>
 
       <StepTransition step={step} direction={direction}>
       {step === 1 && (
@@ -288,9 +313,9 @@ export default function CloudPipeline({ channel, onUseLocal }) {
       </StepTransition>
 
       {generateError && step !== 2 && (
-        <div style={{ marginTop: 14 }}>
+        <div className="mt-4">
           <Notice kind="error">{apiErrorMessage(generateError)}</Notice>
-          <div className="btn-row" style={{ marginTop: 8 }}>
+          <div className="btn-row mt-2">
             <button type="button" className="btn btn-sm btn-ghost" onClick={() => setGenerateError(null)}>
               Скрыть
             </button>
@@ -299,7 +324,7 @@ export default function CloudPipeline({ channel, onUseLocal }) {
       )}
 
       {loadDraftError && (
-        <div style={{ marginTop: 14 }}><InlineError error={loadDraftError} /></div>
+        <div className="mt-4"><InlineError error={loadDraftError} /></div>
       )}
     </>
   )

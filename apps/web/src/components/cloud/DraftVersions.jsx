@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import draftVersions, { draftVersionsAreMocked } from '../../api/draftVersions.js'
 import { fmtDateTime, plural } from '../../lib/format.js'
 import {
-  ConfirmDialog, EmptyState, ErrorState, InlineError, Loading, Modal, Notice, Tag,
+  ConfirmDialog, EmptyState, ErrorState, InlineError, Modal, Notice, Tag,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 
 const ORIGIN_LABELS = {
   author: 'правка автора',
@@ -74,7 +75,7 @@ export default function DraftVersions({ draft, refreshKey = 0, onRestore }) {
   const current = String(draft.text || '')
 
   return (
-    <section className="card" style={{ marginTop: 16 }}>
+    <section className="card mt-4">
       <div className="card-head">
         <div>
           <h2>История версий</h2>
@@ -84,7 +85,9 @@ export default function DraftVersions({ draft, refreshKey = 0, onRestore }) {
         {draftVersionsAreMocked && <Tag kind="demo">на моках</Tag>}
       </div>
 
-      {state === 'loading' && <Loading label="Загружаем историю…" />}
+      {state === 'loading' && (
+        <SkeletonRegion loading label="Загружаем историю версий…" fallback={<SkeletonList rows={2} lines={1} />} />
+      )}
 
       {state === 'error' && <ErrorState error={error} onRetry={load} />}
 
@@ -167,7 +170,7 @@ export default function DraftVersions({ draft, refreshKey = 0, onRestore }) {
         onConfirm={confirmRestore}
         onCancel={() => { setRestoreTarget(null); setRestoreError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Текущий текст черновика не пропадёт — перед заменой он сам станет
           версией, и к нему можно будет вернуться так же.
         </p>

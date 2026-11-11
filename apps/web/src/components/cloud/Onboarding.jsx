@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
+import { plural } from '../../lib/format.js'
 import { Icon } from '../ui/Icon.jsx'
 import { Check } from 'lucide-react'
 
@@ -30,6 +31,7 @@ export default function Onboarding({ channel, onGo }) {
   const [state, setState] = useState('loading')
   const [done, setDone] = useState({ tov: false, draft: false, source: false, knowledge: false })
   const [hidden, setHidden] = useState(() => dismissedChannels().includes(String(channel.id)))
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     if (hidden) return undefined
@@ -70,14 +72,14 @@ export default function Onboarding({ channel, onGo }) {
       title: 'Разобрать свой стиль',
       text: 'Вставьте 2–3 своих поста — система построит карточку Tone of Voice. Без неё остальные шаги работают вслепую.',
       action: 'Перейти к стилю',
-      go: () => onGo('pipeline'),
+      go: () => onGo('pipeline', 1),
     },
     {
       key: 'draft',
       title: 'Собрать первый черновик',
       text: 'Накидайте сырые мысли по строке — Narrative Engine расставит их по сюжетной арке и проверит текст.',
       action: 'Перейти к заметкам',
-      go: () => onGo('pipeline'),
+      go: () => onGo('pipeline', 2),
     },
     {
       key: 'knowledge',
@@ -98,6 +100,37 @@ export default function Onboarding({ channel, onGo }) {
   const completed = steps.filter((step) => done[step.key]).length
   if (hidden || state === 'loading' || completed === steps.length) return null
 
+  /* Пока не сделано ничего, чеклист — главное на экране: человек только
+     что завёл канал и не знает, с чего начинать. Как только первый шаг
+     пройден, он превращается в строку прогресса и уступает место работе:
+     карточка занимала 522 точки над конвейером на всех четырёх шагах, и
+     поле ввода заметок начиналось ниже сгиба. Развернуть можно в любой
+     момент, скрыть навсегда — как и раньше. */
+  const open = expanded || completed === 0
+
+  if (!open) {
+    return (
+      <section className="card onboarding onboarding-compact">
+        <div className="onboarding-line">
+          <span className="onboarding-title">С чего начать</span>
+          <span className="faint">
+            {completed} из {steps.length} {plural(steps.length, 'шага', 'шагов', 'шагов')}
+          </span>
+          <span className="onboarding-bar" aria-hidden="true">
+            <i style={{ width: `${(completed / steps.length) * 100}%` }} />
+          </span>
+          <span className="spacer" />
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setExpanded(true)}>
+            Развернуть
+          </button>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={dismiss}>
+            Скрыть
+          </button>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="card onboarding">
       <div className="card-head">
@@ -106,6 +139,11 @@ export default function Onboarding({ channel, onGo }) {
           <p>Канал «{channel.name}» готов на {completed} из {steps.length} шагов.</p>
         </div>
         <div className="spacer" />
+        {completed > 0 && (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setExpanded(false)}>
+            Свернуть
+          </button>
+        )}
         <button type="button" className="btn btn-sm btn-ghost" onClick={dismiss}>
           Скрыть
         </button>

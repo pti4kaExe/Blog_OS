@@ -60,6 +60,9 @@ export default function CloudApp({ onUseLocal }) {
   const [channelsError, setChannelsError] = useState(null)
   const [activeId, setActiveId] = useState(savedChannelId)
   const [view, setView] = useState('pipeline')
+  /* Шаг конвейера, который попросил открыть чеклист «С чего начать».
+     Сам номер живёт в CloudPipeline — сюда поднята только просьба. */
+  const [requestedStep, setRequestedStep] = useState(null)
 
   const [channelModal, setChannelModal] = useState({ open: false, channel: null })
   const [channelBusy, setChannelBusy] = useState(false)
@@ -280,6 +283,18 @@ export default function CloudApp({ onUseLocal }) {
       disabled: view === 'settings',
       run: () => setView('settings'),
     })
+    /* «Аккаунт» — второе имя того же экрана. Слово из головы автора
+       («где поменять имя?») не совпадает с названием раздела, а палитра
+       ищет по названию: без этой строки поиск по «аккаунт» не находит
+       ничего. */
+    commands.push({
+      id: 'cloud:account',
+      group: 'Экраны',
+      title: 'Аккаунт',
+      hint: 'профиль, расходы, удаление',
+      disabled: view === 'settings',
+      run: () => setView('settings'),
+    })
 
     for (const channel of channels) {
       if (String(channel.id) === String(activeId)) continue
@@ -305,12 +320,6 @@ export default function CloudApp({ onUseLocal }) {
         title: 'Настройки канала',
         disabled: !activeChannel,
         run: () => openChannelForm(activeChannel),
-      },
-      {
-        id: 'cloud:account',
-        group: 'Действия',
-        title: 'Аккаунт',
-        run: () => setAccountOpen(true),
       },
       {
         id: 'cloud:logout',
@@ -370,7 +379,7 @@ export default function CloudApp({ onUseLocal }) {
           Локальный режим работает без сети: разбор стиля, сборка поста, AntiCringe и CommentRadar
           считаются прямо в браузере. Облачные данные появятся, когда сервер будет доступен.
         </Notice>
-        <p className="faint" style={{ marginBottom: 0 }}>
+        <p className="faint mb-0">
           Сервер проверен по адресу {api.baseUrl}. Бесплатный тариф засыпает без обращений и
           просыпается до минуты: нажмите «Повторить» — страница снова подождёт ответа.
           Адрес API задаётся переменной <code>VITE_API_URL</code> при сборке клиента.
@@ -419,7 +428,7 @@ export default function CloudApp({ onUseLocal }) {
       )}
     >
       {channelsError && (
-        <div style={{ marginBottom: 14 }}>
+        <div className="mb-4">
           <Notice kind="error">
             {apiErrorMessage(channelsError)}{' '}
             <button type="button" className="btn btn-sm btn-ghost" onClick={loadChannels}>Повторить</button>
@@ -468,14 +477,32 @@ export default function CloudApp({ onUseLocal }) {
           размонтируется при уходе на другую вкладку и пересчитывается при
           возврате, поэтому выполненный шаг сразу виден выполненным. */}
       {activeChannel && view === 'pipeline' && (
-        <Onboarding key={`onboarding-${activeChannel.id}`} channel={activeChannel} onGo={setView} />
+        <Onboarding
+          key={`onboarding-${activeChannel.id}`}
+          channel={activeChannel}
+          onGo={(nextView, step) => {
+            setView(nextView)
+            if (step) setRequestedStep(step)
+          }}
+        />
       )}
 
       {activeChannel && view === 'pipeline' && (
-        <CloudPipeline key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
+        <CloudPipeline
+          key={activeChannel.id}
+          channel={activeChannel}
+          onUseLocal={onUseLocal}
+          requestedStep={requestedStep}
+          onStepTaken={() => setRequestedStep(null)}
+        />
       )}
       {activeChannel && view === 'archive' && (
-        <PostsView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
+        <PostsView
+          key={activeChannel.id}
+          channel={activeChannel}
+          onUseLocal={onUseLocal}
+          onAnalyzeArchive={() => { setView('pipeline'); setRequestedStep(1) }}
+        />
       )}
       {activeChannel && view === 'radar' && (
         <CloudRadarView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
@@ -528,7 +555,7 @@ export default function CloudApp({ onUseLocal }) {
         onConfirm={confirmDelete}
         onCancel={() => { setDeleteOpen(false); setDeleteError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Канал «{activeChannel?.name}» удалится вместе со стилем, постами, черновиками, источниками,
           комментариями и базой знаний. Журнал расходов на AI сохранится.
         </p>

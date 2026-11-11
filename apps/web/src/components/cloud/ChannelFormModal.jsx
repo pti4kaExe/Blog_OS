@@ -139,12 +139,12 @@ function EditChannelModal({ open, channel, busy, error, onSubmit, onDelete, onCl
               placeholder="Пишу о разработке и учёбе без мотивационного шума"
             />
           </Field>
-          <div style={{ marginTop: 16 }}>
+          <div className="mt-4">
             <Field label="Темы" hint="Через запятую: код, учёба, карьера." htmlFor="channel-topics">
               <TextInput id="channel-topics" value={form.topics} onChange={set('topics')} placeholder="код, учёба, карьера" />
             </Field>
           </div>
-          <div style={{ marginTop: 16 }}>
+          <div className="mt-4">
             <RangeField
               id="channel-length" label="Целевая длина поста" unit="симв."
               from={form.min} to={form.max}
@@ -166,7 +166,7 @@ function EditChannelModal({ open, channel, busy, error, onSubmit, onDelete, onCl
       {channel && onDelete && (
         <div className="danger-zone">
           <h3>Удаление канала</h3>
-          <p className="faint" style={{ marginTop: 0 }}>
+          <p className="faint mt-0">
             Канал удалится вместе со стилем, постами, черновиками, источниками,
             комментариями и базой знаний. Журнал расходов на AI сохранится.
           </p>
@@ -281,7 +281,7 @@ function CreateChannelWizard({ open, busy, error, onSubmit, onClose }) {
                   className="wizard-input"
                 />
               </div>
-              <div className="wizard-field" style={{ marginTop: 16 }}>
+              <div className="wizard-field mt-4">
                 <Field label="Площадка" hint={PLATFORM_HINTS[form.platform]} htmlFor="wizard-platform">
                   <Select id="wizard-platform" value={form.platform} onChange={set('platform')}>
                     {PLATFORMS.map((platform) => <option key={platform.value} value={platform.value}>{platform.label}</option>)}
@@ -302,7 +302,7 @@ function CreateChannelWizard({ open, busy, error, onSubmit, onClose }) {
                   placeholder="Пишу о разработке и учёбе без мотивационного шума"
                 />
               </div>
-              <div className="wizard-field" style={{ marginTop: 16 }}>
+              <div className="wizard-field mt-4">
                 <Field label="Темы" hint="Через запятую: код, учёба, карьера." htmlFor="wizard-topics">
                   <TextInput id="wizard-topics" value={form.topics} onChange={set('topics')} placeholder="код, учёба, карьера" />
                 </Field>

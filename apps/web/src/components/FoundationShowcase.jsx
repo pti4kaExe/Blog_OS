@@ -160,7 +160,7 @@ export default function FoundationShowcase() {
           ))}
         </div>
 
-        <div className="fnd-grid" style={{ marginTop: 'var(--sp-3)' }}>
+        <div className="fnd-grid mt-3">
           {TINTS.map(([token, role]) => (
             <div className="sw" key={token}>
               <div className="sw-chip" style={{ background: `var(${token})` }} />
@@ -172,7 +172,7 @@ export default function FoundationShowcase() {
           ))}
         </div>
 
-        <div className="fnd-labels" style={{ marginTop: 'var(--sp-4)' }}>
+        <div className="fnd-labels mt-4">
           <span className="t-body">Основной текст — заголовки и содержание</span>
           <span className="t-body label-secondary">Второй уровень — пояснения и подписи</span>
           <span className="t-body label-tertiary">Третий уровень — метаданные, служебное</span>
@@ -255,10 +255,10 @@ export default function FoundationShowcase() {
         note="Пружина стартует с текущего значения на экране и перехватывается на лету — поэтому ей можно управлять посреди движения. Два параметра: затухание (насколько проскакивает цель) и отклик (за сколько доходит)."
       >
         <MotionLab />
-        <div style={{ marginTop: 'var(--sp-5)' }}>
+        <div className="mt-5">
           <DragLab />
         </div>
-        <div className="mo-row" style={{ marginTop: 'var(--sp-4)' }}>
+        <div className="mo-row mt-4">
           <button type="button" className="fb fb-primary t-subhead pressable">
             <Icon as={Check} size="sm" />
             Отклик на нажатие
@@ -285,7 +285,7 @@ export default function FoundationShowcase() {
             </div>
           ))}
         </div>
-        <div className="ic-row" style={{ marginTop: 'var(--sp-4)' }}>
+        <div className="ic-row mt-4">
           {[Check, Plus, Search, Settings, Trash2, FileText, AlertTriangle, ArrowRight].map((Glyph, i) => (
             <Icon as={Glyph} key={i} size="md" />
           ))}

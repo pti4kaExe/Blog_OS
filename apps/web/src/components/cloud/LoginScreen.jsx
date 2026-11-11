@@ -143,11 +143,11 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
     event.preventDefault()
     const id = Number(telegramId)
     if (!Number.isFinite(id) || id <= 0) {
-      setError({ message: 'telegram_id должен быть положительным числом', code: 'validation_error' })
+      setError({ message: 'Номер в Telegram — это целое положительное число.', code: 'validation_error' })
       return
     }
     if (!name.trim()) {
-      setError({ message: 'Укажите имя автора', code: 'validation_error' })
+      setError({ message: 'Напишите, как вас называть.', code: 'validation_error' })
       return
     }
     setBusy(true)
@@ -270,12 +270,24 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
 
         {devAvailable && (
           <>
-            <p className="faint" style={{ margin: '18px 0 10px' }}>или dev-вход</p>
+            <p className="faint" style={{ margin: '18px 0 10px' }}>или войти без бота</p>
             <form onSubmit={submit}>
               <div className="form-grid">
+                {/* Имя первым: это единственное поле, которое человек
+                    действительно про себя заполняет. Номер — служебный,
+                    и стоит вторым. */}
+                <Field label="Как вас называть" hint="Так к вам будет обращаться интерфейс." htmlFor="login-name">
+                  <TextInput
+                    id="login-name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Демо-автор"
+                    autoComplete="off"
+                  />
+                </Field>
                 <Field
-                  label="Ваш ID в Telegram"
-                  hint="Демо-вход для разработки. На проде он выключен — используйте вход через бота."
+                  label="Номер в Telegram"
+                  hint="Отличает вас от других авторов. Для демонстрации подойдёт 200600."
                   htmlFor="login-telegram-id"
                 >
                   <TextInput
@@ -284,15 +296,6 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
                     value={telegramId}
                     onChange={(event) => setTelegramId(event.target.value)}
                     placeholder="200600"
-                    autoComplete="off"
-                  />
-                </Field>
-                <Field label="Имя автора" hint="Так вас будет называть интерфейс." htmlFor="login-name">
-                  <TextInput
-                    id="login-name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Демо-автор"
                     autoComplete="off"
                   />
                 </Field>
@@ -332,19 +335,22 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
         <div className="card-head">
           <div>
             <h2>Что даёт облако</h2>
-            <p>Локальный режим остаётся доступен в любой момент — переключатель в шапке.</p>
+            <p>
+              Локальный режим доступен в любой момент: сейчас — кнопкой «Работать локально»
+              слева, после входа — внизу боковой панели.
+            </p>
           </div>
         </div>
-        <ul className="consent-list" style={{ marginTop: 0 }}>
-          <li>Профиль стиля и черновики сохраняются на сервере, а не только в браузере.</li>
-          <li>История проверок AntiCringe, сравнение с профилем стиля и публикация в архив.</li>
-          <li>CommentRadar сканирует реальные площадки: Telegram, Instagram, YouTube.</li>
-          <li>База знаний с RAG-поиском и журнал расходов на AI.</li>
+        <ul className="consent-list mt-0">
+          <li>Профиль стиля, черновики и архив живут на сервере, а не в одном этом браузере.</li>
+          <li>История проверок: видно, как текст менялся от правки к правке.</li>
+          <li>CommentRadar следит за Telegram, Instagram и YouTube и приносит обсуждения по вашим темам.</li>
+          <li>Факты о вас, на которые опирается движок, чтобы не выдумывать цифры за вас.</li>
         </ul>
-        <div className="tags" style={{ marginTop: 14 }}>
-          <Tag>JWT в localStorage</Tag>
+        <div className="tags mt-4">
           <Tag>русский интерфейс</Tag>
-          <Tag>без ключей в клиенте</Tag>
+          <Tag>AI — только с вашего согласия</Tag>
+          <Tag>ключи остаются на сервере</Tag>
         </div>
         <div className="notice" style={{ marginTop: 14 }}>
           Внутри Telegram вход произойдёт автоматически: страницу можно открыть как Mini App.

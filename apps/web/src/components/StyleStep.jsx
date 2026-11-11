@@ -68,7 +68,7 @@ export default function StyleStep({ samples, setSamples, profile, setProfile, on
 
         {error && <Notice kind="warn">{error}</Notice>}
 
-        <div className="btn-row" style={{ marginTop: 14 }}>
+        <div className="btn-row mt-4">
           <button type="button" className="btn btn-primary" onClick={analyze} disabled={chars < 30}>
             Разобрать стиль
           </button>

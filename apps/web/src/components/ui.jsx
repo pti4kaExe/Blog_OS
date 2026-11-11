@@ -1,5 +1,5 @@
 /** Мелкие переиспользуемые элементы интерфейса. */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
 import { Check, Copy } from 'lucide-react'
 import { Icon } from './ui/Icon.jsx'
@@ -156,15 +156,6 @@ export function CopyButton({ text, label = 'Скопировать' }) {
   )
 }
 
-/** Русское склонение после числа: 1 замечание, 2 замечания, 5 замечаний. */
-export function plural(n, one, few, many) {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod10 === 1 && mod100 !== 11) return one
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few
-  return many
-}
-
 /* ------------------------------- состояния -------------------------------- */
 
 /** Загрузка. */
@@ -217,7 +208,7 @@ export function ErrorState({ error, title, onRetry, children }) {
 export function InlineError({ error }) {
   if (!error) return null
   return (
-    <div style={{ marginTop: 12 }}>
+    <div className="mt-3">
       <Notice kind="error">{apiErrorMessage(error)}</Notice>
     </div>
   )
@@ -464,7 +455,66 @@ export function TagInput({ value, onChange, placeholder, id, max = 50, tone }) {
 
 /* -------------------------------- модалки ---------------------------------- */
 
+/* Что считается достижимым с клавиатуры. Отключённые и спрятанные
+   элементы отсеиваем отдельно: селектор этого не умеет. */
+const FOCUSABLE = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
+
+function focusableIn(root) {
+  if (!root) return []
+  return [...root.querySelectorAll(FOCUSABLE)].filter((node) => (
+    node.offsetWidth > 0 || node.offsetHeight > 0 || node === document.activeElement
+  ))
+}
+
+/* Сколько окон сейчас держат прокрутку. Окно может открыться поверх
+   окна — тогда закрытие верхнего не должно отпускать страницу. */
+let scrollLocks = 0
+
+function lockScroll() {
+  scrollLocks += 1
+  if (scrollLocks > 1) return
+  const bar = window.innerWidth - document.documentElement.clientWidth
+  document.body.dataset.blogosScroll = document.body.style.overflow || ''
+  document.body.style.overflow = 'hidden'
+  /* Полоса прокрутки исчезает вместе с прокруткой, и страница под
+     затемнением дёргается на её ширину. Возвращаем её отступом. */
+  if (bar > 0) document.body.style.paddingRight = `${bar}px`
+}
+
+function unlockScroll() {
+  scrollLocks = Math.max(0, scrollLocks - 1)
+  if (scrollLocks > 0) return
+  document.body.style.overflow = document.body.dataset.blogosScroll || ''
+  document.body.style.paddingRight = ''
+  delete document.body.dataset.blogosScroll
+}
+
+/**
+ * Модальное окно.
+ *
+ * Пока окно открыто, клавиатура и прокрутка принадлежат ему. Раньше это
+ * было не так: фокус оставался на кнопке, которая окно открыла, Tab уводил
+ * в экран позади затемнения, колесо мыши крутило страницу под окном, а
+ * после закрытия фокус было уже не найти.
+ *
+ * Куда уходит фокус при открытии: на первое поле ввода, если оно есть, —
+ * в форме человек сразу начинает печатать. Если полей нет, берём первую
+ * кнопку, но не опасную и не крестик: окна подтверждения удаления
+ * открываются с фокусом на «Отмена», и случайный Enter ничего не сносит.
+ * Если содержимое уже позаботилось о фокусе само (autoFocus в визарде
+ * канала), не вмешиваемся.
+ */
 export function Modal({ open, title, children, footer, onClose, wide }) {
+  const dialogRef = useRef(null)
+  const returnTo = useRef(null)
+
   useEffect(() => {
     if (!open) return undefined
     const onKey = (event) => {
@@ -473,6 +523,48 @@ export function Modal({ open, title, children, footer, onClose, wide }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
+
+  useEffect(() => {
+    if (!open) return undefined
+    const dialog = dialogRef.current
+    returnTo.current = document.activeElement
+    lockScroll()
+
+    if (!dialog.contains(document.activeElement)) {
+      const items = focusableIn(dialog)
+      const field = items.find((node) => /^(INPUT|TEXTAREA|SELECT)$/.test(node.tagName))
+      const safe = items.find((node) => (
+        !node.classList.contains('btn-danger') && node.getAttribute('aria-label') !== 'Закрыть'
+      ))
+      ;(field || safe || dialog).focus()
+    }
+
+    return () => {
+      unlockScroll()
+      /* Узел мог исчезнуть вместе с экраном, который его показывал. */
+      const back = returnTo.current
+      if (back && back.isConnected && typeof back.focus === 'function') back.focus()
+    }
+  }, [open])
+
+  /* Tab по кругу. Снаружи окна оказаться нельзя, пока оно открыто. */
+  const onKeyDown = (event) => {
+    if (event.key !== 'Tab') return
+    const items = focusableIn(dialogRef.current)
+    if (items.length === 0) {
+      event.preventDefault()
+      return
+    }
+    const first = items[0]
+    const last = items[items.length - 1]
+    if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    }
+  }
 
   if (!open) return null
   return (
@@ -483,7 +575,15 @@ export function Modal({ open, title, children, footer, onClose, wide }) {
         if (event.target === event.currentTarget) onClose?.()
       }}
     >
-      <div className={wide ? 'modal modal-wide' : 'modal'} role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        ref={dialogRef}
+        className={wide ? 'modal modal-wide' : 'modal'}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+      >
         <div className="modal-head">
           <h2>{title}</h2>
           <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Закрыть">✕</button>

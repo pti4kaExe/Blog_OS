@@ -10,8 +10,10 @@ import {
   ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Loading, Modal, Notice,
   Select, StatusTag, Tag, TextInput, Toggle,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { AiWait } from '../ui/AiWait.jsx'
 import { PanelReveal, Reveal, Stagger } from '../ui/Motion.jsx'
+import { useToast } from '../ui/Toasts.jsx'
 
 const PART_LABELS = {
   reference: 'отсылка к посту',
@@ -76,6 +78,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
 
   const [useLlm, setUseLlm] = useState(getAiConsent() === 'granted')
   const consent = useAiConsent()
+  const toast = useToast()
 
   /* Профиль стиля нужен для ранжирования ленты по темам автора (ТЗ, раздел 4).
      404 — профиль ещё не построен: лента тогда идёт в порядке сервера. */
@@ -392,6 +395,9 @@ export default function CloudRadarView({ channel, onUseLocal }) {
     }
   }
 
+  /* Сохранение правки ничего не меняет на экране: список перечитывается,
+     и текст в поле остаётся тем же. Без ответа человек не знает,
+     сохранилось ли, и жмёт кнопку ещё раз. */
   const saveResponseEdit = async (response) => {
     const text = edits[response.id] ?? ''
     if (!text.trim()) return
@@ -400,6 +406,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
     try {
       await api.responses.update(response.id, { edited_text: text })
       setResponsesKey((key) => key + 1)
+      toast('Правка ответа сохранена')
     } catch (error) {
       setResponseError({ id: response.id, error })
     } finally {
@@ -455,10 +462,16 @@ export default function CloudRadarView({ channel, onUseLocal }) {
               <p>Telegram, Instagram, YouTube или ручные источники.</p>
             </div>
             <div className="spacer" />
-            {sourcesState === 'ready' && <span className="faint">{sources.length}</span>}
+            {sourcesState === 'ready' && (
+              <span className="faint">
+                {sources.length} {plural(sources.length, 'источник', 'источника', 'источников')}
+              </span>
+            )}
           </div>
 
-          {sourcesState === 'loading' && <Loading label="Загружаем источники…" />}
+          {sourcesState === 'loading' && (
+            <SkeletonRegion loading label="Загружаем источники…" fallback={<SkeletonList rows={2} lines={1} />} />
+          )}
 
           {sourcesState === 'error' && (
             <ErrorState error={sourcesError} onRetry={reloadSources}>
@@ -526,7 +539,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                       </div>
                     )}
                     {scanInfo && String(scanInfo.sourceId) === String(source.id) && (
-                      <div style={{ marginTop: 8 }}>
+                      <div className="mt-2">
                         <Notice kind={scanInfo.kind === 'good' ? 'good' : scanInfo.kind === 'warn' ? 'warn' : 'error'}>
                           {scanInfo.message}
                         </Notice>
@@ -588,7 +601,9 @@ export default function CloudRadarView({ channel, onUseLocal }) {
 
           {!selectedSource && <EmptyState title="Нет выбранного источника" />}
 
-          {selectedSource && commentsState === 'loading' && <Loading label="Загружаем комментарии…" />}
+          {selectedSource && commentsState === 'loading' && (
+            <SkeletonRegion loading label="Загружаем комментарии…" fallback={<SkeletonList rows={4} lines={2} />} />
+          )}
 
           {selectedSource && commentsState === 'error' && (
             <ErrorState error={commentsError} onRetry={() => setCommentsKey((key) => key + 1)} />
@@ -616,8 +631,8 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                 selectedSource.last_scan_error
               ) : (
                 <>
-                  Запустите сканирование — комментарии появятся здесь. Сканировать чаще, чем раз в
-                  минуту, нельзя (сервер ответит 429).
+                  Запустите сканирование — комментарии появятся здесь. Сканировать можно
+                  не чаще раза в минуту.
                   {String(selectedSource.source_type).startsWith('telegram') && (
                     <span>
                       {' '}
@@ -695,14 +710,14 @@ export default function CloudRadarView({ channel, onUseLocal }) {
 
           {commentState === 'ready' && comment && (
             <>
-              <div className="disc" style={{ marginBottom: 14 }}>
+              <div className="disc mb-4">
                 <div className="disc-top">
                   <span className="disc-src">{selectedSource?.name || 'Источник'}</span>
                 </div>
                 <div className="disc-text" style={{ fontSize: 14 }}>{comment.text}</div>
               </div>
 
-              <div style={{ marginBottom: 14 }}>
+              <div className="mb-4">
                 <Toggle
                   id="radar-use-llm"
                   checked={useLlm}
@@ -713,7 +728,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                 />
               </div>
 
-              <div className="btn-row" style={{ marginBottom: 14 }}>
+              <div className="btn-row mb-4">
                 <button type="button" className="btn btn-primary" onClick={generateResponses} disabled={generateBusy}>
                   {generateBusy ? 'Генерируем ответы…' : 'Сгенерировать ответ (4 части)'}
                 </button>
@@ -722,13 +737,13 @@ export default function CloudRadarView({ channel, onUseLocal }) {
               <AiWait active={generateBusy} ai={useLlm} label="Собираем варианты ответа" />
 
               {generateInfo?.kind === 'warn' && (
-                <div style={{ marginBottom: 12 }}><Notice kind="warn">{generateInfo.message}</Notice></div>
+                <div className="mb-3"><Notice kind="warn">{generateInfo.message}</Notice></div>
               )}
               {generateInfo?.kind === 'good' && (
-                <div style={{ marginBottom: 12 }}>
+                <div className="mb-3">
                   <Notice kind="good">
                     Варианты собраны{generateInfo.verifiedWithoutAi ? ' без AI — только правилами' : ''}.
-                    {generateInfo.basedOnPostId ? ` Опора — пост №${generateInfo.basedOnPostId}.` : ''}
+                    {generateInfo.basedOnPostId ? ' Опора — ваш пост из архива.' : ''}
                   </Notice>
                 </div>
               )}
@@ -760,7 +775,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                       </div>
 
                       {parts && (
-                        <div className="comment-parts" style={{ marginTop: 8 }}>
+                        <div className="comment-parts mt-2">
                           {['reference', 'experience', 'gap', 'question'].map((kind) => (
                             parts[kind] ? (
                               <div className="cpart" data-kind={kind} key={kind}>
@@ -781,7 +796,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                       />
 
                       {blocked && (
-                        <div style={{ marginTop: 8 }}>
+                        <div className="mt-2">
                           <Notice kind="warn">
                             Заполните пропуск <code>[дополните: …]</code> перед одобрением — иначе ответ
                             останется шаблонным.
@@ -861,7 +876,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
             />
           </Field>
           <InlineError error={manualError} />
-          <p className="faint" style={{ marginBottom: 0 }}>
+          <p className="faint mb-0">
             Обсуждение попадёт в источник «{selectedSource?.name}» с пометкой «добавлено вручную»
             и встанет в ленту по совпадению с вашими темами.
           </p>
@@ -947,7 +962,7 @@ export default function CloudRadarView({ channel, onUseLocal }) {
         onConfirm={confirmDeleteSource}
         onCancel={() => { setDeleteSource(null); setDeleteError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Источник «{deleteSource?.name}» удалится вместе со всеми найденными комментариями и ответами.
         </p>
         {deleteError && <InlineError error={deleteError} />}

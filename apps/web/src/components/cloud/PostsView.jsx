@@ -5,9 +5,9 @@ import {
   fmtDateTime, isOffline, labelOf, PLATFORMS, plural,
 } from '../../lib/format.js'
 import {
-  CharCounter, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Loading,
-  Modal, Notice, Select, Tag, TextInput,
+  CharCounter, ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Modal, Notice, Select, Tag, TextInput,
 } from '../ui.jsx'
+import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
 
 /** `2026-10-28T09:10:00Z` → `2026-10-28T09:10` для `<input type="datetime-local">`. */
@@ -293,7 +293,9 @@ export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
           )}
         </div>
 
-        {state === 'loading' && <Loading label="Загружаем архив…" />}
+        {state === 'loading' && (
+          <SkeletonRegion loading label="Загружаем архив…" fallback={<SkeletonList rows={3} lines={2} />} />
+        )}
 
         {state === 'error' && (
           <ErrorState error={error} onRetry={reload}>
@@ -379,9 +381,10 @@ export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
 
             {onAnalyzeArchive && (
               <Notice>
-                В архиве есть материал — профиль стиля можно построить по нему.{' '}
-                <button type="button" className="btn btn-sm btn-ghost" onClick={onAnalyzeArchive}>
-                  Разобрать стиль по архиву
+                В архиве есть материал — профиль стиля можно построить по нему,
+                не вставляя тексты руками.{' '}
+                <button type="button" className="btn btn-sm" onClick={onAnalyzeArchive}>
+                  Перейти к разбору стиля
                 </button>
               </Notice>
             )}
@@ -516,9 +519,9 @@ export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
             </Notice>
           )}
 
-          <p className="faint" style={{ marginBottom: 0 }}>
-            Если площадка не настроена ключами, сервер ответит «Площадка не настроена» —
-            остальные функции при этом работают, посты можно добавить руками.
+          <p className="faint mb-0">
+            Если площадка ещё не настроена, импорт не сработает и скажет об этом.
+            Остальное продолжит работать, а посты можно добавить руками.
           </p>
         </form>
       </Modal>
@@ -532,7 +535,7 @@ export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
         onConfirm={confirmDelete}
         onCancel={() => { setDeleteTarget(null); setDeleteError(null) }}
       >
-        <p style={{ marginTop: 0 }}>
+        <p className="mt-0">
           Пост удалится из архива вместе со своими векторами. Черновик, опубликованный
           из этого поста, останется — у него просто пропадёт ссылка на публикацию.
         </p>
