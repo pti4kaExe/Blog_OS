@@ -70,6 +70,45 @@ async function internalRoute(req) {
     await registerWebhook(override)
     return { status: 200, body: { ok: true } }
   }
+  if (url.startsWith('/internal/llm-check')) {
+    // Диагностика модели: живой запрос из среды выполнения (ключ остаётся на сервере).
+    const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+    const started = Date.now()
+    try {
+      const response = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ''}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: 'Ответь одним словом: работает' }],
+          max_tokens: 2000,
+        }),
+      })
+      const body = await response.json().catch(() => ({}))
+      const content = body?.choices?.[0]?.message?.content ?? ''
+      return {
+        status: 200,
+        body: {
+          ok: response.ok && Boolean(content),
+          provider_status: response.status,
+          provider: base.includes('openrouter') ? 'openrouter' : base,
+          model,
+          latency_ms: Date.now() - started,
+          sample: String(content).slice(0, 120),
+          error: response.ok ? undefined : JSON.stringify(body).slice(0, 300),
+        },
+      }
+    } catch (error) {
+      return {
+        status: 200,
+        body: { ok: false, model, latency_ms: Date.now() - started, error: String(error?.message ?? error) },
+      }
+    }
+  }
   return null
 }
 
