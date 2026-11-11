@@ -7,6 +7,7 @@ import {
 } from '../ui.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
 import ThemeSwitch from '../ui/ThemeSwitch.jsx'
+import AntiCringeRules from './AntiCringeRules.jsx'
 
 const CONFIRM_WORD = 'УДАЛИТЬ'
 
@@ -37,6 +38,8 @@ export default function SettingsView({
   const [confirmText, setConfirmText] = useState('')
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
+
+  const activeChannel = channels.find((item) => String(item.id) === String(activeId)) || null
 
   useEffect(() => { setName(user?.name || '') }, [user])
 
@@ -176,6 +179,12 @@ export default function SettingsView({
                 провайдеру. Решение хранится в этом браузере и не синхронизируется между устройствами.
               </p>
             </FormSection>
+          </section>
+        </Reveal>
+
+        <Reveal>
+          <section className="card">
+            <AntiCringeRules channel={activeChannel} />
           </section>
         </Reveal>
 

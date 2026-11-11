@@ -22,6 +22,99 @@ export const CATEGORIES = {
   clarity: { label: 'Ясность', hint: 'Длинные предложения, канцелярит, вода' },
 }
 
+/**
+ * Правила автора: слова и обороты, которые он сам запретил для своего канала.
+ *
+ * Это не «ещё один словарь клише»: список приходит из профиля стиля
+ * (`tov_profiles.stop_words`) и правится автором в настройках. Проверка должна
+ * работать и без AI, поэтому правило живёт в правиловом движке.
+ *
+ * Одиночное слово ищем с границами (иначе «не» найдётся внутри «неделя»),
+ * оборот — как подстроку: у фраз границы слов значат меньше, чем точное
+ * совпадение.
+ */
+/**
+ * Правила автора: слова и обороты, которые он сам запретил для своего канала.
+ *
+ * Это не «ещё один словарь клише»: список приходит из профиля стиля
+ * (`tov_profiles.stop_words`) и правится автором в настройках. Работает без AI,
+ * поэтому живёт в правиловом движке.
+ *
+ * Одиночные слова сравниваем по основе и первому совпадению форм: автор пишет
+ * «синергия», а в тексте будет «синергию» — точное совпадение строк бесполезно.
+ * Обороты ищем подстрокой: у фраз важнее точная последовательность слов.
+ */
+const STOPWORD_TOKEN = /[а-яёa-z0-9][а-яёa-z0-9-]*/gi
+const WORD_CHAR = /[а-яёa-z0-9]/
+
+/** Совпадают ли основы с точностью до словоформы. */
+function sameStem(a, b) {
+  if (a === b) return true
+  if (a.length < 5 || b.length < 5) return false
+  return a.startsWith(b) || b.startsWith(a)
+}
+
+function runStopWords(src, issues, profile) {
+  const list = Array.isArray(profile?.stopWords) ? profile.stopWords : []
+  if (!list.length) return
+
+  const tokens = []
+  STOPWORD_TOKEN.lastIndex = 0
+  let token
+  while ((token = STOPWORD_TOKEN.exec(src)) !== null) {
+    tokens.push({ text: token[0], start: token.index, stem: stem(token[0]) })
+  }
+  const lower = src.toLowerCase()
+
+  for (const raw of list) {
+    const phrase = String(raw || '').trim().toLowerCase()
+    if (!phrase) continue
+    const singleWord = !/\s/.test(phrase)
+    let found = 0
+
+    if (singleWord) {
+      const phraseStem = stem(phrase)
+      for (const item of tokens) {
+        if (found >= 6) break
+        if (!sameStem(item.stem, phraseStem)) continue
+        issues.push(makeIssue({
+          ruleId: 'tov:stopword',
+          category: 'tov',
+          severity: 'med',
+          title: 'Запрещённое слово',
+          message: `«${raw}» — в ваших правилах AntiCringe. Уберите или замените: это слово вы решили не использовать.`,
+          quote: item.text,
+          start: item.start,
+          end: item.start + item.text.length,
+        }))
+        found++
+      }
+      continue
+    }
+
+    let from = 0
+    while (found < 6) {
+      const at = lower.indexOf(phrase, from)
+      if (at < 0) break
+      from = at + phrase.length
+      const before = lower[at - 1] ?? ''
+      const after = lower[at + phrase.length] ?? ''
+      if (WORD_CHAR.test(before) || WORD_CHAR.test(after)) continue
+      issues.push(makeIssue({
+        ruleId: 'tov:stopword',
+        category: 'tov',
+        severity: 'med',
+        title: 'Запрещённый оборот',
+        message: `«${raw}» — в ваших правилах AntiCringe. Уберите или замените: этот оборот вы решили не использовать.`,
+        quote: src.slice(at, at + phrase.length),
+        start: at,
+        end: at + phrase.length,
+      }))
+      found++
+    }
+  }
+}
+
 /** Скомпилированные правила — один раз на загрузку модуля. */
 const COMPILED = [
   ...CLICHES.map(([p, sev, why, fix, mode]) => ({
@@ -67,6 +160,7 @@ export function lint(text, profile = null) {
   }
 
   runDictionaries(src, issues)
+  runStopWords(src, issues, profile)
   const textIsPersonal = buildDraftMetrics(src).firstPersonPer100Words >= 3
   runLogic(src, sents, issues, textIsPersonal)
   runClarity(src, sents, issues, profile)

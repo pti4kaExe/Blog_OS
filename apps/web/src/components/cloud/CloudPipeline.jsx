@@ -307,6 +307,7 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
           onBack={() => goStep(3)}
           onUseLocal={onUseLocal}
           onPublished={() => setDraftsRefreshKey((key) => key + 1)}
+          onTovUpdated={(payload) => setTov(payload && payload.tov_profile ? payload.tov_profile : payload)}
         />
       )}
       </StepTransition>

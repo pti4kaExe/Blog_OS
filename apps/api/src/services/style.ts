@@ -34,6 +34,8 @@ export function toEngineProfile(row: Row | null): EngineProfile | null {
   return {
     ...metrics,
     address: tone === 'ты' || tone === 'вы' ? tone : 'смешанное',
+    // Правила AntiCringe автора: проверка обязана отметить эти слова.
+    stopWords: Array.isArray(row.stop_words) ? (row.stop_words as string[]) : [],
     avgSentenceLen: num(metrics.avgSentenceLen),
     firstPersonPer100Words: num(metrics.firstPersonPer100Words),
     emojiPer100Words: num(metrics.emojiPer100Words),

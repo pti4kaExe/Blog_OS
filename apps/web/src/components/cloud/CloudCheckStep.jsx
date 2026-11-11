@@ -94,12 +94,15 @@ function normalizeReport(payload) {
  * Здесь же публикация: `POST /drafts/{id}/publish`.
  */
 export default function CloudCheckStep({
-  channel, tov, draft, setDraft, onBack, onUseLocal, onPublished,
+  channel, tov, draft, setDraft, onBack, onUseLocal, onPublished, onTovUpdated,
 }) {
   const [text, setText] = useState(draft.text || '')
   const [report, setReport] = useState(null)
   const [lintError, setLintError] = useState(null)
   const [notice, setNotice] = useState(null)
+  // Ключ замечания, для которого сейчас сохраняется правило; null — ничего не сохраняем.
+  const [ruleBusy, setRuleBusy] = useState(null)
+  const [ruleNotice, setRuleNotice] = useState(null)
   const [lintBusy, setLintBusy] = useState(false)
   const [useLlm, setUseLlm] = useState(getAiConsent() === 'granted')
   const [activeIssue, setActiveIssue] = useState(null)
@@ -243,6 +246,48 @@ export default function CloudCheckStep({
     consent.ensure(async (granted) => {
       await saveAndLint(text, { llm: granted })
     })
+  }
+
+
+  /**
+   * Добавляет цитату замечания в правила AntiCringe канала.
+   *
+   * Идея доработки: автор читает отчёт и решает «я так больше не пишу». Раньше
+   * для этого нужно было уйти в настройки, найти канал, вспомнить слово и
+   * вернуться — правило вводили редко, а значит и проверка не подстраивалась.
+   * Теперь решение принимается там, где проблема видна.
+   *
+   * Сохранение — полная замена профиля (контракт PUT /tov), затем повторная
+   * проверка **правилами**: это дешево и детерминированно, а правило всё равно
+   * сработает без AI.
+   */
+  const addToRules = async (issue) => {
+    const quote = String(issue?.quote || '').trim()
+    if (!quote) return
+    const value = quote.toLowerCase()
+    const current = Array.isArray(tov?.stop_words) ? tov.stop_words : []
+    if (current.some((rule) => String(rule).toLowerCase() === value)) {
+      setRuleNotice(`«${quote}» уже есть в правилах канала.`)
+      return
+    }
+    setRuleBusy(issueKey(issue, 0))
+    setRuleNotice(null)
+    try {
+      const saved = await api.tov.put(channel.id, {
+        tone: tov?.tone ?? 'ты',
+        slang: Array.isArray(tov?.slang) ? tov.slang : [],
+        stop_words: [...current, value],
+        favorite_phrases: Array.isArray(tov?.favorite_phrases) ? tov.favorite_phrases : [],
+        metrics: tov?.metrics ?? null,
+      })
+      if (onTovUpdated) onTovUpdated(saved && saved.tov_profile ? saved.tov_profile : saved)
+      setRuleNotice(`«${quote}» добавлено в правила канала — текст проверен заново с новым правилом.`)
+      await saveAndLint(text, { llm: false })
+    } catch (error) {
+      setLintError(error)
+    } finally {
+      setRuleBusy(null)
+    }
   }
 
   const applyFix = async (issue) => {
@@ -486,8 +531,8 @@ export default function CloudCheckStep({
           </div>
         )}
 
-        {notice && <div className="mb-3"><Notice kind="warn">{notice}</Notice></div>}
-        <InlineError error={lintError} />
+        {ruleNotice && <div className="mb-3"><Notice kind="good">{ruleNotice}</Notice></div>}
+        {notice && <div className="mb-3"><Notice kind="warn">{notice}</Notice></div>}        <InlineError error={lintError} />
 
         <div className="my-4">
           <Toggle
@@ -621,6 +666,17 @@ export default function CloudCheckStep({
                           >
                             {fixable ? 'Применить' : 'Вручную'}
                           </button>
+                          {issue.quote && !String(issue.id || '').startsWith('tov:stopword') && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-ghost"
+                              disabled={lintBusy || ruleBusy !== null}
+                              title="Добавить это слово или оборот в правила канала и проверить заново"
+                              onClick={(event) => { event.stopPropagation(); addToRules(issue) }}
+                            >
+                              {ruleBusy === key ? 'Сохраняем…' : 'В правила'}
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="btn btn-sm btn-ghost"
