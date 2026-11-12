@@ -282,23 +282,26 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           <div style={{ marginBottom: 18 }}>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary login-telegram-btn"
               onClick={startBotLogin}
               disabled={busy}
               style={{ width: '100%' }}
             >
-              {busy ? 'Готовим ссылку…' : 'Войти через Telegram'}
+              <Icon as={Send} size="sm" />
+              <span>{busy ? 'Готовим ссылку…' : 'Войти через Telegram'}</span>
             </button>
             <p className="faint" style={{ marginTop: 8 }}>
               Откроется чат с ботом{botUsername ? ` @${botUsername}` : ''} — нажмите в нём «Start»,
               и вход завершится на сайте автоматически.
             </p>
             <div className="login-next">
-              <div>
+              <div data-tone="peach">
+                <Icon as={MessageSquareText} size="lg" />
                 <strong>После входа</strong>
                 <span>создайте канал и вставьте ссылку на Telegram или 2–3 своих текста.</span>
               </div>
-              <div>
+              <div data-tone="lavender">
+                <Icon as={Sparkles} size="lg" />
                 <strong>Через несколько минут</strong>
                 <span>у вас будет профиль голоса, черновик и список правок перед публикацией.</span>
               </div>
@@ -411,33 +414,33 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
       <section className="card first-run-card">
         <div className="card-head">
           <div>
-            <h2>Как выглядит первый запуск</h2>
+            <h2>Как работает BlogOS</h2>
             <p>
-              BlogOS ведёт по короткой дорожке: сначала понимает ваш голос, потом собирает
-              черновик, затем показывает, что стоит поправить перед публикацией.
+              Питомец ведёт по короткой дорожке: слушает голос автора, собирает черновик
+              и помогает довести текст до публикации.
             </p>
           </div>
         </div>
         <ol className="launch-path mt-0">
-          <li>
-            <span>1</span>
+          <li data-tone="voice">
+            <span className="launch-path-mark"><Icon as={MessageSquareText} size="sm" /></span>
             <div>
-              <strong>Дайте пример голоса</strong>
-              <p>Ссылка на канал или 2–3 ваших текста — этого хватает, чтобы начать.</p>
+              <strong>Голос автора</strong>
+              <p>Питомец слушает, собирает мысли и знакомится с вашим стилем.</p>
             </div>
           </li>
-          <li>
-            <span>2</span>
+          <li data-tone="draft">
+            <span className="launch-path-mark"><Icon as={PenLine} size="sm" /></span>
             <div>
-              <strong>Накидайте мысли строками</strong>
-              <p>Не нужно писать красиво: движок сам разложит заметки по сюжетной арке.</p>
+              <strong>Создание черновика</strong>
+              <p>Из сырых заметок появляется готовый пост в авторском стиле.</p>
             </div>
           </li>
-          <li>
-            <span>3</span>
+          <li data-tone="check">
+            <span className="launch-path-mark"><Icon as={CheckCircle2} size="sm" /></span>
             <div>
-              <strong>Получите черновик и проверку</strong>
-              <p>Текст сохраняется, AntiCringe показывает риски, история правок остаётся рядом.</p>
+              <strong>Проверка</strong>
+              <p>BlogOS показывает риски, рекомендации и готовит текст к публикации.</p>
             </div>
           </li>
         </ol>
