@@ -357,7 +357,7 @@ export default function SettingsView({
                       placeholder={CONFIRM_WORD} autoComplete="off"
                     />
                   </Field>
-                  <div className="btn-row mt-3">
+                  <div className="danger-actions mt-3">
                     <button
                       type="button" className="btn btn-sm btn-danger"
                       disabled={confirmText.trim().toUpperCase() !== CONFIRM_WORD || deleteBusy}

@@ -1399,6 +1399,29 @@ button.list-btn { width: 100%; }
   color: var(--danger);
 }
 
+.danger-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.danger-actions .btn {
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 520px) {
+  .danger-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .danger-actions .btn {
+    width: 100%;
+  }
+}
+
 .consent-list { margin: var(--sp-3) 0 0; padding-left: var(--sp-5); color: var(--label-secondary); font-size: var(--t-callout-size); }
 .consent-list li { margin-bottom: var(--sp-1); }
 
