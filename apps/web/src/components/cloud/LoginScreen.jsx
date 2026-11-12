@@ -3,8 +3,8 @@ import api from '../../api/client.js'
 import { apiErrorMessage, isOffline } from '../../lib/format.js'
 import { Field, InlineError, Loading, Notice, Tag, TextInput } from '../ui.jsx'
 import { Icon } from '../ui/Icon.jsx'
-import VoiceMark from '../ui/VoiceMark.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
+import BlogPet from './BlogPet.jsx'
 import {
   CheckCircle2, MessageSquareText, PenLine, Send, Sparkles,
 } from 'lucide-react'
@@ -188,8 +188,8 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           впечатление, а не на действие. Она живёт до входа и не отодвигает
           форму: продукт начинается сразу под ней. */}
       <Stagger className="brand-zone">
-        <Reveal offset={14}>
-          <VoiceMark size="hero" />
+        <Reveal className="brand-zone-pet" offset={14}>
+          <BlogPet />
         </Reveal>
         <Reveal className="brand-zone-text" offset={14}>
           <div className="hero-kicker">
