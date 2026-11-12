@@ -138,21 +138,21 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --surface-base: #16161A;       /* фон приложения */
-  --surface-sunken: #0E0E10;     /* ниже фона: боковая панель */
-  --surface-input: #1C1C21;      /* утопленные поля ввода */
-  --surface-raised: #1E1E23;     /* карточки и панели */
-  --surface-overlay: #27272D;    /* раскрытые панели, вложенные блоки */
-  --surface-elevated: #323238;   /* наведение поверх вложенного, нажатое */
+  --surface-base: #15151B;       /* фон приложения */
+  --surface-sunken: #101015;     /* ниже фона: боковая панель */
+  --surface-input: #1C1C24;      /* утопленные поля ввода */
+  --surface-raised: #20202A;     /* карточки и панели */
+  --surface-overlay: #292936;    /* раскрытые панели, вложенные блоки */
+  --surface-elevated: #343443;   /* наведение поверх вложенного, нажатое */
 
   /* Текст: нейтральный, без оттенка. */
-  --label-primary: #F2F2F4;
-  --label-secondary: #9A9AA3;
+  --label-primary: #F4F1FA;
+  --label-secondary: #A5A1B3;
   /* Третий уровень несёт счётчики, даты, подсказки полей и объяснение
      недоступного шага — текст, который читают, а не узор. На #68686F он
      давал 3.0:1 на карточке при норме 4.5:1. #8E8E99 оставляет его тихим
      (5.1:1 на карточке, 4.6:1 на самой светлой поверхности), но читаемым. */
-  --label-tertiary: #8E8E99;
+  --label-tertiary: #918CA0;
   --label-quaternary: rgba(242, 242, 244, 0.22);
 
   --hairline: rgba(255, 255, 255, 0.08);
@@ -161,41 +161,41 @@
   /* Синий — единственный цветной акцент. #4191ED на фоне даёт больше
      7:1 — читается как текст. Используется только для действия, фокуса
      и одного активного индикатора; не для тегов и статус-бейджей. */
-  --tint: #4191ED;
-  --tint-hover: #5FA5F3;
-  --tint-soft: rgba(65, 145, 237, 0.14);
-  --tint-edge: rgba(65, 145, 237, 0.4);
-  --tint-label: #70AFF6;
-  --on-tint: #0E0E10;
+  --tint: #75AFFF;
+  --tint-hover: #8CBFFF;
+  --tint-soft: rgba(117, 175, 255, 0.14);
+  --tint-edge: rgba(117, 175, 255, 0.4);
+  --tint-label: #75AFFF;
+  --on-tint: #101015;
   --tint-wash: #DEECFD;
 
   /* Главное действие — синяя заливка, градиент сверху вниз. */
-  --action-bg: #4191ED;
-  --action-bg-hover: #5FA5F3;
-  --action-grad: linear-gradient(180deg, #559EF0 0%, #2679D8 100%);
-  --action-grad-hover: linear-gradient(180deg, #6CACF5 0%, #3889E4 100%);
-  --action-fg: #0B0F19;
+  --action-bg: #75AFFF;
+  --action-bg-hover: #8CBFFF;
+  --action-grad: linear-gradient(135deg, #75AFFF 0%, #B89AFF 100%);
+  --action-grad-hover: linear-gradient(135deg, #8CBFFF 0%, #C8B2FF 100%);
+  --action-fg: #101015;
 
-  --glow-tint: 0 0 0 1px rgba(65, 145, 237, 0.3), 0 10px 32px -14px rgba(65, 145, 237, 0.5);
-  --glow-action: 0 8px 26px -12px rgba(65, 145, 237, 0.55);
+  --glow-tint: 0 0 0 1px rgba(117, 175, 255, 0.28), 0 10px 34px -16px rgba(184, 154, 255, 0.52);
+  --glow-action: 0 12px 30px -16px rgba(117, 175, 255, 0.58), 0 0 34px -24px rgba(184, 154, 255, 0.7);
 
   /* Статусы — приглушённая шкала, независимая от акцента; у каждой
      свой характер, а не три копии синего в разных масках. */
-  --success: #7BBE8E;
-  --caution: #D9B35C;
-  --warning: #E0975A;
+  --success: #83D6AA;
+  --caution: #F2C47C;
+  --warning: #F2C47C;
   --danger: #E2685F;
-  --info: #8BAFD8;
+  --info: #B89AFF;
 
-  --success-soft: rgba(123, 190, 142, 0.14);
-  --caution-soft: rgba(217, 179, 92, 0.14);
-  --warning-soft: rgba(224, 151, 90, 0.14);
+  --success-soft: rgba(131, 214, 170, 0.14);
+  --caution-soft: rgba(242, 196, 124, 0.14);
+  --warning-soft: rgba(242, 196, 124, 0.14);
   --danger-soft: rgba(226, 104, 95, 0.14);
-  --info-soft: rgba(139, 175, 216, 0.14);
+  --info-soft: rgba(184, 154, 255, 0.14);
 
-  --success-edge: rgba(123, 190, 142, 0.34);
-  --caution-edge: rgba(217, 179, 92, 0.32);
-  --warning-edge: rgba(224, 151, 90, 0.32);
+  --success-edge: rgba(131, 214, 170, 0.34);
+  --caution-edge: rgba(242, 196, 124, 0.32);
+  --warning-edge: rgba(242, 196, 124, 0.32);
   --danger-edge: rgba(226, 104, 95, 0.36);
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.44);
@@ -206,9 +206,9 @@
   --shadow-2: 0 10px 30px -12px rgba(0, 0, 0, 0.64), 0 1px 2px rgba(0, 0, 0, 0.46);
   --shadow-3: 0 32px 80px -24px rgba(0, 0, 0, 0.78), 0 6px 18px rgba(0, 0, 0, 0.4);
 
-  --material-regular-bg: rgba(30, 30, 35, 0.76);
+  --material-regular-bg: rgba(32, 32, 42, 0.78);
   --material-regular-filter: blur(20px) saturate(160%);
-  --material-thick-bg: rgba(14, 14, 16, 0.92);
+  --material-thick-bg: rgba(16, 16, 21, 0.92);
   --material-thick-filter: blur(40px) saturate(160%);
   --material-edge: rgba(255, 255, 255, 0.09);
   --scrim: rgba(4, 4, 6, 0.64);

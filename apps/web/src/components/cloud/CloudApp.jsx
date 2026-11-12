@@ -1,6 +1,7 @@
 import {
   Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState,
 } from 'react'
+import { Plus, ShieldCheck } from 'lucide-react'
 import api, { itemsOf } from '../../api/client.js'
 import { useRegisterCommands } from '../../lib/commands.jsx'
 import {
@@ -10,6 +11,7 @@ import {
   ConfirmDialog, EmptyState, ErrorState, InlineError, Loading, Notice, Select, Tag,
 } from '../ui.jsx'
 import AppShell from '../ui/AppShell.jsx'
+import { Icon } from '../ui/Icon.jsx'
 import CloudSidebar, { CLOUD_SECTIONS } from './CloudSidebar.jsx'
 import LoginScreen from './LoginScreen.jsx'
 import Onboarding from './Onboarding.jsx'
@@ -460,19 +462,23 @@ export default function CloudApp({ onUseLocal }) {
       )}
 
       {channelsState !== 'loading' && channels.length === 0 && !channelsError && (
-        <section className="card">
-          <EmptyState
-            title="Создайте первый канал и получите черновик"
-            action={(
-              <button type="button" className="btn btn-primary" onClick={() => openChannelForm(null)}>
-                Создать канал
-              </button>
-            )}
-          >
-            Канал — это площадка с собственным стилем и лимитом AI: Telegram, Instagram или YouTube.
-            После создания BlogOS откроет короткий чеклист: подключить пример голоса, разобрать стиль
-            и собрать первый пост из заметок.
-          </EmptyState>
+        <section className="card first-channel-card">
+          <div className="first-channel-pet" aria-hidden="true">
+            <img src={`${import.meta.env.BASE_URL}blogos-pet-cat.png`} alt="" loading="eager" decoding="async" />
+          </div>
+          <div className="first-channel-copy">
+            <span className="first-channel-kicker">первый шаг</span>
+            <h1>Создайте первый канал и получите черновик</h1>
+            <p>
+              Канал — это площадка с собственным стилем и лимитом AI: Telegram, Instagram или YouTube.
+              После создания BlogOS откроет короткий чеклист: подключить пример голоса, разобрать стиль
+              и собрать первый пост из заметок.
+            </p>
+            <button type="button" className="btn btn-primary first-channel-cta" onClick={() => openChannelForm(null)}>
+              <Icon as={Plus} size="sm" />
+              <span>Создать канал</span>
+            </button>
+          </div>
         </section>
       )}
 
@@ -537,6 +543,7 @@ export default function CloudApp({ onUseLocal }) {
       </Suspense>
 
       <footer className="stage-foot">
+        <Icon as={ShieldCheck} size="sm" />
         <span className="faint">
           Тексты отправляются на сервер BlogOS ({api.baseUrl}). Внешнему AI-провайдеру —
           только с вашего согласия.

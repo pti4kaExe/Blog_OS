@@ -3,6 +3,8 @@ import { Menu, X } from 'lucide-react'
 import { Icon } from './Icon.jsx'
 import { useAppIntro } from './Motion.jsx'
 
+const assetUrl = (file) => `${import.meta.env.BASE_URL}${file}`
+
 /**
  * Каркас приложения: боковая панель слева, содержимое справа.
  *
@@ -62,6 +64,10 @@ export default function AppShell({ sidebar, title, actions, children }) {
           {title && <div className="shell-bar-title">{title}</div>}
           <div className="spacer" />
           {actions}
+          <div className="shell-pet" title="BlogOS помогает собрать пост без суеты">
+            <img src={assetUrl('blogos-pet-cat.png')} alt="" aria-hidden="true" width="44" height="44" />
+            <span>Помощник рядом</span>
+          </div>
         </div>
 
         <main className="stage" onClickCapture={() => { if (open) setOpen(false) }}>
