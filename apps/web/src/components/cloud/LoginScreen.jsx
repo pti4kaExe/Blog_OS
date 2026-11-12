@@ -6,7 +6,8 @@ import { Icon } from '../ui/Icon.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
 import BlogPet from './BlogPet.jsx'
 import {
-  CheckCircle2, MessageSquareText, PenLine, Send, Sparkles,
+  BarChart3, CalendarDays, CheckCircle2, ChevronRight, Clock3, CloudUpload,
+  LockKeyhole, MessageSquareText, PenLine, Rocket, Send, Sparkles, Star, Zap,
 } from 'lucide-react'
 
 /**
@@ -201,14 +202,16 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
             Пост в вашем голосе — собранный из сырых заметок и проверенный до публикации.
           </p>
           <div className="quick-proof" aria-label="Первый результат">
+            <Icon as={Zap} size="sm" />
             <span>Первый результат:</span>
             <strong>профиль стиля и черновик поста за один короткий заход.</strong>
+            <span className="quick-proof-arrow"><Icon as={ChevronRight} size="sm" /></span>
           </div>
         </Reveal>
         <Reveal className="hero-product" offset={14}>
           <div className="hero-product-head">
-            <span>Сегодня</span>
-            <strong>Черновик готов</strong>
+            <span><Icon as={CalendarDays} size="sm" /> Сегодня</span>
+            <strong>Черновик готов ✦</strong>
           </div>
           <div className="hero-flow">
             <div className="hero-flow-item" data-tone="voice">
@@ -225,19 +228,20 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
             </div>
           </div>
           <div className="hero-post">
-            <span className="hero-post-platform">Telegram</span>
+            <span className="hero-post-platform"><Icon as={Send} size="sm" /> Telegram</span>
+            <span className="hero-post-heart" aria-hidden="true">♡</span>
             <p>
               “Пишу не чтобы звучать умнее, а чтобы читатель забрал одну мысль
               и сразу применил её в своём канале.”
             </p>
           </div>
           <div className="hero-score">
-            <span>AntiCringe</span>
+            <span><Icon as={BarChart3} size="sm" /> AntiCringe</span>
             <strong>92</strong>
             <i aria-hidden="true" />
           </div>
           <div className="hero-send">
-            <Icon as={Send} size="sm" />
+            <Icon as={Rocket} size="sm" />
             <span>готово к публикации</span>
           </div>
         </Reveal>
@@ -247,7 +251,7 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
       <section className="card login-card">
         <div className="card-head">
           <div>
-            <h2>Вход в облачный режим</h2>
+            <h2 className="title-with-icon"><Icon as={Sparkles} size="lg" /> Вход в облачный режим</h2>
             <p>Аккаунт создаётся при первом входе — отдельной регистрации нет.</p>
           </div>
         </div>
@@ -291,19 +295,22 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
               <span>{busy ? 'Готовим ссылку…' : 'Войти через Telegram'}</span>
             </button>
             <p className="faint" style={{ marginTop: 8 }}>
+              <Icon as={LockKeyhole} size="sm" />
               Откроется чат с ботом{botUsername ? ` @${botUsername}` : ''} — нажмите в нём «Start»,
               и вход завершится на сайте автоматически.
             </p>
             <div className="login-next">
               <div data-tone="peach">
-                <Icon as={MessageSquareText} size="lg" />
+                <Icon as={CloudUpload} size="xl" />
                 <strong>После входа</strong>
                 <span>создайте канал и вставьте ссылку на Telegram или 2–3 своих текста.</span>
+                <Icon as={ChevronRight} size="md" className="login-next-arrow" />
               </div>
               <div data-tone="lavender">
-                <Icon as={Sparkles} size="lg" />
+                <Icon as={Clock3} size="xl" />
                 <strong>Через несколько минут</strong>
                 <span>у вас будет профиль голоса, черновик и список правок перед публикацией.</span>
+                <Icon as={ChevronRight} size="md" className="login-next-arrow" />
               </div>
             </div>
             {botState === 'used' && (
@@ -414,33 +421,33 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
       <section className="card first-run-card">
         <div className="card-head">
           <div>
-            <h2>Как работает BlogOS</h2>
+            <h2 className="title-with-icon"><Icon as={Star} size="lg" /> Как выглядит первый запуск</h2>
             <p>
-              Питомец ведёт по короткой дорожке: слушает голос автора, собирает черновик
-              и помогает довести текст до публикации.
+              BlogOS ведёт по короткой дорожке: сначала понимает ваш голос, потом собирает
+              черновик, затем показывает, что стоит поправить перед публикацией.
             </p>
           </div>
         </div>
         <ol className="launch-path mt-0">
           <li data-tone="voice">
-            <span className="launch-path-mark"><Icon as={MessageSquareText} size="sm" /></span>
+            <span className="launch-path-mark">1</span>
             <div>
-              <strong>Голос автора</strong>
-              <p>Питомец слушает, собирает мысли и знакомится с вашим стилем.</p>
+              <strong>Дайте пример голоса</strong>
+              <p>Ссылка на канал или 2–3 ваших текста — этого хватает, чтобы начать.</p>
             </div>
           </li>
           <li data-tone="draft">
-            <span className="launch-path-mark"><Icon as={PenLine} size="sm" /></span>
+            <span className="launch-path-mark">2</span>
             <div>
-              <strong>Создание черновика</strong>
-              <p>Из сырых заметок появляется готовый пост в авторском стиле.</p>
+              <strong>Накидайте мысли строками</strong>
+              <p>Не нужно писать красиво: движок сам разложит заметки по смысловой арке.</p>
             </div>
           </li>
           <li data-tone="check">
-            <span className="launch-path-mark"><Icon as={CheckCircle2} size="sm" /></span>
+            <span className="launch-path-mark">3</span>
             <div>
-              <strong>Проверка</strong>
-              <p>BlogOS показывает риски, рекомендации и готовит текст к публикации.</p>
+              <strong>Получите черновик и проверку</strong>
+              <p>Текст сохраняется, AntiCringe показывает риски, история правок остаётся рядом.</p>
             </div>
           </li>
         </ol>
