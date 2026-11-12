@@ -199,8 +199,8 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
         </Reveal>
       </Stagger>
 
-      <div className="grid-2">
-      <section className="card">
+      <div className="grid-2 login-grid">
+      <section className="card login-card">
         <div className="card-head">
           <div>
             <h2>Вход в облачный режим</h2>
@@ -249,6 +249,16 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
               Откроется чат с ботом{botUsername ? ` @${botUsername}` : ''} — нажмите в нём «Start»,
               и вход завершится на сайте автоматически.
             </p>
+            <div className="login-next">
+              <div>
+                <strong>После входа</strong>
+                <span>создайте канал и вставьте ссылку на Telegram или 2–3 своих текста.</span>
+              </div>
+              <div>
+                <strong>Через несколько минут</strong>
+                <span>у вас будет профиль голоса, черновик и список правок перед публикацией.</span>
+              </div>
+            </div>
             {botState === 'used' && (
               <p className="faint" style={{ marginTop: 4 }}>
                 Этот код входа уже использован. Запросите новый — нажмите кнопку ещё раз.
@@ -342,7 +352,11 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
         )}
 
         {!devAvailable && (
-          <div className="btn-row" style={{ marginTop: 16 }}>
+          <div className="login-local">
+            <p>
+              Хотите просто попробовать без аккаунта? Локальный режим работает в браузере:
+              стиль, черновик, проверка и CommentRadar без сохранения в облаке.
+            </p>
             <button type="button" className="btn btn-ghost" onClick={onUseLocal}>
               Работать локально
             </button>
@@ -350,7 +364,7 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
         )}
       </section>
 
-      <section className="card">
+      <section className="card first-run-card">
         <div className="card-head">
           <div>
             <h2>Как выглядит первый запуск</h2>

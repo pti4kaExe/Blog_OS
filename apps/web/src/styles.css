@@ -214,11 +214,11 @@
    по центру экрана. */
 .auth-stage {
   min-height: 100vh;
-  display: flex; flex-direction: column; justify-content: center;
-  gap: var(--sp-5);
+  display: flex; flex-direction: column; justify-content: flex-start;
+  gap: var(--sp-4);
   max-width: var(--measure-wide);
   margin: 0 auto;
-  padding: var(--sp-7) var(--sp-5);
+  padding: clamp(var(--sp-4), 5vh, var(--sp-7)) var(--sp-5) var(--sp-7);
 }
 .auth-head { display: flex; align-items: center; gap: var(--sp-3); }
 
@@ -454,6 +454,8 @@ h3 {
    а не делит экран пополам. */
 .grid-2 { display: grid; grid-template-columns: 1.7fr 1fr; gap: var(--sp-5); align-items: start; }
 .grid-2 > .card, .grid-radar > .card { margin-top: 0; }
+.login-grid { grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.9fr); align-items: stretch; }
+.login-grid > .card { height: 100%; }
 .grid-radar { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); align-items: start; }
 
 /* ════════════════════════════════ кнопки ═════════════════════════════════ */
@@ -1198,6 +1200,53 @@ button.list-btn { width: 100%; }
   line-height: var(--t-footnote-lh);
 }
 
+.login-card {
+  display: flex;
+  flex-direction: column;
+}
+.login-next {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hairline);
+}
+.login-next div {
+  padding: var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--surface-overlay);
+}
+.login-next strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--label-primary);
+  font-size: var(--t-footnote-size);
+}
+.login-next span {
+  display: block;
+  color: var(--label-secondary);
+  font-size: var(--t-footnote-size);
+  line-height: var(--t-footnote-lh);
+}
+.login-local {
+  margin-top: auto;
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hairline);
+}
+.login-local p {
+  max-width: var(--measure);
+  margin: 0 0 var(--sp-3);
+  color: var(--label-secondary);
+  font-size: var(--t-footnote-size);
+  line-height: var(--t-footnote-lh);
+}
+.first-run-card {
+  display: flex;
+  flex-direction: column;
+}
+.first-run-card .tags { margin-top: auto; }
+
 /* ═══════════════════════════════ тумблер ════════════════════════════════ */
 
 .toggle { display: flex; align-items: flex-start; gap: var(--sp-3); cursor: pointer; user-select: none; }
@@ -1458,6 +1507,7 @@ button.list-btn { width: 100%; }
 .brand-zone {
   display: flex; align-items: center; gap: var(--sp-6);
   flex-wrap: wrap;
+  min-height: 270px;
 }
 .brand-zone-text { flex: 1 1 260px; min-width: 0; }
 .brand-zone-title {
@@ -1492,6 +1542,7 @@ button.list-btn { width: 100%; }
   .brand-zone { gap: var(--sp-5); }
   .voice-hero { width: min(220px, 70%); margin: 0 auto; }
   .brand-zone-title { font-size: var(--t-title1-size); letter-spacing: var(--t-title1-ls); }
+  .login-next { grid-template-columns: 1fr; }
 }
 
 /* ══════════════════════════════ ритм текста ══════════════════════════════ */
