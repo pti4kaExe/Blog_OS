@@ -3,6 +3,8 @@ import {
   Clock3, Heart, Lightbulb, PenLine, Sparkles,
 } from 'lucide-react'
 
+const PET_SRC = `${import.meta.env.BASE_URL}blogos-pet-cat.png`
+
 /**
  * Маленький проводник на входе.
  *
@@ -21,31 +23,8 @@ export default function BlogPet() {
         <span>Привет! Соберём первый пост?</span>
       </div>
 
-      <div className="pet-cat">
-        <div className="pet-headphones" aria-hidden="true">
-          <i />
-          <b />
-          <span />
-        </div>
-        <div className="pet-head">
-          <span className="pet-ear pet-ear-left" />
-          <span className="pet-ear pet-ear-right" />
-          <span className="pet-face-light" />
-          <span className="pet-eye pet-eye-left" />
-          <span className="pet-eye pet-eye-right" />
-          <span className="pet-blush pet-blush-left" />
-          <span className="pet-blush pet-blush-right" />
-          <span className="pet-mouth" />
-        </div>
-        <div className="pet-body">
-          <span className="pet-paw pet-paw-left" />
-          <span className="pet-paw pet-paw-right" />
-          <span className="pet-tail" />
-        </div>
-        <div className="pet-laptop">
-          <Icon as={PenLine} size="sm" />
-        </div>
-        <div className="pet-coffee" aria-hidden="true"><i /></div>
+      <div className="pet-illustration">
+        <img src={PET_SRC} alt="" loading="eager" decoding="async" />
       </div>
 
       <div className="pet-state-list" aria-label="Состояния питомца">

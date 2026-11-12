@@ -1572,189 +1572,19 @@ button.list-btn { width: 100%; }
   transform: rotate(45deg);
 }
 
-.pet-cat {
+.pet-illustration {
   position: relative;
-  width: 230px; height: 230px;
+  width: min(326px, 88vw);
   margin-top: var(--sp-7);
   animation: pet-float 4.8s var(--ease-in-out) infinite;
 }
-
-.pet-headphones {
-  position: absolute;
-  left: 23px; top: 26px;
-  width: 184px; height: 110px;
-  z-index: 4;
-  pointer-events: none;
-}
-.pet-headphones::before {
-  content: '';
-  position: absolute;
-  left: 26px; right: 26px; top: 2px;
-  height: 76px;
-  border: 9px solid #AEBBFF;
-  border-bottom: 0;
-  border-radius: 90px 90px 0 0;
-  box-shadow: inset 0 0 0 2px rgba(44, 61, 111, 0.2);
-}
-.pet-headphones i,
-.pet-headphones b {
-  position: absolute;
-  top: 62px;
-  width: 36px; height: 58px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #C8D1FF, #8EA1F2);
-  border: 3px solid #6F78B6;
-}
-.pet-headphones i { left: 11px; transform: rotate(-5deg); }
-.pet-headphones b { right: 11px; transform: rotate(5deg); }
-.pet-headphones span {
-  position: absolute;
-  left: 44px; right: 44px; top: 82px;
-  height: 5px;
-  border-radius: var(--r-full);
-  background: rgba(174, 187, 255, 0.6);
-}
-
-.pet-head {
-  position: absolute;
-  left: 44px; top: 48px;
-  width: 142px; height: 114px;
-  border-radius: 38px 38px 34px 34px;
-  background:
-    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.88), transparent 24%),
-    linear-gradient(180deg, #FFF5EC 0%, #F6DEC9 100%);
-  border: 3px solid #BFA2C8;
-  box-shadow:
-    inset 0 -10px 0 rgba(159, 105, 112, 0.1),
-    0 18px 42px -22px rgba(174, 187, 255, 0.95);
-}
-.pet-ear {
-  position: absolute;
-  top: -35px;
-  width: 58px; height: 58px;
-  background: #FFF0E6;
-  border: 3px solid #BFA2C8;
-  border-radius: 16px 16px 10px 16px;
-  z-index: -1;
-}
-.pet-ear::after {
-  content: '';
-  position: absolute;
-  inset: 13px;
-  border-radius: 10px;
-  background: #FFC3C9;
-}
-.pet-ear-left { left: -2px; transform: rotate(-24deg); }
-.pet-ear-right { right: -2px; transform: scaleX(-1) rotate(-24deg); }
-.pet-face-light {
-  position: absolute;
-  inset: 12px 22px auto;
-  height: 20px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.46);
-}
-
-.pet-eye {
-  position: absolute;
-  top: 58px;
-  width: 12px; height: 13px;
-  border-radius: 999px;
-  background: #263544;
-  animation: pet-blink 5.4s ease-in-out infinite;
-}
-.pet-eye-left { left: 44px; }
-.pet-eye-right { right: 44px; }
-.pet-blush {
-  position: absolute;
-  top: 77px;
-  width: 20px; height: 8px;
-  border-radius: var(--r-full);
-  background: rgba(226, 104, 95, 0.35);
-}
-.pet-blush-left { left: 27px; }
-.pet-blush-right { right: 27px; }
-.pet-mouth {
-  position: absolute;
-  left: 65px; top: 77px;
-  width: 13px; height: 7px;
-  border-radius: 999px;
-  border-bottom: 2px solid rgba(38, 53, 68, 0.72);
-}
-
-.pet-body {
-  position: absolute;
-  left: 58px; top: 142px;
-  width: 114px; height: 54px;
-  border-radius: 36px 36px 24px 24px;
-  background: #FFF1E5;
-  border: 3px solid #BFA2C8;
-  z-index: 1;
-}
-.pet-paw {
-  position: absolute;
-  top: 29px;
-  width: 24px; height: 18px;
-  border-radius: var(--r-full);
-  background: #F5D7C2;
-}
-.pet-paw-left { left: 18px; transform: rotate(10deg); }
-.pet-paw-right { right: 18px; transform: rotate(-10deg); }
-.pet-tail {
-  position: absolute;
-  right: -20px; top: 15px;
-  width: 42px; height: 32px;
-  border-radius: 999px;
-  border: 8px solid #F1CFB7;
-  border-left-color: transparent;
-  transform: rotate(18deg);
-}
-
-.pet-laptop {
-  position: absolute;
-  left: 45px; top: 137px;
-  width: 142px; height: 82px;
-  display: grid; place-items: center;
-  border-radius: 12px 12px 16px 16px;
-  background:
-    linear-gradient(180deg, #BFC7FF 0%, #8F9BEA 100%);
-  border: 3px solid #6F78B6;
-  color: rgba(255, 255, 255, 0.92);
-  box-shadow: var(--shadow-2);
-  z-index: 3;
-}
-.pet-laptop::after {
-  content: '';
-  position: absolute;
-  inset: auto 18px 10px;
-  height: 4px;
-  border-radius: var(--r-full);
-  background: rgba(255, 255, 255, 0.38);
-}
-.pet-laptop svg { width: 26px; height: 26px; }
-.pet-coffee {
-  position: absolute;
-  left: 18px; bottom: 15px;
-  width: 28px; height: 42px;
-  border-radius: 8px 8px 12px 12px;
-  background: #F4C7D7;
-  border: 3px solid #B87793;
-  z-index: 2;
-}
-.pet-coffee::before {
-  content: '';
-  position: absolute;
-  right: -12px; top: 12px;
-  width: 10px; height: 15px;
-  border: 3px solid #B87793;
-  border-left: 0;
-  border-radius: 0 999px 999px 0;
-}
-.pet-coffee i {
-  position: absolute;
-  left: 7px; top: 13px;
-  width: 10px; height: 10px;
-  border-radius: var(--r-full);
-  background: rgba(255, 255, 255, 0.72);
+.pet-illustration img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter:
+    drop-shadow(0 28px 48px rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 24px rgba(174, 187, 255, 0.22));
 }
 
 .pet-state-list {
@@ -1799,10 +1629,6 @@ button.list-btn { width: 100%; }
 @keyframes pet-float {
   0%, 100% { transform: translateY(0) rotate(-1deg); }
   50% { transform: translateY(-8px) rotate(1deg); }
-}
-@keyframes pet-blink {
-  0%, 92%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.12); }
 }
 
 /* Бренд-зона: сцена и текст рядом, сцена не отодвигает рабочую часть. */
@@ -1977,8 +1803,17 @@ button.list-btn { width: 100%; }
 @media (max-width: 660px) {
   .brand-zone { gap: var(--sp-5); }
   .brand-zone-pet { min-width: 0; width: 100%; }
-  .blog-pet { min-height: 250px; }
-  .pet-card { right: max(var(--sp-2), 8vw); }
+  .blog-pet { min-height: 292px; }
+  .pet-speech {
+    left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+  }
+  .pet-illustration { width: min(300px, 84vw); }
+  .pet-state-list {
+    right: max(var(--sp-2), 5vw);
+    bottom: 2px;
+    width: 128px;
+  }
   .voice-hero { width: min(220px, 70%); margin: 0 auto; }
   .brand-zone-title { font-size: var(--t-title1-size); letter-spacing: var(--t-title1-ls); }
   .login-next { grid-template-columns: 1fr; }
@@ -1987,8 +1822,7 @@ button.list-btn { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pet-body,
-  .pet-eye { animation: none; }
+  .pet-illustration { animation: none; }
 }
 
 /* ══════════════════════════════ ритм текста ══════════════════════════════ */
