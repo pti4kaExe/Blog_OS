@@ -3357,3 +3357,31 @@ button.list-btn { width: 100%; }
   .pet-companion-restore span { display: none; }
   .pet-companion-restore { padding: 8px; }
 }
+
+
+/* Питомец: печенька после публикации и плавная прогулка по экрану. */
+.pet-companion[data-wandering='true'] {
+  transition: left 0.9s cubic-bezier(0.4, 0, 0.2, 1), top 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pet-companion-cookie {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  z-index: 2;
+  display: inline-flex;
+  color: #f2c47c;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+  transform: translate(-50%, -50%);
+  animation: pet-cookie-eat 1.5s ease forwards;
+  pointer-events: none;
+}
+@keyframes pet-cookie-eat {
+  0% { opacity: 0; transform: translate(-50%, -20%) scale(0.5); }
+  18% { opacity: 1; }
+  55% { transform: translate(-50%, -50%) scale(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -85%) scale(0.45); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pet-companion[data-wandering='true'] { transition: none; }
+  .pet-companion-cookie { animation: none; opacity: 1; }
+}

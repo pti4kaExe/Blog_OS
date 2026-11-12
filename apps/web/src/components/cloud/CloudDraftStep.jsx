@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import draftVersions from '../../api/draftVersions.js'
 import { useRegisterCommands } from '../../lib/commands.jsx'
+import { emitPetSignal } from '../../lib/petSignals.js'
 import {
   arcLabel, CLOUD_ARCS, contentLimit, defaultContentType, DRAFT_STATUSES,
   fmtDateTime, hasUnfilledGaps,
@@ -53,6 +54,11 @@ export default function CloudDraftStep({
     setTitle(draft.title || '')
     setArc(draft.arc || null)
   }, [draft.id, draft.updated_at])
+
+  // Питомец узнаёт длину текста: на длинном черновике он «устаёт» вместе с автором.
+  useEffect(() => {
+    emitPetSignal('draft-text', { length: text.length })
+  }, [text])
 
   const dirty = text !== (draft.text || '')
     || title !== (draft.title || '')

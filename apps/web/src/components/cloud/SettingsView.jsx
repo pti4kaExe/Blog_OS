@@ -4,7 +4,10 @@ import { getAiConsent, setAiConsent } from '../../lib/aiConsent.jsx'
 import { fmtDateTime, fmtMoney, fmtPercent, labelOf, PLATFORMS, plural } from '../../lib/format.js'
 import { hidePetFor, petHiddenUntil, showPet } from '../../lib/petSignals.js'
 import {
-  Bar, Field, FormSection, InlineError, Notice, Tag, TextInput,
+  petCookies, petSoundEnabled, petWanderEnabled, setPetSound, setPetWander, subscribePetPrefs,
+} from '../../lib/petPrefs.js'
+import {
+  Bar, Field, FormSection, InlineError, Notice, Tag, TextInput, Toggle,
 } from '../ui.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
 import ThemeSwitch from '../ui/ThemeSwitch.jsx'
@@ -47,6 +50,17 @@ export default function SettingsView({
     hidePetFor()
     setPetHidden(true)
   }
+
+  /* Игрушечные настройки питомца: звук, прогулки и счётчик печенек. */
+  const [petSound, setPetSoundState] = useState(petSoundEnabled)
+  const [petWander, setPetWanderState] = useState(petWanderEnabled)
+  const [cookieCount, setCookieCount] = useState(petCookies)
+
+  useEffect(() => subscribePetPrefs(() => {
+    setPetSoundState(petSoundEnabled())
+    setPetWanderState(petWanderEnabled())
+    setCookieCount(petCookies())
+  }), [])
 
   const [usage, setUsage] = useState(null)
   const [usageState, setUsageState] = useState('idle')
@@ -199,6 +213,23 @@ export default function SettingsView({
                     </button>
                   </>
                 )}
+              </div>
+              <div className="mt-4" style={{ display: 'grid', gap: 10 }}>
+                <Toggle
+                  id="pet-sound"
+                  checked={petSound}
+                  onChange={(value) => { setPetSound(value); setPetSoundState(value) }}
+                  label="Звук"
+                  hint="Короткий писк при клике и арпеджио после публикации"
+                />
+                <Toggle
+                  id="pet-wander"
+                  checked={petWander}
+                  onChange={(value) => { setPetWander(value); setPetWanderState(value) }}
+                  label="Гулять по экрану"
+                  hint="Раз в 20–40 секунд переходит на 30–80 px в случайную сторону"
+                />
+                <p className="faint" style={{ margin: 0 }}>Печенек съедено: {cookieCount}</p>
               </div>
               <p className="faint" style={{ marginTop: 12, marginBottom: 0 }}>
                 Питомец живёт внизу справа на экранах облачного режима. «Не сейчас» скрывает его
