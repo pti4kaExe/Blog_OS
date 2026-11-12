@@ -6,8 +6,8 @@ import { Icon } from '../ui/Icon.jsx'
 import {
   emitPetSignal, hidePetFor, lastPetSignal, petHiddenUntil, showPet, subscribePet,
 } from '../../lib/petSignals.js'
-import { addPetCookie, petCookies, petWanderEnabled, subscribePetPrefs } from '../../lib/petPrefs.js'
-import { playPetChirp, playPetPublish } from '../../lib/petSound.js'
+import { addPetCookie, petCookies, subscribePetPrefs } from '../../lib/petPrefs.js'
+import { playPetPublish } from '../../lib/petSound.js'
 
 // Кадры питомца: покой, моргание, взгляд. Сгенерированы из того же PNG,
 // персонаж не перерисовывался (см. development_log, блок 10).
@@ -24,7 +24,7 @@ const FALLBACK_FRAME = `${BASE}blogos-pet-cat.png`
 
 const POS_KEY = 'blogos.pet.pos.v1'
 const DRAG_THRESHOLD = 6
-const EDGE = 8
+const EDGE = 16
 
 function clipText(text, max = 46) {
   if (!text) return ''
@@ -79,10 +79,19 @@ function savePos(pos) {
   }
 }
 
-function clampPos(x, y, size) {
-  const maxX = Math.max(EDGE, window.innerWidth - size - EDGE)
-  const maxY = Math.max(EDGE, window.innerHeight - size - EDGE)
+function clampPos(x, y, width, height = width) {
+  const maxX = Math.max(EDGE, window.innerWidth - width - EDGE)
+  const maxY = Math.max(EDGE, window.innerHeight - height - EDGE)
   return { x: Math.min(Math.max(EDGE, x), maxX), y: Math.min(Math.max(EDGE, y), maxY) }
+}
+
+function elementSize(element, fallback = 92) {
+  const rect = element?.getBoundingClientRect()
+  if (!rect) return { width: fallback, height: fallback }
+  return {
+    width: Math.max(fallback, rect.width),
+    height: Math.max(fallback, rect.height),
+  }
 }
 
 function usePrefersReducedMotion() {
@@ -135,8 +144,6 @@ export default function PetCompanion({
   const [cookies, setCookies] = useState(petCookies)
   // Настроение с таймером (радость после победы) — поверх базового.
   const [moodBoost, setMoodBoost] = useState(null)
-  const [wandering, setWandering] = useState(false)
-  const [wanderOn, setWanderOn] = useState(petWanderEnabled)
   const [cookieFlash, setCookieFlash] = useState(false)
   const [pipeline, setPipeline] = useState(() => {
     const signal = lastPetSignal()
@@ -199,7 +206,6 @@ export default function PetCompanion({
 
   useEffect(() => subscribePetPrefs(() => {
     setCookies(petCookies())
-    setWanderOn(petWanderEnabled())
   }), [])
 
   const showFlash = useCallback((text) => {
@@ -307,52 +313,48 @@ export default function PetCompanion({
     }
   }, [])
 
-  // Прогулка: раз в 20–40 секунд питомец переходит на 30–80 px в случайную
-  // сторону — плавно (CSS-переход), не перекрывая работу пользователя.
-  useEffect(() => {
-    if (!wanderOn || reducedMotion || dragging || open || hovered) return undefined
-    let timer = null
-    const walk = () => {
-      timer = setTimeout(() => {
-        const rect = buttonRef.current?.getBoundingClientRect()
-        const size = rect?.width ?? 92
-        const base = posRef.current ?? { x: rect?.left ?? 0, y: rect?.top ?? 0 }
-        const angle = Math.random() * Math.PI * 2
-        const distance = 30 + Math.random() * 50
-        const next = clampPos(
-          base.x + Math.cos(angle) * distance,
-          base.y + Math.sin(angle) * distance * 0.5,
-          size,
-        )
-        setWandering(true)
-        setPos(next)
-        savePos(next)
-        setTimeout(() => setWandering(false), 950)
-        walk()
-      }, 20_000 + Math.random() * 20_000)
-    }
-    walk()
-    return () => clearTimeout(timer)
-  }, [wanderOn, reducedMotion, dragging, open, hovered])
-
   // После монтирования подгоняем сохранённую позицию под текущий вьюпорт.
   useEffect(() => {
     if (!pos) return
-    const size = buttonRef.current?.offsetWidth ?? 92
-    const next = clampPos(pos.x, pos.y, size)
-    if (next.x !== pos.x || next.y !== pos.y) setPos(next)
+    const { width, height } = elementSize(rootRef.current, buttonRef.current?.offsetWidth ?? 92)
+    const next = clampPos(pos.x, pos.y, width, height)
+    if (next.x !== pos.x || next.y !== pos.y) {
+      setPos(next)
+      savePos(next)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Позиция не должна вылезать за экран после ресайза.
   useEffect(() => {
     if (!pos) return undefined
     const onResize = () => {
-      const size = buttonRef.current?.offsetWidth ?? 92
-      setPos((current) => (current ? clampPos(current.x, current.y, size) : current))
+      const { width, height } = elementSize(rootRef.current, buttonRef.current?.offsetWidth ?? 92)
+      setPos((current) => {
+        if (!current) return current
+        const next = clampPos(current.x, current.y, width, height)
+        if (next.x !== current.x || next.y !== current.y) savePos(next)
+        return next
+      })
     }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [pos])
+
+  // Когда открываются подсказка или меню, размер блока меняется. Проверяем
+  // уже весь блок, чтобы он не уходил за экран вместе с плашками.
+  useEffect(() => {
+    if (!pos || dragging) return undefined
+    const frame = requestAnimationFrame(() => {
+      const { width, height } = elementSize(rootRef.current, buttonRef.current?.offsetWidth ?? 92)
+      setPos((current) => {
+        if (!current) return current
+        const next = clampPos(current.x, current.y, width, height)
+        if (next.x !== current.x || next.y !== current.y) savePos(next)
+        return next
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [open, hovered, flash, pos, dragging])
 
   // Сначала грузим только покой и моргание; кадры взгляда — лениво,
   // когда курсор впервые пошёл по экрану (экономим ~140 КБ на старте).
@@ -476,7 +478,7 @@ export default function PetCompanion({
 
   const onPointerDown = (event) => {
     if (event.button !== undefined && event.button > 0) return
-    const rect = buttonRef.current?.getBoundingClientRect()
+    const rect = rootRef.current?.getBoundingClientRect()
     if (!rect) return
     dragState.current = {
       active: true,
@@ -485,7 +487,8 @@ export default function PetCompanion({
       startY: event.clientY,
       originX: rect.left,
       originY: rect.top,
-      size: rect.width,
+      width: rect.width,
+      height: rect.height,
       pointerId: event.pointerId,
     }
     event.currentTarget.setPointerCapture?.(event.pointerId)
@@ -502,7 +505,7 @@ export default function PetCompanion({
       setDragging(true)
       setOpen(false)
     }
-    const next = clampPos(drag.originX + dx, drag.originY + dy, drag.size)
+    const next = clampPos(drag.originX + dx, drag.originY + dy, drag.width, drag.height)
     drag.lastPos = next
     setPos(next)
   }
@@ -562,7 +565,6 @@ export default function PetCompanion({
       data-dragging={dragging}
       data-look={look}
       data-mood={mood}
-      data-wandering={wandering}
       data-vertical={nearTop ? 'down' : 'up'}
       data-side={nearLeft ? 'left' : 'right'}
       style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}
@@ -632,7 +634,6 @@ export default function PetCompanion({
             suppressClick.current = false
             return
           }
-          playPetChirp()
           setOpen((value) => !value)
         }}
         aria-label={`Питомец BlogOS: ${phrase}`}
