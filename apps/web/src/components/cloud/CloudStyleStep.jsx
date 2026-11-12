@@ -12,6 +12,8 @@ import TovCard from '../TovCard.jsx'
 import TovEditor from './TovEditor.jsx'
 import { ResultReveal } from '../ui/Motion.jsx'
 import VoiceMark from '../ui/VoiceMark.jsx'
+import { Icon } from '../ui/Icon.jsx'
+import { FileText, Link2 } from 'lucide-react'
 
 const MIN_CHARS = 180
 
@@ -200,7 +202,7 @@ export default function CloudStyleStep({
   return (
     <div className="stage-narrow">
       {inputVisible && (
-        <section className="card">
+        <section className="card style-samples-card">
           <div className="card-head">
             <div>
               <h2>Ваши прошлые посты</h2>
@@ -229,7 +231,22 @@ export default function CloudStyleStep({
           ))}
 
           {archiveCount === 0 && (
-            <div className="mt-4">
+            <div className="past-posts-empty mt-4">
+              <div className="past-posts-empty-icon" aria-hidden="true">
+                <Icon as={FileText} size="lg" />
+              </div>
+              <div>
+                <strong>Здесь появятся тексты, по которым BlogOS узнаёт ваш голос.</strong>
+                <p>
+                  Подключите канал или вставьте 2–3 поста вручную — после этого профиль
+                  стиля будет строиться на реальных примерах, а не на догадках.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {archiveCount === 0 && (
+            <div className="mt-3">
               <Notice kind="warn">
                 <div style={{ marginBottom: 8 }}>
                   Самый точный профиль — по вашему каналу. Вставьте ссылку: BlogOS загрузит
@@ -250,7 +267,8 @@ export default function CloudStyleStep({
                     onClick={importChannel}
                     disabled={importing || busy}
                   >
-                    {importing ? 'Загружаем посты…' : 'Подключить канал'}
+                    <Icon as={Link2} size="sm" />
+                    <span>{importing ? 'Загружаем посты…' : 'Подключить канал'}</span>
                   </button>
                 </div>
               </Notice>

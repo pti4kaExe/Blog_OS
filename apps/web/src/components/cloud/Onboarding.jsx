@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import api, { itemsOf } from '../../api/client.js'
 import { plural } from '../../lib/format.js'
 import { Icon } from '../ui/Icon.jsx'
-import { Check } from 'lucide-react'
+import {
+  Check, ChevronRight, FileText, Link2, PenLine, Sparkles,
+} from 'lucide-react'
 
 const DISMISS_KEY = 'blogos.onboarding.v1'
 
@@ -77,6 +79,7 @@ export default function Onboarding({ channel, onGo }) {
       text: 'Вставьте ссылку на свой Telegram-канал — BlogOS загрузит посты и возьмёт их за образец вашего голоса. Или вставьте 2–3 текста вручную на этом же шаге.',
       action: 'Перейти к шагу 1',
       go: () => onGo('pipeline', 1),
+      icon: Link2,
     },
     {
       key: 'tov',
@@ -84,6 +87,7 @@ export default function Onboarding({ channel, onGo }) {
       text: 'По постам канала или по 2–3 своим текстам система соберёт профиль Tone of Voice. Без него черновик получится усреднённым.',
       action: 'Перейти к разбору стиля',
       go: () => onGo('pipeline', 1),
+      icon: Sparkles,
     },
     {
       key: 'draft',
@@ -91,11 +95,22 @@ export default function Onboarding({ channel, onGo }) {
       text: 'Накидайте сырые мысли по строке — Narrative Engine расставит их по сюжетной арке и проверит текст.',
       action: 'Перейти к заметкам',
       go: () => onGo('pipeline', 2),
+      icon: PenLine,
     },
   ]
 
   const completed = steps.filter((step) => done[step.key]).length
   if (hidden || state === 'loading' || completed === steps.length) return null
+  const progress = (completed / steps.length) * 100
+  const petState = completed === 0 ? 'greeting' : completed === steps.length - 1 ? 'working' : 'waiting'
+
+  const stepStatus = (item) => {
+    if (done[item.key]) return 'Готово'
+    if (item.key === 'channel') return 'Начните здесь'
+    if (item.key === 'tov' && done.channel) return 'Следующий шаг'
+    if (item.key === 'draft' && done.tov) return 'Следующий шаг'
+    return 'Ждёт'
+  }
 
   /* Пока не сделано ничего, чеклист — главное на экране: человек только
      что завёл канал и не знает, с чего начинать. Как только первый шаг
@@ -114,7 +129,7 @@ export default function Onboarding({ channel, onGo }) {
             {completed} {plural(completed, 'шаг', 'шага', 'шагов')} из {steps.length}
           </span>
           <span className="onboarding-bar" aria-hidden="true">
-            <i style={{ width: `${(completed / steps.length) * 100}%` }} />
+            <i style={{ width: `${progress}%` }} />
           </span>
           <span className="spacer" />
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => setExpanded(true)}>
@@ -129,49 +144,80 @@ export default function Onboarding({ channel, onGo }) {
   }
 
   return (
-    <section className="card onboarding">
-      <div className="card-head">
-        <div>
-          <h2>Первый пост без разгона</h2>
-          <p>
-            Канал «{channel.name}»: пройдено {completed} {plural(completed, 'шаг', 'шага', 'шагов')} из {steps.length}.
-            Цель этого блока — довести вас до первого черновика, а не показать все возможности сразу.
-          </p>
+    <section className="card onboarding onboarding-hero">
+      <span className="onboarding-decor onboarding-decor-a" aria-hidden="true" />
+      <span className="onboarding-decor onboarding-decor-b" aria-hidden="true" />
+      <div className="onboarding-pet" data-state={petState} aria-hidden="true">
+        <img src={`${import.meta.env.BASE_URL}blogos-pet-cat.png`} alt="" loading="eager" decoding="async" />
+      </div>
+
+      <div className="onboarding-main">
+        <div className="onboarding-kicker">
+          <Icon as={FileText} size="sm" />
+          Конвейер поста
         </div>
-        <div className="spacer" />
-        {completed > 0 && (
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setExpanded(false)}>
-            Свернуть
-          </button>
-        )}
-        <button type="button" className="btn btn-sm btn-ghost" onClick={dismiss}>
-          Скрыть
-        </button>
+        <h2>Первый пост без разгона</h2>
+        <p>
+          Канал «{channel.name}»: BlogOS ведёт коротким маршрутом от примера голоса
+          до первого черновика с проверкой.
+        </p>
+
+        <div className="onboarding-progress" aria-label={`Пройдено ${completed} из ${steps.length}`}>
+          <div className="onboarding-progress-head">
+            <strong>{completed} {plural(completed, 'шаг', 'шага', 'шагов')} из {steps.length}</strong>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <span className="onboarding-bar" aria-hidden="true">
+            <i style={{ width: `${progress}%` }} />
+          </span>
+        </div>
+
+        <div className="first-run-note">
+          <strong>Маршрут на 10 минут:</strong>
+          <span>пример голоса → профиль стиля → сырые мысли → черновик с проверкой.</span>
+        </div>
       </div>
 
-      <div className="first-run-note">
-        <strong>Маршрут на 10 минут:</strong>
-        <span>пример голоса → профиль стиля → сырые мысли → черновик с проверкой.</span>
-      </div>
-
-      <ol className="checklist">
+      <aside className="onboarding-next" aria-label="Что дальше">
+        <div className="onboarding-next-head">
+          <div>
+            <span>Что дальше?</span>
+            <strong>3 шага до черновика</strong>
+          </div>
+          <div className="onboarding-actions">
+            {completed > 0 && (
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setExpanded(false)}>
+                Свернуть
+              </button>
+            )}
+            <button type="button" className="btn btn-sm btn-ghost" onClick={dismiss}>
+              Скрыть
+            </button>
+          </div>
+        </div>
+      <ol className="checklist onboarding-roadmap">
         {steps.map((step) => (
           <li className="checklist-item" key={step.key} data-done={done[step.key]}>
             <span className="checklist-mark" aria-hidden="true">
-              {done[step.key] ? <Icon as={Check} size="sm" /> : null}
+              {done[step.key] ? <Icon as={Check} size="sm" /> : <Icon as={step.icon} size="sm" />}
             </span>
             <div className="checklist-body">
-              <div className="checklist-title">{step.title}</div>
+              <div className="checklist-title">
+                <span>{step.title}</span>
+                <em>{stepStatus(step)}</em>
+              </div>
               <div className="checklist-text">{step.text}</div>
               {/* Кнопка остаётся и у выполненного шага: к своему стилю или
                   черновику возвращаются и после того, как галочка получена. */}
               <button type="button" className="btn btn-sm" onClick={step.go}>
-                {done[step.key] ? 'Открыть снова' : step.action}
+                <span>{done[step.key] ? 'Открыть снова' : step.action}</span>
+                <Icon as={ChevronRight} size="sm" />
               </button>
             </div>
           </li>
         ))}
       </ol>
+      </aside>
     </section>
   )
 }
