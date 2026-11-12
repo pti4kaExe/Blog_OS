@@ -2,8 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import api from '../../api/client.js'
 import { apiErrorMessage, isOffline } from '../../lib/format.js'
 import { Field, InlineError, Loading, Notice, Tag, TextInput } from '../ui.jsx'
+import { Icon } from '../ui/Icon.jsx'
 import VoiceMark from '../ui/VoiceMark.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
+import {
+  CheckCircle2, MessageSquareText, PenLine, Send, Sparkles,
+} from 'lucide-react'
 
 /**
  * Экран входа в облачный режим. Три способа, по убыванию удобства:
@@ -188,6 +192,10 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           <VoiceMark size="hero" />
         </Reveal>
         <Reveal className="brand-zone-text" offset={14}>
+          <div className="hero-kicker">
+            <Icon as={Sparkles} size="sm" />
+            <span>AI-редактор для авторского голоса</span>
+          </div>
           <h1 className="brand-zone-title">BlogOS</h1>
           <p className="brand-zone-lead">
             Пост в вашем голосе — собранный из сырых заметок и проверенный до публикации.
@@ -195,6 +203,42 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           <div className="quick-proof" aria-label="Первый результат">
             <span>Первый результат:</span>
             <strong>профиль стиля и черновик поста за один короткий заход.</strong>
+          </div>
+        </Reveal>
+        <Reveal className="hero-product" offset={14}>
+          <div className="hero-product-head">
+            <span>Сегодня</span>
+            <strong>Черновик готов</strong>
+          </div>
+          <div className="hero-flow">
+            <div className="hero-flow-item" data-tone="voice">
+              <Icon as={MessageSquareText} size="sm" />
+              <span>Голос</span>
+            </div>
+            <div className="hero-flow-item" data-tone="draft">
+              <Icon as={PenLine} size="sm" />
+              <span>Черновик</span>
+            </div>
+            <div className="hero-flow-item" data-tone="check">
+              <Icon as={CheckCircle2} size="sm" />
+              <span>Проверка</span>
+            </div>
+          </div>
+          <div className="hero-post">
+            <span className="hero-post-platform">Telegram</span>
+            <p>
+              “Пишу не чтобы звучать умнее, а чтобы читатель забрал одну мысль
+              и сразу применил её в своём канале.”
+            </p>
+          </div>
+          <div className="hero-score">
+            <span>AntiCringe</span>
+            <strong>92</strong>
+            <i aria-hidden="true" />
+          </div>
+          <div className="hero-send">
+            <Icon as={Send} size="sm" />
+            <span>готово к публикации</span>
           </div>
         </Reveal>
       </Stagger>
