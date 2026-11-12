@@ -4,6 +4,7 @@ import {
 import api from '../../api/client.js'
 import { useRegisterCommands } from '../../lib/commands.jsx'
 import { apiErrorMessage } from '../../lib/format.js'
+import { emitPetSignal } from '../../lib/petSignals.js'
 import { scrollNodeIntoView } from '../../lib/scroll.js'
 import { EmptyState, InlineError, Loading, Notice } from '../ui.jsx'
 import ProgressRail from '../ui/ProgressRail.jsx'
@@ -137,6 +138,8 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
       setArc(body.arc || (result.build && result.build.arc) || null)
       setSaveError(null)
       goStep(3)
+      // Питомец узнаёт о готовом черновике через сигнал, а не догадывается.
+      emitPetSignal('draft-ready', { draftId: result.draft?.id ?? null })
       return true
     } catch (error) {
       setGenerateError(error)
@@ -175,6 +178,7 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
       if (loaded.source_notes) setNotes(loaded.source_notes)
       if (loaded.arc) setArc(loaded.arc)
       goStep(3)
+      emitPetSignal('draft-ready', { draftId: loaded.id ?? draftId })
     } catch (error) {
       setLoadDraftError(error)
     } finally {
@@ -189,6 +193,17 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
   }
 
   const styleReady = tovState === 'ready' && Boolean(tov)
+
+  /* Питомец-помощник живёт в CloudApp: сообщаем ему, что известно о канале.
+     Сигнал уходит при каждом изменении профиля и черновика — так фразы и
+     действия питомца опираются на реальное состояние, а не на догадки. */
+  useEffect(() => {
+    emitPetSignal('pipeline-state', {
+      tovReady: styleReady,
+      hasDraft: Boolean(draft),
+      draftId: draft?.id ?? null,
+    })
+  }, [styleReady, draft])
 
   /* Второй шаг открыт всегда: без профиля стиля он показывает объяснение,
      а не молчаливый отказ в навигации. Шаги 3–4 по-прежнему требуют

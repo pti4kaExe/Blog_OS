@@ -3,8 +3,6 @@ import { Menu, X } from 'lucide-react'
 import { Icon } from './Icon.jsx'
 import { useAppIntro } from './Motion.jsx'
 
-const assetUrl = (file) => `${import.meta.env.BASE_URL}${file}`
-
 /**
  * Каркас приложения: боковая панель слева, содержимое справа.
  *
@@ -64,18 +62,6 @@ export default function AppShell({ sidebar, title, actions, children }) {
           {title && <div className="shell-bar-title">{title}</div>}
           <div className="spacer" />
           {actions}
-          {/* Компактный питомец: только образ, без подписи. Подсказка
-              появляется при наведении (CSS на data-tip) и не занимает
-              места в шапке. Текст для скринридеров — отдельно. */}
-          <div
-            className="shell-pet"
-            data-tip="Помощник рядом: подскажет следующий шаг и похвалит за готовый пост"
-            role="img"
-            aria-label="Питомец BlogOS — помощник рядом"
-          >
-            <img src={assetUrl('blogos-pet-cat.png')} alt="" aria-hidden="true" width="36" height="36" />
-            <span className="sr-only">Питомец BlogOS — помощник рядом</span>
-          </div>
         </div>
 
         <main className="stage" onClickCapture={() => { if (open) setOpen(false) }}>

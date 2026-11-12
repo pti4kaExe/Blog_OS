@@ -15,6 +15,7 @@ import { Icon } from '../ui/Icon.jsx'
 import CloudSidebar, { CLOUD_SECTIONS } from './CloudSidebar.jsx'
 import LoginScreen from './LoginScreen.jsx'
 import Onboarding from './Onboarding.jsx'
+import PetCompanion from './PetCompanion.jsx'
 
 const ChannelFormModal = lazy(() => import('./ChannelFormModal.jsx'))
 const CloudPipeline = lazy(() => import('./CloudPipeline.jsx'))
@@ -552,6 +553,17 @@ export default function CloudApp({ onUseLocal }) {
           только с вашего согласия.
         </span>
       </footer>
+
+      {/* Питомец-помощник: плавающий блок внизу справа. Состояние берёт из
+          контекста (канал, стиль, черновик) и сигналов конвейера. */}
+      <PetCompanion
+        hasChannels={channels.length > 0}
+        channel={activeChannel}
+        view={view}
+        onCreateChannel={() => openChannelForm(null)}
+        onView={setView}
+        onStep={(step) => { setView('pipeline'); setRequestedStep(step) }}
+      />
 
       {channelModal.open && (
         <Suspense fallback={null}>

@@ -3058,3 +3058,184 @@ button.list-btn { width: 100%; }
   .shell-pet:hover { transform: none; }
   .shell-pet::after { transition: none; }
 }
+
+/* ── 7. Питомец-помощник (плавающий, внизу справа) ───────────────────────── */
+
+.pet-companion {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40; /* ниже модалок и палитры, выше фона */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.pet-companion > * { pointer-events: auto; }
+
+.pet-companion-button {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  padding: 0;
+  border: 1px solid var(--tint-edge);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(184, 154, 255, 0.28), transparent 62%), var(--surface-raised);
+  box-shadow:
+    0 18px 36px -18px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 220ms ease, border-color 180ms ease;
+  animation: pet-float 5.2s ease-in-out infinite;
+}
+
+.pet-companion-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+  display: block;
+}
+
+.pet-companion-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: conic-gradient(from 180deg, rgba(117, 175, 255, 0.45), rgba(184, 154, 255, 0.45), rgba(131, 214, 170, 0.35), rgba(117, 175, 255, 0.45));
+  filter: blur(8px);
+  opacity: 0.55;
+  z-index: -1;
+  animation: pet-glow 4.2s ease-in-out infinite;
+}
+
+.pet-companion-button:hover {
+  transform: translateY(-3px) rotate(-2deg);
+  border-color: var(--tint);
+  box-shadow: 0 22px 44px -20px rgba(0, 0, 0, 0.75), 0 0 0 4px var(--tint-soft);
+}
+
+.pet-companion-button:active { transform: scale(0.94); }
+
+.pet-companion[data-open='true'] .pet-companion-button {
+  transform: translateY(-2px) scale(1.03);
+  border-color: var(--tint);
+}
+
+.pet-companion-bubble {
+  position: relative;
+  max-width: 260px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  background: var(--surface-overlay);
+  color: var(--label-primary);
+  font-size: 0.86rem;
+  line-height: 1.35;
+  box-shadow: 0 16px 32px -20px rgba(0, 0, 0, 0.8);
+  animation: pet-bubble-in 160ms ease-out;
+}
+
+.pet-companion-bubble span { flex: 1; }
+
+.pet-companion-bubble-close {
+  border: none;
+  background: none;
+  color: var(--label-tertiary);
+  cursor: pointer;
+  padding: 0;
+  line-height: 0;
+}
+
+.pet-companion-bubble-close:hover { color: var(--label-primary); }
+
+.pet-companion-menu {
+  width: 268px;
+  padding: 8px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 16px;
+  background: var(--surface-raised);
+  box-shadow: 0 24px 48px -22px rgba(0, 0, 0, 0.85);
+  animation: pet-bubble-in 160ms ease-out;
+}
+
+.pet-companion-menu-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px 8px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+}
+
+.pet-companion-menu-head strong { color: var(--label-primary); }
+.pet-companion-menu-head .faint { font-size: 0.76rem; }
+
+.pet-companion-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--label-primary);
+  font-size: 0.86rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.pet-companion-action span { flex: 1; }
+.pet-companion-action > svg:last-child { color: var(--label-tertiary); }
+
+.pet-companion-action:hover {
+  background: var(--tint-soft);
+  transform: translateX(2px);
+}
+
+.pet-companion-action:last-child { color: var(--label-secondary); }
+.pet-companion-action:last-child:hover { background: var(--hairline); }
+
+@keyframes pet-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pet-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes pet-bubble-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 660px) {
+  .pet-companion { right: 12px; bottom: 12px; gap: 8px; }
+  .pet-companion-button { width: 64px; height: 64px; }
+  .pet-companion-bubble,
+  .pet-companion-menu { width: min(268px, calc(100vw - 32px)); max-width: calc(100vw - 32px); }
+}
+
+@media (max-width: 420px) {
+  .pet-companion-button { width: 56px; height: 56px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-companion-button,
+  .pet-companion-ring { animation: none; }
+  .pet-companion-button:hover,
+  .pet-companion-action:hover { transform: none; }
+  .pet-companion-bubble,
+  .pet-companion-menu { animation: none; }
+}
+

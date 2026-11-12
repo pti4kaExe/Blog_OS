@@ -3,6 +3,7 @@ import api, { itemsOf } from '../../api/client.js'
 import { CATEGORIES, applyFixes, isFixable, lint as engineLint } from '../../engine/anticringe.js'
 import { getAiConsent, useAiConsent } from '../../lib/aiConsent.jsx'
 import { engineProfileFromTov } from '../../lib/tov.js'
+import { emitPetSignal } from '../../lib/petSignals.js'
 import { scrollNodeIntoView } from '../../lib/scroll.js'
 import {
   apiErrorMessage, arcLabel, DRAFT_STATUSES, fmtDateTime, hasUnfilledGaps,
@@ -241,6 +242,12 @@ export default function CloudCheckStep({
         }
       }
       setReport(normalizeReport(result))
+      // Питомец-помощник узнаёт результат проверки и реагирует фразой.
+      emitPetSignal('lint-ready', {
+        score: result?.lint_report?.score ?? null,
+        verdict: result?.verdict ?? null,
+        draftId: draft.id,
+      })
       scrollToResult.current = true
       await loadHistory()
     } catch (error) {
@@ -364,6 +371,7 @@ export default function CloudCheckStep({
       const result = await doPublish()
       setDraft(result.draft)
       setPublishResult(result)
+      emitPetSignal('published', { draftId: draft.id })
       onPublished?.()
     } catch (error) {
       // статус мог уйти вперёд — пробуем один раз привести черновик в ready
@@ -374,6 +382,7 @@ export default function CloudCheckStep({
           const result = await api.drafts.publish(draft.id, {})
           setDraft(result.draft)
           setPublishResult(result)
+          emitPetSignal('published', { draftId: draft.id })
           onPublished?.()
         } catch (retryError) {
           setPublishError(retryError)

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../../api/client.js'
 import { getAiConsent, setAiConsent } from '../../lib/aiConsent.jsx'
 import { fmtDateTime, fmtMoney, fmtPercent, labelOf, PLATFORMS, plural } from '../../lib/format.js'
+import { hidePetFor, petHiddenUntil, showPet } from '../../lib/petSignals.js'
 import {
   Bar, Field, FormSection, InlineError, Notice, Tag, TextInput,
 } from '../ui.jsx'
@@ -30,6 +31,22 @@ export default function SettingsView({
   const [saved, setSaved] = useState(false)
 
   const [consent, setConsent] = useState(getAiConsent)
+
+  /* «Не сейчас» у питомца: настройка живёт в localStorage, поэтому читаем
+     её при открытии экрана и позволяем вернуть помощника обратно. */
+  const [petHidden, setPetHidden] = useState(() => petHiddenUntil() > Date.now())
+
+  const restorePet = () => {
+    showPet()
+    setPetHidden(false)
+    // Питомец в CloudApp слушает это событие и сразу появляется.
+    window.dispatchEvent(new Event('blogos:pet-restored'))
+  }
+
+  const hidePet = () => {
+    hidePetFor()
+    setPetHidden(true)
+  }
 
   const [usage, setUsage] = useState(null)
   const [usageState, setUsageState] = useState('idle')
@@ -156,6 +173,37 @@ export default function SettingsView({
           <section className="card">
             <FormSection title="Оформление" hint="Применяется сразу и на весь интерфейс, обоих режимов.">
               <ThemeSwitch />
+            </FormSection>
+          </section>
+        </Reveal>
+
+        <Reveal>
+          <section className="card">
+            <FormSection
+              title="Питомец-помощник"
+              hint="Подсказывает следующий шаг и предлагает действия. Его можно вернуть, если скрыли."
+            >
+              <div className="btn-row" style={{ alignItems: 'center', gap: 12 }}>
+                {petHidden ? (
+                  <>
+                    <Tag kind="warn">Скрыт на 24 часа</Tag>
+                    <button type="button" className="btn btn-sm btn-primary" onClick={restorePet}>
+                      Вернуть питомца
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Tag kind="accent">Помогает</Tag>
+                    <button type="button" className="btn btn-sm btn-ghost" onClick={hidePet}>
+                      Скрыть на 24 часа
+                    </button>
+                  </>
+                )}
+              </div>
+              <p className="faint" style={{ marginTop: 12, marginBottom: 0 }}>
+                Питомец живёт внизу справа на экранах облачного режима. «Не сейчас» скрывает его
+                на сутки, после чего он возвращается сам.
+              </p>
             </FormSection>
           </section>
         </Reveal>
