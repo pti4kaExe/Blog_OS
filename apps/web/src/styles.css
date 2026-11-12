@@ -1626,13 +1626,13 @@ button.list-btn { width: 100%; }
 /* ═════════════════════════════ питомец входа ═════════════════════════════ */
 
 .brand-zone-pet {
-  flex: 0 1 370px;
-  min-width: 330px;
+  flex: 0 1 340px;
+  min-width: 310px;
 }
 
 .blog-pet {
   position: relative;
-  min-height: 350px;
+  min-height: 326px;
   display: grid;
   place-items: center;
   isolation: isolate;
@@ -1645,12 +1645,12 @@ button.list-btn { width: 100%; }
   z-index: -1;
 }
 .pet-orbit-a {
-  width: 310px; height: 154px;
+  width: 286px; height: 142px;
   background: rgba(189, 166, 255, 0.28);
   transform: rotate(-10deg) translateY(34px);
 }
 .pet-orbit-b {
-  width: 210px; height: 124px;
+  width: 194px; height: 112px;
   background: rgba(242, 180, 156, 0.15);
   transform: rotate(18deg) translate(46px, -12px);
 }
@@ -1690,7 +1690,7 @@ button.list-btn { width: 100%; }
 .pet-illustration {
   position: relative;
   z-index: 1;
-  width: min(330px, 82vw);
+  width: min(300px, 78vw);
   margin-top: var(--sp-6);
   animation: pet-float 4.8s var(--ease-in-out) infinite;
 }
@@ -1709,8 +1709,8 @@ button.list-btn { width: 100%; }
   pointer-events: none;
 }
 .pet-decor-note {
-  left: 16px; top: 86px;
-  width: 44px; height: 52px;
+  left: 24px; top: 88px;
+  width: 40px; height: 48px;
   border-radius: 12px;
   border: 1px solid rgba(189, 166, 255, 0.38);
   background:
@@ -1731,7 +1731,7 @@ button.list-btn { width: 100%; }
 .pet-decor-note::before { top: 16px; }
 .pet-decor-note::after { top: 26px; right: 18px; }
 .pet-decor-heart {
-  right: 22px; top: 70px;
+  right: 34px; top: 72px;
   color: #F2A9C4;
   font-size: 2.2rem;
   line-height: 1;
@@ -1976,13 +1976,13 @@ button.list-btn { width: 100%; }
   .brand-zone { gap: var(--sp-5); }
   .brand-zone-pet { min-width: 0; width: 100%; }
   .brand-zone-text { margin-left: 0; }
-  .blog-pet { min-height: 330px; }
+  .blog-pet { min-height: 304px; }
   .pet-speech {
     left: 52%;
     max-width: 220px;
     transform: translateX(-58%) rotate(-4deg);
   }
-  .pet-illustration { width: min(292px, 82vw); }
+  .pet-illustration { width: min(270px, 78vw); }
   .pet-decor-note { left: 8vw; }
   .pet-decor-heart { right: 7vw; }
   .voice-hero { width: min(220px, 70%); margin: 0 auto; }
