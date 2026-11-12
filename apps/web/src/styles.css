@@ -3242,7 +3242,27 @@ button.list-btn { width: 100%; }
 }
 
 .pet-companion-menu-head strong { color: var(--label-primary); }
-.pet-companion-menu-head .faint { font-size: 0.76rem; }
+.pet-companion-menu-head .faint { flex: 1; font-size: 0.76rem; }
+
+.pet-companion-hide {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--label-secondary);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.pet-companion-hide:hover {
+  border-color: rgba(184, 154, 255, 0.48);
+  background: var(--tint-soft);
+  color: var(--label-primary);
+}
 
 .pet-companion-action {
   display: flex;

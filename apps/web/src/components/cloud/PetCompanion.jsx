@@ -7,7 +7,7 @@ import {
   emitPetSignal, hidePetFor, lastPetSignal, petHiddenUntil, showPet, subscribePet,
 } from '../../lib/petSignals.js'
 import { addPetCookie, petCookies, subscribePetPrefs } from '../../lib/petPrefs.js'
-import { playPetPublish } from '../../lib/petSound.js'
+import { playPetChirp, playPetPublish } from '../../lib/petSound.js'
 
 // Кадры питомца: покой, моргание, взгляд. Сгенерированы из того же PNG,
 // персонаж не перерисовывался (см. development_log, блок 10).
@@ -404,6 +404,13 @@ export default function PetCompanion({
     setOpen(false)
   }, [])
 
+  const hideCompanion = useCallback(() => {
+    setHiddenUntil(hidePetFor())
+    setOpen(false)
+    setFlash(null)
+    emitPetSignal('pet-hidden', {})
+  }, [])
+
   const actions = useMemo(() => {
     const list = []
     if (mode === 'login') {
@@ -441,14 +448,10 @@ export default function PetCompanion({
       key: 'hide',
       label: 'Не сейчас',
       icon: EyeOff,
-      run: () => {
-        setHiddenUntil(hidePetFor())
-        setOpen(false)
-        emitPetSignal('pet-hidden', {})
-      },
+      run: hideCompanion,
     })
     return list
-  }, [mode, hasChannels, pipeline, phrase, pos, cookies, onCreateChannel, onStep, onView, onLogin, onUseLocal, showFlash, resetPosition])
+  }, [mode, hasChannels, pipeline, phrase, pos, cookies, onCreateChannel, onStep, onView, onLogin, onUseLocal, showFlash, resetPosition, hideCompanion])
 
   const onPointerDown = (event) => {
     if (event.button !== undefined && event.button > 0) return
@@ -567,6 +570,15 @@ export default function PetCompanion({
             <span className="faint">
               {cookies > 0 ? `Печеньки: ${cookies}` : mode === 'login' ? 'Вход' : channel ? channel.name : 'Нет канала'}
             </span>
+            <button
+              type="button"
+              className="pet-companion-hide"
+              onClick={hideCompanion}
+              title="Скрыть питомца на 24 часа"
+              aria-label="Скрыть питомца на 24 часа"
+            >
+              <Icon as={EyeOff} size="sm" />
+            </button>
           </div>
           {actions.map((action) => (
             <button
@@ -606,6 +618,7 @@ export default function PetCompanion({
             suppressClick.current = false
             return
           }
+          playPetChirp()
           setOpen((value) => !value)
         }}
         aria-label={`Питомец BlogOS: ${phrase}`}
