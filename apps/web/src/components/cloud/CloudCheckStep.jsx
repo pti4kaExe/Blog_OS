@@ -50,6 +50,21 @@ function issueSuggestion(issue) {
   return ''
 }
 
+function topIssueForPet(issues = []) {
+  const [issue] = issues
+    .slice()
+    .sort((a, b) => SEV_ORDER[severityOf(a)] - SEV_ORDER[severityOf(b)])
+  if (!issue) return null
+  return {
+    category: categoryOf(issue),
+    severity: severityOf(issue),
+    title: issueTitle(issue),
+    quote: issue.quote || '',
+    message: issueMessage(issue),
+    suggestion: issueSuggestion(issue),
+  }
+}
+
 function countGroups(issues) {
   const groups = { cliche: 0, logic: 0, tov: 0, clarity: 0 }
   for (const issue of issues) {
@@ -241,11 +256,15 @@ export default function CloudCheckStep({
           throw lintRunError
         }
       }
-      setReport(normalizeReport(result))
+      const normalized = normalizeReport(result)
+      setReport(normalized)
       // Питомец-помощник узнаёт результат проверки и реагирует фразой.
       emitPetSignal('lint-ready', {
-        score: result?.lint_report?.score ?? null,
-        verdict: result?.verdict ?? null,
+        score: normalized?.report?.score ?? null,
+        verdict: normalized?.verdict ?? null,
+        issueCount: normalized?.report?.issues?.length ?? 0,
+        topIssue: topIssueForPet(normalized?.report?.issues || []),
+        textLength: nextText.length,
         draftId: draft.id,
       })
       scrollToResult.current = true

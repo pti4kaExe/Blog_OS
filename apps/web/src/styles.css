@@ -3099,6 +3099,79 @@ button.list-btn { width: 100%; }
   -webkit-tap-highlight-color: transparent;
 }
 
+.pet-companion-button::before,
+.pet-companion-button::after {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.pet-companion-button::before {
+  content: '';
+  inset: 12px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(184, 154, 255, 0.28), transparent 68%);
+  filter: blur(10px);
+  transform: scale(0.84);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.pet-companion[data-mood='thinking'] .pet-companion-button::before,
+.pet-companion[data-mood='working'] .pet-companion-button::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pet-companion[data-mood='happy'] .pet-companion-button::after {
+  content: '♥';
+  right: 4px;
+  top: 4px;
+  color: #ff9fc3;
+  font-size: 1.1rem;
+  text-shadow: 0 0 14px rgba(255, 159, 195, 0.75);
+  opacity: 1;
+  animation: pet-heart-pop 1.45s ease-in-out infinite;
+}
+
+.pet-companion[data-mood='thinking'] .pet-companion-button::after {
+  content: '!';
+  right: 5px;
+  top: 2px;
+  color: #ffd976;
+  font-size: 1rem;
+  font-weight: 900;
+  text-shadow: 0 0 14px rgba(255, 217, 118, 0.72);
+  opacity: 1;
+  animation: pet-think-dot 1.8s ease-in-out infinite;
+}
+
+.pet-companion[data-mood='working'] .pet-companion-button::after {
+  content: '✎';
+  right: 2px;
+  top: 6px;
+  color: var(--accent-blue, #75afff);
+  font-size: 1rem;
+  text-shadow: 0 0 14px rgba(117, 175, 255, 0.76);
+  opacity: 1;
+  animation: pet-work-mark 1.1s ease-in-out infinite;
+}
+
+.pet-companion[data-mood='tired'] .pet-companion-button::after {
+  content: 'zZ';
+  right: -2px;
+  top: 0;
+  color: var(--label-secondary, #a5a1b3);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  opacity: 0.9;
+  animation: pet-sleep-mark 1.8s ease-in-out infinite;
+}
+
+.pet-companion[data-mood='tired'] .pet-companion-button img {
+  filter: saturate(0.84) brightness(0.9) drop-shadow(0 12px 18px rgba(0, 0, 0, 0.35));
+}
+
 .pet-companion-button img {
   width: 100%;
   height: 100%;
@@ -3208,6 +3281,26 @@ button.list-btn { width: 100%; }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes pet-heart-pop {
+  0%, 100% { transform: translateY(0) scale(0.92); }
+  45% { transform: translateY(-7px) scale(1.08); }
+}
+
+@keyframes pet-think-dot {
+  0%, 100% { transform: translateY(0); opacity: 0.65; }
+  50% { transform: translateY(-4px); opacity: 1; }
+}
+
+@keyframes pet-work-mark {
+  0%, 100% { transform: rotate(-8deg) translateY(0); }
+  50% { transform: rotate(8deg) translateY(-3px); }
+}
+
+@keyframes pet-sleep-mark {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
+
 @media (max-width: 660px) {
   .pet-companion { right: 12px; bottom: 12px; gap: 8px; }
   .pet-companion-button { width: 64px; height: 64px; }
@@ -3226,6 +3319,7 @@ button.list-btn { width: 100%; }
   .pet-companion-button img,
   .pet-companion[data-look='left'] .pet-companion-button img,
   .pet-companion[data-look='right'] .pet-companion-button img { transform: none; transition: none; }
+  .pet-companion-button::after { animation: none !important; }
   .pet-companion-bubble,
   .pet-companion-menu { animation: none; }
 }

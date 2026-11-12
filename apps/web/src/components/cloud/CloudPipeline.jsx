@@ -202,6 +202,7 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
       tovReady: styleReady,
       hasDraft: Boolean(draft),
       draftId: draft?.id ?? null,
+      textLength: draft?.text?.length ?? 0,
     })
   }, [styleReady, draft])
 

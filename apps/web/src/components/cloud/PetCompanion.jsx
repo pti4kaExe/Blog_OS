@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowRight, EyeOff, FileText, LogIn, MonitorCog, RotateCcw, Settings2, ShieldCheck, Sparkles, Wand2, X,
+  ArrowRight, Coffee, EyeOff, FileText, Heart, Lightbulb, LogIn, MonitorCog, Pencil, RotateCcw, Settings2, ShieldCheck, Sparkles, Wand2, X,
 } from 'lucide-react'
 import { Icon } from '../ui/Icon.jsx'
 import {
   emitPetSignal, hidePetFor, lastPetSignal, petHiddenUntil, showPet, subscribePet,
 } from '../../lib/petSignals.js'
+import { addPetCookie, petCookies, subscribePetPrefs } from '../../lib/petPrefs.js'
+import { playPetChirp, playPetPublish } from '../../lib/petSound.js'
 
 // Кадры питомца: покой, моргание, взгляд. Сгенерированы из того же PNG,
 // персонаж не перерисовывался (см. development_log, блок 10).
@@ -15,12 +17,46 @@ const FRAMES = {
   blink: `${BASE}pet/pet-blink.png`,
   left: `${BASE}pet/pet-look-left.png`,
   right: `${BASE}pet/pet-look-right.png`,
+  happy: `${BASE}pet/pet-happy.png`,
+  tired: `${BASE}pet/pet-tired.png`,
 }
 const FALLBACK_FRAME = `${BASE}blogos-pet-cat.png`
 
 const POS_KEY = 'blogos.pet.pos.v1'
 const DRAG_THRESHOLD = 6
 const EDGE = 8
+
+function clipText(text, max = 46) {
+  if (!text) return ''
+  const clean = String(text).replace(/\s+/g, ' ').trim()
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
+}
+
+function issuePhrase(issue) {
+  if (!issue) return null
+  const quote = issue.quote ? ` «${clipText(issue.quote, 34)}»` : ''
+  if (issue.category === 'cliche') return `Тут клише${quote} — давайте сделаем живее?`
+  if (issue.category === 'logic') return 'Тут просится связка между мыслями — поправим?'
+  if (issue.category === 'tov') return 'Тон чуть съехал с голоса канала — выровняем?'
+  if (issue.category === 'clarity') return `Здесь можно яснее${quote} — помогу сократить`
+  return `${clipText(issue.title || 'Есть замечание')} — поправим?`
+}
+
+function screenPhrase(view) {
+  if (view === 'archive') return 'В архиве живут прошлые посты — можно быстро поднять удачные формулировки'
+  if (view === 'radar') return 'CommentRadar помогает увидеть, какие темы цепляют людей'
+  if (view === 'knowledge') return 'База знаний — кладём факты сюда, чтобы черновики были плотнее'
+  if (view === 'settings') return 'В настройках можно докрутить голос, правила и мои подсказки'
+  return null
+}
+
+function moodIcon(mood) {
+  if (mood === 'happy') return Heart
+  if (mood === 'tired') return Coffee
+  if (mood === 'thinking') return Lightbulb
+  if (mood === 'working') return Pencil
+  return Sparkles
+}
 
 function loadPos() {
   try {
@@ -96,6 +132,7 @@ export default function PetCompanion({
   const [dragging, setDragging] = useState(false)
   const [blink, setBlink] = useState(false)
   const [look, setLook] = useState('idle')
+  const [cookies, setCookies] = useState(petCookies)
   const [pipeline, setPipeline] = useState(() => {
     const signal = lastPetSignal()
     return signal?.type === 'pipeline-state' ? signal.payload : {}
@@ -119,17 +156,20 @@ export default function PetCompanion({
     }
     if (signal.type === 'lint-ready') {
       setPipeline((prev) => ({ ...prev, ...signal.payload, published: false }))
-      showFlash('Проверка готова — смотрите замечания')
+      showFlash(issuePhrase(signal.payload.topIssue) || 'Проверка готова — замечаний нет, можно финально пройтись глазами')
       return
     }
     if (signal.type === 'published') {
       setPipeline((prev) => ({ ...prev, published: true }))
-      showFlash('Опубликовано! Отличная работа')
+      const nextCookies = addPetCookie()
+      setCookies(nextCookies)
+      playPetPublish()
+      showFlash(`Опубликовано! Ловлю первые лайки. Печеньки: ${nextCookies}`)
       return
     }
     if (signal.type === 'draft-ready') {
       setPipeline((prev) => ({ ...prev, hasDraft: true }))
-      showFlash('Отлично, черновик готов')
+      showFlash('Черновик готов — я уже разминаю AntiCringe')
     }
   }), [])
 
@@ -139,6 +179,8 @@ export default function PetCompanion({
     window.addEventListener('blogos:pet-restored', onRestore)
     return () => window.removeEventListener('blogos:pet-restored', onRestore)
   }, [])
+
+  useEffect(() => subscribePetPrefs(() => setCookies(petCookies())), [])
 
   const showFlash = useCallback((text) => {
     setFlash(text)
@@ -225,7 +267,7 @@ export default function PetCompanion({
   // Сначала грузим только покой и моргание; кадры взгляда — лениво,
   // когда курсор впервые пошёл по экрану (экономим ~140 КБ на старте).
   useEffect(() => {
-    ;[FRAMES.idle, FRAMES.blink].forEach((src) => {
+    ;[FRAMES.idle, FRAMES.blink, FRAMES.happy, FRAMES.tired].forEach((src) => {
       const image = new Image()
       image.src = src
     })
@@ -263,15 +305,29 @@ export default function PetCompanion({
     if (!hasChannels) return 'Создайте первый канал — и начнём'
     if (!pipeline.tovReady) return 'Сначала разберу ваш стиль'
     if (pipeline.published) return 'Опубликовано! Отличная работа'
+    const issueHint = issuePhrase(pipeline.topIssue)
+    if (issueHint) return issueHint
     if (typeof pipeline.score === 'number') {
       if (pipeline.score >= 80) return 'Хорошо! Пара мелочей — и можно публиковать'
       if (pipeline.score >= 60) return 'Неплохо, но нужно добавить пару деталей'
       return 'Давайте усилим текст: есть что поправить'
     }
+    const currentScreenPhrase = screenPhrase(view)
+    if (currentScreenPhrase) return currentScreenPhrase
     if (pipeline.hasDraft) return 'Отлично, черновик готов'
-    if (view !== 'pipeline') return 'Вернёмся к конвейеру поста?'
     return 'Накидайте 4–6 мыслей — соберу черновик'
   }, [mode, hasChannels, pipeline, view])
+
+  const mood = useMemo(() => {
+    if (dragging) return 'working'
+    if (pipeline.published) return 'happy'
+    if ((pipeline.textLength || 0) > 1800 || (pipeline.issueCount || 0) >= 6) return 'tired'
+    if (!hasChannels || !pipeline.tovReady || view !== 'pipeline') return 'thinking'
+    if (pipeline.hasDraft || typeof pipeline.score === 'number') return 'working'
+    return 'hello'
+  }, [dragging, hasChannels, pipeline, view])
+
+  const BubbleIcon = moodIcon(mood)
 
   const resetPosition = useCallback(() => {
     savePos(null)
@@ -388,7 +444,11 @@ export default function PetCompanion({
 
   const bubbleVisible = open || hovered || Boolean(flash)
   const bubbleText = flash ?? phrase
-  const frame = blink ? FRAMES.blink : look === 'left' ? FRAMES.left : look === 'right' ? FRAMES.right : FRAMES.idle
+  const frame = mood === 'happy'
+    ? FRAMES.happy
+    : mood === 'tired'
+      ? FRAMES.tired
+      : blink ? FRAMES.blink : look === 'left' ? FRAMES.left : look === 'right' ? FRAMES.right : FRAMES.idle
   const nearTop = Boolean(pos && pos.y < window.innerHeight * 0.38)
   const nearLeft = Boolean(pos && pos.x < 280)
 
@@ -399,6 +459,7 @@ export default function PetCompanion({
       data-open={open}
       data-dragging={dragging}
       data-look={look}
+      data-mood={mood}
       data-vertical={nearTop ? 'down' : 'up'}
       data-side={nearLeft ? 'left' : 'right'}
       style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}
@@ -407,7 +468,7 @@ export default function PetCompanion({
     >
       {bubbleVisible && (
         <div className="pet-companion-bubble" role="status" aria-live="polite">
-          <Icon as={Sparkles} size="sm" />
+          <Icon as={BubbleIcon} size="sm" />
           <span>{bubbleText}</span>
           {!open && (
             <button
@@ -427,7 +488,7 @@ export default function PetCompanion({
           <div className="pet-companion-menu-head">
             <strong>Помощник</strong>
             <span className="faint">
-              {mode === 'login' ? 'Вход' : channel ? channel.name : 'Нет канала'}
+              {cookies > 0 ? `Печеньки: ${cookies}` : mode === 'login' ? 'Вход' : channel ? channel.name : 'Нет канала'}
             </span>
           </div>
           {actions.map((action) => (
@@ -462,6 +523,7 @@ export default function PetCompanion({
             suppressClick.current = false
             return
           }
+          playPetChirp()
           setOpen((value) => !value)
         }}
         aria-label={`Питомец BlogOS: ${phrase}`}
