@@ -1164,6 +1164,40 @@ button.list-btn { width: 100%; }
 .consent-list { margin: var(--sp-3) 0 0; padding-left: var(--sp-5); color: var(--label-secondary); font-size: var(--t-callout-size); }
 .consent-list li { margin-bottom: var(--sp-1); }
 
+.launch-path {
+  list-style: none;
+  display: grid;
+  gap: var(--sp-3);
+  padding: 0;
+  color: var(--label-secondary);
+}
+.launch-path li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: var(--sp-3);
+  align-items: flex-start;
+}
+.launch-path li > span {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: var(--r-full);
+  background: var(--tint-soft);
+  color: var(--tint-label);
+  font-family: var(--font-display);
+  font-size: var(--t-caption-size);
+  font-weight: 700;
+}
+.launch-path strong {
+  display: block;
+  color: var(--label-primary);
+  font-size: var(--t-callout-size);
+}
+.launch-path p {
+  margin: 2px 0 0;
+  font-size: var(--t-footnote-size);
+  line-height: var(--t-footnote-lh);
+}
+
 /* ═══════════════════════════════ тумблер ════════════════════════════════ */
 
 .toggle { display: flex; align-items: flex-start; gap: var(--sp-3); cursor: pointer; user-select: none; }
@@ -1324,6 +1358,20 @@ button.list-btn { width: 100%; }
 }
 .checklist-body .btn { margin-top: var(--sp-1); }
 
+.first-run-note {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin: calc(-1 * var(--sp-2)) 0 var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-sm);
+  background: var(--tint-soft);
+  color: var(--tint-label);
+  font-size: var(--t-footnote-size);
+}
+.first-run-note strong { font-weight: 700; }
+
 /* Действие внутри строки текста. Не кнопка: рядом стоят слова, и заливка
    разрывала бы фразу. Подчёркивание приходит на наведение. */
 .linkish {
@@ -1422,6 +1470,22 @@ button.list-btn { width: 100%; }
   margin: 0; max-width: 34ch;
   color: var(--label-secondary);
   font-size: var(--t-headline-size); line-height: 1.5; font-weight: 400;
+}
+.quick-proof {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: baseline;
+  margin-top: var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--surface-overlay);
+  color: var(--label-secondary);
+  font-size: var(--t-footnote-size);
+}
+.quick-proof strong {
+  color: var(--label-primary);
+  font-weight: 650;
 }
 
 @media (max-width: 660px) {

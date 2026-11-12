@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  Suspense, lazy, useCallback, useEffect, useRef, useState,
+} from 'react'
 import api from '../../api/client.js'
 import { useRegisterCommands } from '../../lib/commands.jsx'
 import { apiErrorMessage } from '../../lib/format.js'
@@ -6,10 +8,11 @@ import { scrollNodeIntoView } from '../../lib/scroll.js'
 import { EmptyState, InlineError, Loading, Notice } from '../ui.jsx'
 import ProgressRail from '../ui/ProgressRail.jsx'
 import StepTransition from '../ui/StepTransition.jsx'
-import CloudStyleStep from './CloudStyleStep.jsx'
-import CloudNotesStep from './CloudNotesStep.jsx'
-import CloudDraftStep from './CloudDraftStep.jsx'
-import CloudCheckStep from './CloudCheckStep.jsx'
+
+const CloudStyleStep = lazy(() => import('./CloudStyleStep.jsx'))
+const CloudNotesStep = lazy(() => import('./CloudNotesStep.jsx'))
+const CloudDraftStep = lazy(() => import('./CloudDraftStep.jsx'))
+const CloudCheckStep = lazy(() => import('./CloudCheckStep.jsx'))
 
 const STEPS = [
   { n: 1, label: 'Стиль', hint: 'Разобрать посты канала' },
@@ -251,23 +254,24 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
         />
       </div>
 
-      <StepTransition step={step} direction={direction}>
-      {step === 1 && (
-        <CloudStyleStep
-          channel={channel}
-          tov={tov}
-          tovState={tovState}
-          tovError={tovError}
-          analysis={tovAnalysis}
-          verifiedWithoutAi={tovVerified}
-          stopWordsRestored={stopWordsRestored}
-          onRetry={reloadTov}
-          onAnalyze={analyzeStyle}
-          onTovSaved={(saved) => { setTov(saved); setTovState('ready') }}
-          onNext={() => goStep(2)}
-          onUseLocal={onUseLocal}
-        />
-      )}
+      <Suspense fallback={<section className="card"><Loading label="Готовим шаг…" /></section>}>
+        <StepTransition step={step} direction={direction}>
+        {step === 1 && (
+          <CloudStyleStep
+            channel={channel}
+            tov={tov}
+            tovState={tovState}
+            tovError={tovError}
+            analysis={tovAnalysis}
+            verifiedWithoutAi={tovVerified}
+            stopWordsRestored={stopWordsRestored}
+            onRetry={reloadTov}
+            onAnalyze={analyzeStyle}
+            onTovSaved={(saved) => { setTov(saved); setTovState('ready') }}
+            onNext={() => goStep(2)}
+            onUseLocal={onUseLocal}
+          />
+        )}
 
       {step === 2 && (styleReady ? (
         <CloudNotesStep
@@ -347,7 +351,8 @@ export default function CloudPipeline({ channel, onUseLocal, requestedStep, onSt
           onTovUpdated={(payload) => setTov(payload && payload.tov_profile ? payload.tov_profile : payload)}
         />
       )}
-      </StepTransition>
+        </StepTransition>
+      </Suspense>
 
       {generateError && step !== 2 && (
         <div className="mt-4">

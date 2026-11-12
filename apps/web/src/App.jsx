@@ -1,12 +1,13 @@
-import { useState } from 'react'
-import LocalApp from './components/LocalApp.jsx'
-import CloudApp from './components/cloud/CloudApp.jsx'
+import { Suspense, lazy, useState } from 'react'
 import CommandPalette from './components/ui/CommandPalette.jsx'
 import { ToastProvider } from './components/ui/Toasts.jsx'
 import { CommandsProvider, useRegisterCommands } from './lib/commands.jsx'
 import { useTheme } from './lib/theme.js'
 
 const MODE_KEY = 'blogos.mode.v1'
+
+const LocalApp = lazy(() => import('./components/LocalApp.jsx'))
+const CloudApp = lazy(() => import('./components/cloud/CloudApp.jsx'))
 
 /**
  * Режим по умолчанию — облачный.
@@ -92,9 +93,16 @@ export default function App() {
   return (
     <CommandsProvider>
       <ToastProvider>
-        {mode === 'local'
-          ? <LocalApp onUseCloud={() => changeMode('cloud')} />
-          : <CloudApp onUseLocal={() => changeMode('local')} />}
+        <Suspense fallback={(
+          <div className="auth-stage">
+            <section className="card">Загружаем BlogOS…</section>
+          </div>
+        )}
+        >
+          {mode === 'local'
+            ? <LocalApp onUseCloud={() => changeMode('cloud')} />
+            : <CloudApp onUseLocal={() => changeMode('local')} />}
+        </Suspense>
 
         <ShellCommands mode={mode} changeMode={changeMode} />
         <CommandPalette />

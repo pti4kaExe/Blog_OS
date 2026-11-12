@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState,
+} from 'react'
 import api, { itemsOf } from '../../api/client.js'
 import { useRegisterCommands } from '../../lib/commands.jsx'
 import {
@@ -10,13 +12,14 @@ import {
 import AppShell from '../ui/AppShell.jsx'
 import CloudSidebar, { CLOUD_SECTIONS } from './CloudSidebar.jsx'
 import LoginScreen from './LoginScreen.jsx'
-import ChannelFormModal from './ChannelFormModal.jsx'
-import CloudPipeline from './CloudPipeline.jsx'
-import CloudRadarView from './CloudRadarView.jsx'
-import KnowledgeView from './KnowledgeView.jsx'
 import Onboarding from './Onboarding.jsx'
-import PostsView from './PostsView.jsx'
-import SettingsView from './SettingsView.jsx'
+
+const ChannelFormModal = lazy(() => import('./ChannelFormModal.jsx'))
+const CloudPipeline = lazy(() => import('./CloudPipeline.jsx'))
+const CloudRadarView = lazy(() => import('./CloudRadarView.jsx'))
+const KnowledgeView = lazy(() => import('./KnowledgeView.jsx'))
+const PostsView = lazy(() => import('./PostsView.jsx'))
+const SettingsView = lazy(() => import('./SettingsView.jsx'))
 
 const CHANNEL_KEY = 'blogos.channel.v1'
 
@@ -459,7 +462,7 @@ export default function CloudApp({ onUseLocal }) {
       {channelsState !== 'loading' && channels.length === 0 && !channelsError && (
         <section className="card">
           <EmptyState
-            title="Создайте первый канал"
+            title="Создайте первый канал и получите черновик"
             action={(
               <button type="button" className="btn btn-primary" onClick={() => openChannelForm(null)}>
                 Создать канал
@@ -467,7 +470,8 @@ export default function CloudApp({ onUseLocal }) {
             )}
           >
             Канал — это площадка с собственным стилем и лимитом AI: Telegram, Instagram или YouTube.
-            Всё остальное в облаке привязано к каналу.
+            После создания BlogOS откроет короткий чеклист: подключить пример голоса, разобрать стиль
+            и собрать первый пост из заметок.
           </EmptyState>
         </section>
       )}
@@ -492,43 +496,45 @@ export default function CloudApp({ onUseLocal }) {
         />
       )}
 
-      {activeChannel && view === 'pipeline' && (
-        <CloudPipeline
-          key={activeChannel.id}
-          channel={activeChannel}
-          onUseLocal={onUseLocal}
-          requestedStep={requestedStep}
-          onStepTaken={() => setRequestedStep(null)}
-        />
-      )}
-      {activeChannel && view === 'archive' && (
-        <PostsView
-          key={activeChannel.id}
-          channel={activeChannel}
-          onUseLocal={onUseLocal}
-          onAnalyzeArchive={() => { setView('pipeline'); setRequestedStep(1) }}
-        />
-      )}
-      {activeChannel && view === 'radar' && (
-        <CloudRadarView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
-      )}
-      {activeChannel && view === 'knowledge' && (
-        <KnowledgeView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
-      )}
-      {/* Настройки не требуют активного канала: это уровень аккаунта,
-          а не конвейера поста. */}
-      {view === 'settings' && (
-        <SettingsView
-          user={user}
-          channels={channels}
-          activeId={activeId}
-          onChannel={setActiveId}
-          onUpdated={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
-          onDeleted={() => logout()}
-          onEditChannel={(channel) => openChannelForm(channel || activeChannel)}
-          onNewChannel={() => openChannelForm(null)}
-        />
-      )}
+      <Suspense fallback={<section className="card"><Loading label="Загружаем экран…" /></section>}>
+        {activeChannel && view === 'pipeline' && (
+          <CloudPipeline
+            key={activeChannel.id}
+            channel={activeChannel}
+            onUseLocal={onUseLocal}
+            requestedStep={requestedStep}
+            onStepTaken={() => setRequestedStep(null)}
+          />
+        )}
+        {activeChannel && view === 'archive' && (
+          <PostsView
+            key={activeChannel.id}
+            channel={activeChannel}
+            onUseLocal={onUseLocal}
+            onAnalyzeArchive={() => { setView('pipeline'); setRequestedStep(1) }}
+          />
+        )}
+        {activeChannel && view === 'radar' && (
+          <CloudRadarView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
+        )}
+        {activeChannel && view === 'knowledge' && (
+          <KnowledgeView key={activeChannel.id} channel={activeChannel} onUseLocal={onUseLocal} />
+        )}
+        {/* Настройки не требуют активного канала: это уровень аккаунта,
+            а не конвейера поста. */}
+        {view === 'settings' && (
+          <SettingsView
+            user={user}
+            channels={channels}
+            activeId={activeId}
+            onChannel={setActiveId}
+            onUpdated={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+            onDeleted={() => logout()}
+            onEditChannel={(channel) => openChannelForm(channel || activeChannel)}
+            onNewChannel={() => openChannelForm(null)}
+          />
+        )}
+      </Suspense>
 
       <footer className="stage-foot">
         <span className="faint">
@@ -537,21 +543,25 @@ export default function CloudApp({ onUseLocal }) {
         </span>
       </footer>
 
-      <ChannelFormModal
-        open={channelModal.open}
-        channel={channelModal.channel}
-        busy={channelBusy}
-        error={channelError}
-        onSubmit={submitChannel}
-        onDelete={() => {
-          // Запоминаем канал из модалки: подтверждение должно удалять его, а не активный.
-          setDeleteTarget(channelModal.channel)
-          setChannelModal({ open: false, channel: null })
-          setDeleteError(null)
-          setDeleteOpen(true)
-        }}
-        onClose={() => { setChannelModal({ open: false, channel: null }); setChannelError(null) }}
-      />
+      {channelModal.open && (
+        <Suspense fallback={null}>
+          <ChannelFormModal
+            open={channelModal.open}
+            channel={channelModal.channel}
+            busy={channelBusy}
+            error={channelError}
+            onSubmit={submitChannel}
+            onDelete={() => {
+              // Запоминаем канал из модалки: подтверждение должно удалять его, а не активный.
+              setDeleteTarget(channelModal.channel)
+              setChannelModal({ open: false, channel: null })
+              setDeleteError(null)
+              setDeleteOpen(true)
+            }}
+            onClose={() => { setChannelModal({ open: false, channel: null }); setChannelError(null) }}
+          />
+        </Suspense>
+      )}
 
       <ConfirmDialog
         open={deleteOpen}

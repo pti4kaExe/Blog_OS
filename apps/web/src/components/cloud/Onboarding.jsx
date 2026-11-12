@@ -132,9 +132,10 @@ export default function Onboarding({ channel, onGo }) {
     <section className="card onboarding">
       <div className="card-head">
         <div>
-          <h2>С чего начать</h2>
+          <h2>Первый пост без разгона</h2>
           <p>
             Канал «{channel.name}»: пройдено {completed} {plural(completed, 'шаг', 'шага', 'шагов')} из {steps.length}.
+            Цель этого блока — довести вас до первого черновика, а не показать все возможности сразу.
           </p>
         </div>
         <div className="spacer" />
@@ -146,6 +147,11 @@ export default function Onboarding({ channel, onGo }) {
         <button type="button" className="btn btn-sm btn-ghost" onClick={dismiss}>
           Скрыть
         </button>
+      </div>
+
+      <div className="first-run-note">
+        <strong>Маршрут на 10 минут:</strong>
+        <span>пример голоса → профиль стиля → сырые мысли → черновик с проверкой.</span>
       </div>
 
       <ol className="checklist">
