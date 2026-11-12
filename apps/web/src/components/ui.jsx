@@ -1,5 +1,6 @@
 /** Мелкие переиспользуемые элементы интерфейса. */
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
 import { Check, Copy } from 'lucide-react'
 import { Icon } from './ui/Icon.jsx'
@@ -567,7 +568,11 @@ export function Modal({ open, title, children, footer, onClose, wide }) {
   }
 
   if (!open) return null
-  return (
+  /* Портал в body: окно открывается из шагов, обёрнутых в анимацию
+     с transform. Такой предок становится опорой для position: fixed,
+     и подложка садилась на блок шага, а не на экран: верх окна уезжал
+     под шапку, и прокрутить к нему было нельзя. */
+  return createPortal(
     <div
       className="modal-backdrop"
       role="presentation"
@@ -591,7 +596,8 @@ export function Modal({ open, title, children, footer, onClose, wide }) {
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
