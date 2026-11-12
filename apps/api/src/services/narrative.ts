@@ -8,8 +8,9 @@
  * Пустые заметки проверяет маршрут: 422 details.reason = "empty_notes".
  */
 import { ARCS, buildPost, splitFragments, suggestArc } from '@blogos/engine'
+import { env } from '../env.ts'
 import { callLlm, llmConfigured, parseJson } from './llm/index.ts'
-import { NARRATIVE_SYSTEM, narrativeUser } from './llm/prompts.ts'
+import { NARRATIVE_SYSTEM, narrativeUser, narrativeUserV2 } from './llm/prompts.ts'
 import type { EngineProfile } from './style.ts'
 import { GAP_RE } from '../lib/text.ts'
 
@@ -69,6 +70,8 @@ export interface NarrativeOptions {
   authorId: number
   useLlm: boolean
   budgetBlocked: boolean
+  /** Переопределение версии промта для стенда качества (иначе env.NARRATIVE_PROMPT). */
+  promptVariant?: 'v1' | 'v2'
 }
 
 const ANNOUNCEMENT_RE =
@@ -236,13 +239,17 @@ export async function buildNarrative(options: NarrativeOptions): Promise<Narrati
     return { ...fallback, aiSkippedReason: 'llm_not_configured' }
   }
 
+  const promptVariant = options.promptVariant ?? env.NARRATIVE_PROMPT
   const outcome = await callLlm({
     authorId: options.authorId,
     taskType: 'narrative_generate',
     system: NARRATIVE_SYSTEM,
     // Профиль и факты уходят в промпт до «ВХОД:»: модель пишет голосом автора
     // и не выдумывает опыт, которого нет в базе знаний.
-    user: narrativeUser(options.notes, options.arc, options.profile, options.facts),
+    user:
+      promptVariant === 'v1'
+        ? narrativeUser(options.notes, options.arc, options.profile, options.facts)
+        : narrativeUserV2(options.notes, options.arc, options.profile, options.facts),
     json: true,
     maxTokens: 1600,
   })

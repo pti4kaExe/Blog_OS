@@ -111,6 +111,11 @@ const schema = z.object({
   LLM_MAX_TOKENS_FLOOR: int(8192, 128, 32_000),
   // 1 — mock-провайдер всегда «падает»: проверка отката на правила в тестах и демо.
   LLM_MOCK_FAIL: bool(false),
+  // Версия промта генерации: v1 — прежний, v2 — структура, анти-клише и примеры голоса.
+  NARRATIVE_PROMPT: z.enum(['v1', 'v2']).default('v2'),
+  // Сэмплирование: ниже температура — стабильнее, выше — живее.
+  LLM_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
+  LLM_TOP_P: z.coerce.number().min(0.01).max(1).default(0.9),
 
   EMBEDDINGS_PROVIDER: z.enum(['mock', 'openai', 'none']).default('mock'),
   EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),

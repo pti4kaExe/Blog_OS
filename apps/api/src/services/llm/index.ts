@@ -70,7 +70,8 @@ export async function callLlm(options: LlmCallOptions): Promise<LlmOutcome> {
         user: options.user,
         maxTokens: options.maxTokens,
         json: options.json,
-        temperature: options.temperature,
+        temperature: options.temperature ?? env.LLM_TEMPERATURE,
+        topP: options.topP ?? env.LLM_TOP_P,
       })
       const generationRunId = await insertRun({
         authorId: options.authorId,

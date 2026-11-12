@@ -46,11 +46,16 @@ test('зарегистрировано ровно 62 метода (корень 
   const app = await getApp()
   const normalize = (url: string): string => url.replace(/^\/api\/v1(?=\/|$)/, '') || '/'
   const service = new Set(['/health', '/', '/*', '*'])
-  const domain = app.routeList.filter((route) => !service.has(route.url))
+  const internal = app.routeList.filter((route) => route.url.startsWith('/internal'))
+  const domain = app.routeList.filter(
+    (route) => !service.has(route.url) && !route.url.startsWith('/internal'),
+  )
   const unique = new Set(domain.map((route) => `${route.method} ${normalize(route.url)}`))
   assert.equal(unique.size, 62)
   assert.equal(domain.filter((route) => !route.url.startsWith('/api/v1')).length, 62)
   assert.equal(domain.filter((route) => route.url.startsWith('/api/v1')).length, 62)
+  // Внутренний стенд качества живёт отдельно и не дублируется в /api/v1.
+  assert.equal(internal.filter((route) => route.method === 'POST' && route.url === '/internal/eval').length, 1)
   assert.equal(
     app.routeList.filter((route) => route.url === '/health').length,
     1,

@@ -10,6 +10,7 @@ import { commentRoutes } from './comments.ts'
 import { responseRoutes } from './responses.ts'
 import { knowledgeRoutes } from './knowledge.ts'
 import { serviceRoutes } from './service.ts'
+import { internalRoutes } from './internal.ts'
 
 /**
  * Регистрация всех групп методов API.
@@ -45,4 +46,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     await app.register(group)
     await app.register(group, { prefix: '/api/v1' })
   }
+
+  // Внутренние операции (стенд качества) — только в корне и только с секретным
+  // заголовком; в публичный /api/v1 они не дублируются.
+  await app.register(internalRoutes)
 }

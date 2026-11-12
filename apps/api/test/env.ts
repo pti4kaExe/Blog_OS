@@ -19,5 +19,6 @@ process.env.YOUTUBE_API_KEY = ''
 process.env.REDIS_URL = ''
 process.env.COST_WARN_RATIO = '0.8'
 process.env.LLM_TIMEOUT_MS = '5000'
+process.env.MIGRATE_TOKEN = 'test-internal-token'
 
 export {}

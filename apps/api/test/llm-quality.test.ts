@@ -8,8 +8,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizeLlmIssues } from '../src/services/lint.ts'
 import {
+  BANNED_CLICHES,
   lintUser,
   narrativeUser,
+  narrativeUserV2,
   profileBlock,
   responseUser,
 } from '../src/services/llm/prompts.ts'
@@ -235,4 +237,65 @@ test('responseUser: профиль и факты автора в промпте 
   assert.ok(prompt.includes('Не используй стоп-слова'))
   assert.equal(inputOf(prompt), 'А как вы планируете контент?')
   assert.ok(prompt.indexOf('ФАКТЫ АВТОРА') < prompt.lastIndexOf('ВХОД:'))
+})
+
+
+test('промт v2: структура, анти-клише и маркер ВХОД', () => {
+  const prompt = narrativeUserV2('Заметка один\nЗаметка два', 'story_case')
+
+  // Жёсткие требования и длина.
+  assert.match(prompt, /600–1200/)
+  assert.match(prompt, /не выдумывай факты/i)
+  assert.match(prompt, /не используй стоп-слова/i)
+
+  // Структура по арке.
+  for (const role of ['hook', 'context', 'insight', 'takeaway', 'cta']) {
+    assert.ok(prompt.includes(role), 'в промте должна быть роль ' + role)
+  }
+
+  // Анти-клише перечислены явно.
+  for (const phrase of ['в современном мире', 'не секрет, что', 'давайте разберёмся']) {
+    assert.ok(prompt.includes('«' + phrase + '»'), 'клише должно быть запрещено: ' + phrase)
+  }
+  assert.ok(BANNED_CLICHES.includes('в современном мире'))
+
+  // Формат ответа и данные — после последнего ВХОД.
+  assert.match(prompt, /ВЕРНИ СТРОГО JSON/)
+  assert.ok(prompt.lastIndexOf('ВХОД:') > prompt.indexOf('СТРУКТУРА'))
+  assert.ok(prompt.endsWith('ВХОД:\nЗаметка один\nЗаметка два'))
+})
+
+test('промт v2: примеры голоса из профиля, профиль и факты до ВХОД', () => {
+  const longSample = 'а'.repeat(700)
+  const prompt = narrativeUserV2(
+    'Заметки',
+    null,
+    {
+      address: 'ты',
+      topTerms: [{ label: 'лендинги' }],
+      stopWords: ['осуществлять'],
+      samples: ['Первый пример голоса.', longSample, 'Третий не должен попасть.'],
+    },
+    ['Факт: конверсия выросла с 2% до 4%.'],
+  )
+
+  assert.match(prompt, /Пример голоса 1/)
+  assert.match(prompt, /Пример голоса 2/)
+  assert.ok(!prompt.includes('Пример голоса 3'), 'примеров не больше двух')
+  assert.ok(!prompt.includes('а'.repeat(600)), 'пример обрезан до 500 знаков')
+  assert.match(prompt, /ПРОФИЛЬ АВТОРА/)
+  assert.match(prompt, /ФАКТЫ АВТОРА/)
+  assert.match(prompt, /конверсия выросла/)
+
+  const inputAt = prompt.lastIndexOf('ВХОД:')
+  assert.ok(prompt.indexOf('ПРОФИЛЬ АВТОРА') < inputAt)
+  assert.ok(prompt.indexOf('ФАКТЫ АВТОРА') < inputAt)
+  assert.ok(prompt.indexOf('Пример голоса 1') < inputAt)
+})
+
+test('промт v2 без профиля не выдумывает примеры голоса', () => {
+  const prompt = narrativeUserV2('Заметки', null, null, null)
+  assert.ok(!prompt.includes('Пример голоса'))
+  assert.ok(!prompt.includes('ПРОФИЛЬ АВТОРА'))
+  assert.ok(prompt.endsWith('ВХОД:\nЗаметки'))
 })

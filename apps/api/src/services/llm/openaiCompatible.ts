@@ -41,6 +41,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         max_tokens: Math.max(params.maxTokens ?? 1200, env.LLM_MAX_TOKENS_FLOOR),
         temperature: params.temperature ?? 0.2,
       }
+      if (typeof params.topP === 'number') body.top_p = params.topP
       if (params.json) body.response_format = { type: 'json_object' }
 
       const response = await fetch(`${this.baseUrl.replace(/\/$/, '')}/chat/completions`, {

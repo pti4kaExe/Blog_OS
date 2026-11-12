@@ -12,6 +12,8 @@ export interface LlmCallParams {
   maxTokens?: number
   json?: boolean
   temperature?: number
+  /** Nucleus sampling; провайдер может игнорировать. */
+  topP?: number
 }
 
 export interface LlmResult {

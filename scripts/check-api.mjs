@@ -62,12 +62,18 @@ function parseTree(text) {
 }
 
 const routes = parseTree(tree)
+const internalRoutes = routes.filter((r) => r.path.startsWith('/internal'))
 const domainRoutes = routes.filter(
-  (r) => !r.path.startsWith('/api/v1') && r.path !== '/health' && r.path !== '/',
+  (r) =>
+    !r.path.startsWith('/api/v1') &&
+    !r.path.startsWith('/internal') &&
+    r.path !== '/health' &&
+    r.path !== '/',
 )
 const aliasRoutes = routes.filter((r) => r.path.startsWith('/api/v1'))
 
 console.log(`маршрутов всего: ${routes.length}`)
+console.log(`внутренних (не в контракте): ${internalRoutes.length}`)
 console.log(`методов в корне: ${domainRoutes.length} (59 доменных + 3 входа через бота = 62)`)
 console.log(`алиас /api/v1: ${aliasRoutes.length}`)
 
