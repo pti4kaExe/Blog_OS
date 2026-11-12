@@ -208,41 +208,70 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
             <span className="quick-proof-arrow"><Icon as={ChevronRight} size="sm" /></span>
           </div>
         </Reveal>
-        <Reveal className="hero-product" offset={14}>
-          <div className="hero-product-head">
-            <span><Icon as={CalendarDays} size="sm" /> Сегодня</span>
-            <strong>Черновик готов ✦</strong>
-          </div>
-          <div className="hero-flow">
-            <div className="hero-flow-item" data-tone="voice">
-              <Icon as={MessageSquareText} size="sm" />
-              <span>Голос</span>
+        <Reveal className="hero-product hero-laptop-scene" offset={14}>
+          <span className="hero-scene-block hero-scene-block-a" aria-hidden="true" />
+          <span className="hero-scene-block hero-scene-block-b" aria-hidden="true" />
+          <span className="hero-scene-orb hero-scene-orb-a" aria-hidden="true" />
+          <span className="hero-scene-orb hero-scene-orb-b" aria-hidden="true" />
+          <div className="hero-laptop" aria-label="Интерфейс BlogOS на экране ноутбука">
+            <div className="hero-laptop-lid">
+              <span className="hero-camera" aria-hidden="true" />
+              <div className="hero-laptop-screen">
+                <aside className="hero-screen-sidebar">
+                  <strong>BlogOS</strong>
+                  <span className="is-active">Обзор</span>
+                  <span>Голос</span>
+                  <span>Черновики</span>
+                  <span>Проверка</span>
+                </aside>
+                <main className="hero-screen-main">
+                  <div className="hero-product-head">
+                    <span><Icon as={CalendarDays} size="sm" /> Сегодня</span>
+                    <strong>Черновик готов ✦</strong>
+                  </div>
+                  <div className="hero-screen-banner">
+                    <span><Icon as={Sparkles} size="sm" /> AI-редактор</span>
+                    <h3>Пост собран в вашем голосе</h3>
+                    <p>Сырые заметки превращаются в готовый черновик.</p>
+                  </div>
+                  <div className="hero-flow">
+                    <div className="hero-flow-item" data-tone="voice">
+                      <Icon as={MessageSquareText} size="sm" />
+                      <span>Голос</span>
+                    </div>
+                    <div className="hero-flow-item" data-tone="draft">
+                      <Icon as={PenLine} size="sm" />
+                      <span>Черновик</span>
+                    </div>
+                    <div className="hero-flow-item" data-tone="check">
+                      <Icon as={CheckCircle2} size="sm" />
+                      <span>Проверка</span>
+                    </div>
+                  </div>
+                  <div className="hero-post">
+                    <span className="hero-post-platform"><Icon as={Send} size="sm" /> Telegram</span>
+                    <span className="hero-post-heart" aria-hidden="true">♡</span>
+                    <p>
+                      “Пишу не чтобы звучать умнее, а чтобы читатель забрал одну мысль
+                      и сразу применил её.”
+                    </p>
+                  </div>
+                  <div className="hero-score">
+                    <span><Icon as={BarChart3} size="sm" /> AntiCringe</span>
+                    <strong>92</strong>
+                    <i aria-hidden="true" />
+                  </div>
+                </main>
+              </div>
             </div>
-            <div className="hero-flow-item" data-tone="draft">
-              <Icon as={PenLine} size="sm" />
-              <span>Черновик</span>
+            <div className="hero-laptop-base" aria-hidden="true">
+              <span />
             </div>
-            <div className="hero-flow-item" data-tone="check">
-              <Icon as={CheckCircle2} size="sm" />
-              <span>Проверка</span>
-            </div>
-          </div>
-          <div className="hero-post">
-            <span className="hero-post-platform"><Icon as={Send} size="sm" /> Telegram</span>
-            <span className="hero-post-heart" aria-hidden="true">♡</span>
-            <p>
-              “Пишу не чтобы звучать умнее, а чтобы читатель забрал одну мысль
-              и сразу применил её в своём канале.”
-            </p>
-          </div>
-          <div className="hero-score">
-            <span><Icon as={BarChart3} size="sm" /> AntiCringe</span>
-            <strong>92</strong>
-            <i aria-hidden="true" />
           </div>
           <div className="hero-send">
             <Icon as={Rocket} size="sm" />
             <span>готово к публикации</span>
+            <Icon as={ChevronRight} size="sm" />
           </div>
         </Reveal>
       </Stagger>
