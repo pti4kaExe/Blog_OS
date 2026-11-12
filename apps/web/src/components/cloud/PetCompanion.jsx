@@ -85,15 +85,6 @@ function clampPos(x, y, width, height = width) {
   return { x: Math.min(Math.max(EDGE, x), maxX), y: Math.min(Math.max(EDGE, y), maxY) }
 }
 
-function elementSize(element, fallback = 92) {
-  const rect = element?.getBoundingClientRect()
-  if (!rect) return { width: fallback, height: fallback }
-  return {
-    width: Math.max(fallback, rect.width),
-    height: Math.max(fallback, rect.height),
-  }
-}
-
 function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return false
@@ -135,7 +126,6 @@ export default function PetCompanion({
 }) {
   const [hiddenUntil, setHiddenUntil] = useState(petHiddenUntil)
   const [open, setOpen] = useState(false)
-  const [hovered, setHovered] = useState(false)
   const [flash, setFlash] = useState(null)
   const [pos, setPos] = useState(loadPos)
   const [dragging, setDragging] = useState(false)
@@ -316,8 +306,8 @@ export default function PetCompanion({
   // После монтирования подгоняем сохранённую позицию под текущий вьюпорт.
   useEffect(() => {
     if (!pos) return
-    const { width, height } = elementSize(rootRef.current, buttonRef.current?.offsetWidth ?? 92)
-    const next = clampPos(pos.x, pos.y, width, height)
+    const size = buttonRef.current?.offsetWidth ?? 92
+    const next = clampPos(pos.x, pos.y, size)
     if (next.x !== pos.x || next.y !== pos.y) {
       setPos(next)
       savePos(next)
@@ -328,10 +318,10 @@ export default function PetCompanion({
   useEffect(() => {
     if (!pos) return undefined
     const onResize = () => {
-      const { width, height } = elementSize(rootRef.current, buttonRef.current?.offsetWidth ?? 92)
+      const size = buttonRef.current?.offsetWidth ?? 92
       setPos((current) => {
         if (!current) return current
-        const next = clampPos(current.x, current.y, width, height)
+        const next = clampPos(current.x, current.y, size)
         if (next.x !== current.x || next.y !== current.y) savePos(next)
         return next
       })
@@ -339,22 +329,6 @@ export default function PetCompanion({
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [pos])
-
-  // Когда открываются подсказка или меню, размер блока меняется. Проверяем
-  // уже весь блок, чтобы он не уходил за экран вместе с плашками.
-  useEffect(() => {
-    if (!pos || dragging) return undefined
-    const frame = requestAnimationFrame(() => {
-      const { width, height } = elementSize(rootRef.current, buttonRef.current?.offsetWidth ?? 92)
-      setPos((current) => {
-        if (!current) return current
-        const next = clampPos(current.x, current.y, width, height)
-        if (next.x !== current.x || next.y !== current.y) savePos(next)
-        return next
-      })
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [open, hovered, flash, pos, dragging])
 
   // Сначала грузим только покой и моргание; кадры взгляда — лениво,
   // когда курсор впервые пошёл по экрану (экономим ~140 КБ на старте).
@@ -478,7 +452,7 @@ export default function PetCompanion({
 
   const onPointerDown = (event) => {
     if (event.button !== undefined && event.button > 0) return
-    const rect = rootRef.current?.getBoundingClientRect()
+    const rect = buttonRef.current?.getBoundingClientRect()
     if (!rect) return
     dragState.current = {
       active: true,
@@ -547,7 +521,7 @@ export default function PetCompanion({
     )
   }
 
-  const bubbleVisible = open || hovered || Boolean(flash)
+  const bubbleVisible = open || Boolean(flash)
   const bubbleText = flash ?? phrase
   const frame = mood === 'happy'
     ? FRAMES.happy
@@ -568,8 +542,6 @@ export default function PetCompanion({
       data-vertical={nearTop ? 'down' : 'up'}
       data-side={nearLeft ? 'left' : 'right'}
       style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       {bubbleVisible && (
         <div className="pet-companion-bubble" role="status" aria-live="polite">
@@ -579,7 +551,7 @@ export default function PetCompanion({
             <button
               type="button"
               className="pet-companion-bubble-close"
-              onClick={() => { setHovered(false); setFlash(null) }}
+              onClick={() => setFlash(null)}
               aria-label="Скрыть подсказку"
             >
               <Icon as={X} size="sm" />
