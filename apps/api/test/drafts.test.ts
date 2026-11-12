@@ -234,6 +234,27 @@ test('Narrative Engine из заметок (правила): verified_without_ai
   assert.ok(response.body.draft.text.length > 20)
 })
 
+test('Narrative Engine: короткий анонс собирается без плейсхолдеров', async () => {
+  const { token, profile } = await makeProfile()
+  const response = await api<{
+    draft: { text: string; title: string | null }
+    build: { added_by_engine: string[] }
+    verified_without_ai: boolean
+  }>('POST', `/author-profiles/${String(profile.id)}/drafts/generate`, {
+    token,
+    body: {
+      source_notes: 'СТАРТ НОВОГО ПОТОКА\nМы официально открываем набор в новый поток WMT Kids! обучение детей нейросетям',
+      mode: 'notes',
+    },
+  })
+  assert.equal(response.status, 201)
+  assert.match(response.body.draft.text, /WMT Kids/u)
+  assert.match(response.body.draft.text, /нейросет/u)
+  assert.doesNotMatch(response.body.draft.text, /\[дополните:/iu)
+  assert.ok(response.body.build.added_by_engine.some((item) => item.includes('не хватило')))
+  assert.equal(response.body.verified_without_ai, true)
+})
+
 test('Narrative Engine mode=draft пропускает сборку', async () => {
   const { token, profile } = await makeProfile()
   const notes = 'Готовый текст как есть, без сборки.\nВторая строка остаётся второй строкой.'

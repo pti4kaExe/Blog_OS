@@ -13,7 +13,7 @@ import * as tovRepo from '../repositories/tov.ts'
 import { splitFragments } from '@blogos/engine'
 import { assertAiBudget } from '../services/cost.ts'
 import { recalcPostEmbeddings } from '../services/embeddings/store.ts'
-import { buildNarrative } from '../services/narrative.ts'
+import { buildNarrative, isAnnouncementNotes } from '../services/narrative.ts'
 import { toEngineProfile } from '../services/style.ts'
 import {
   draftOriginSchema,
@@ -136,7 +136,7 @@ export async function draftRoutes(app: FastifyInstance): Promise<void> {
       // Тонкие заметки: движок не сможет построить арку и вернёт сырые строки —
       // это выглядит как «бред, который не зависит от арки». Лучше сказать честно
       // и подсказать темы канала, чем показывать такой «черновик».
-      if (splitFragments(notes).length < 2) {
+      if (splitFragments(notes).length < 2 && !isAnnouncementNotes(notes)) {
         const metrics = (tovRow?.metrics ?? {}) as Record<string, unknown>
         const topTerms = Array.isArray(metrics.topTerms) ? metrics.topTerms : []
         const topics = topTerms
@@ -155,12 +155,18 @@ export async function draftRoutes(app: FastifyInstance): Promise<void> {
 
       const budget = await assertAiBudget(profileId, { strict: strictAiOf(body) })
       const useLlm = body.use_llm === true
-      // До 5 последних фактов автора: с ними модель не выдумывает опыт.
-      // Без LLM запрос к базе знаний не нужен.
+      // До 5 последних фактов автора и до 3 прошлых постов: с ними модель
+      // не выдумывает опыт и может подхватить контекст продукта из архива.
+      // Без LLM запросы к памяти не нужны.
       const knowledge = useLlm ? await knowledgeRepo.listRecent(profileId, 5) : []
+      const recentPosts = useLlm ? await posts.listRecent(profileId, 3) : []
       const facts = knowledge
         .map((row) => String(row.content ?? '').trim())
         .filter((fact) => fact.length > 0)
+      for (const post of recentPosts) {
+        const text = String(post.text ?? '').replace(/\s+/g, ' ').trim()
+        if (text) facts.push(`Контекст из прошлого поста: ${text.slice(0, 500)}`)
+      }
       const narrative = await buildNarrative({
         notes,
         arc: body.arc ?? null,

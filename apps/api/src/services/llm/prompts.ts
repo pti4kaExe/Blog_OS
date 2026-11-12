@@ -118,18 +118,20 @@ export function factsBlock(facts: string[] | null | undefined): string | null {
  * Инструкция «в чьём голосе и на каких фактах»: нужна только когда в промпте
  * есть профиль или факты, иначе промпт остаётся прежним.
  */
-function voiceRules(hasProfile: boolean, hasFacts: boolean): string | null {
+function voiceRules(hasProfile: boolean, hasFacts: boolean, allowGaps = true): string | null {
   if (!hasProfile && !hasFacts) return null
   const rules: string[] = []
   if (hasProfile) {
     rules.push('Пиши в этом голосе: то же обращение, тот же ритм фраз, те же темы.')
     rules.push('Не используй стоп-слова из профиля.')
   }
-  rules.push(
-    hasFacts
-      ? 'Не выдумывай факты — используй только факты из блока «ФАКТЫ АВТОРА».'
-      : 'Не выдумывай факты: опирайся только на данные автора во ВХОДЕ, а чего не хватает — оставь пропуском [дополните: …].',
-  )
+  if (hasFacts) {
+    rules.push('Не выдумывай факты — используй только факты из блока «ФАКТЫ АВТОРА».')
+  } else if (allowGaps) {
+    rules.push('Не выдумывай факты: опирайся только на данные автора во ВХОДЕ, а чего не хватает — оставь пропуском [дополните: …].')
+  } else {
+    rules.push('Не выдумывай факты: опирайся только на данные автора во ВХОДЕ. Если деталей мало, сделай короткий честный черновик, а недостающие вопросы перечисли в added_by_engine.')
+  }
   return rules.join(' ')
 }
 
@@ -190,6 +192,8 @@ export function tovUser(texts: string[]): string {
 
 export const NARRATIVE_SYSTEM = `Ты — редактор Narrative Engine. Собери из сырых заметок автора связный пост,
 сохраняя его слова и факты. Не придумывай новый опыт и цифры.
+Не вставляй в текст черновика плейсхолдеры вида [дополните: …]. Если данных не хватает,
+сделай короткий честный пост из имеющегося, а вопросы к автору перечисли в added_by_engine.
 Верни СТРОГО JSON:
 {"title":"заголовок","blocks":[{"role":"hook|context|conflict|insight|evidence|takeaway|cta","text":"абзац"}],
 "added_by_engine":["что добавил движок"]}
@@ -207,7 +211,7 @@ export function narrativeUser(
 
   if (profileText) sections.push(profileText)
   if (factsText) sections.push(factsText)
-  const rules = voiceRules(Boolean(profileText), Boolean(factsText))
+  const rules = voiceRules(Boolean(profileText), Boolean(factsText), false)
   if (rules) sections.push(rules)
 
   return `${sections.join('\n\n')}\n\nВХОД:\n${notes}`
@@ -237,7 +241,7 @@ export function responseUser(input: {
 
   if (profileText) sections.push(profileText)
   if (factsText) sections.push(factsText)
-  const rules = voiceRules(Boolean(profileText), Boolean(factsText))
+  const rules = voiceRules(Boolean(profileText), Boolean(factsText), true)
   if (rules) sections.push(rules)
   sections.push('Верни только JSON.')
 

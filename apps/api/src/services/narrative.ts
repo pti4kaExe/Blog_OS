@@ -11,6 +11,7 @@ import { ARCS, buildPost, splitFragments, suggestArc } from '@blogos/engine'
 import { callLlm, llmConfigured, parseJson } from './llm/index.ts'
 import { NARRATIVE_SYSTEM, narrativeUser } from './llm/prompts.ts'
 import type { EngineProfile } from './style.ts'
+import { GAP_RE } from '../lib/text.ts'
 
 /** Внешние имена арок (контракт API) ↔ ключи движка. */
 const ARC_TO_ENGINE: Record<string, string> = {
@@ -70,6 +71,75 @@ export interface NarrativeOptions {
   budgetBlocked: boolean
 }
 
+const ANNOUNCEMENT_RE =
+  /(старт|запуск|открыва(?:ем|ется)|набор|запись|поток|курс|программа|интенсив|обучени[ея]|мастер[-\s]?класс)/iu
+
+export function isAnnouncementNotes(notes: string): boolean {
+  return ANNOUNCEMENT_RE.test(String(notes || ''))
+}
+
+function sentence(text: string): string {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim()
+  if (!clean) return ''
+  return /[.!?…]$/.test(clean) ? clean : `${clean}.`
+}
+
+function stripAnnouncementHeading(notes: string): string {
+  return String(notes || '')
+    .replace(/^\s*старт\s+нового\s+потока\s*[\\/:—–-]?\s*/iu, '')
+    .replace(/^\s*(новый\s+поток|старт|анонс|набор)\s*[\\/:—–-]\s*/iu, '')
+    .trim()
+}
+
+function addressLine(profile: EngineProfile | null): string {
+  const informal = profile?.address === 'ты'
+  return informal
+    ? 'Если хочешь попасть в новый поток, напиши нам — расскажем детали и поможем выбрать формат.'
+    : 'Если хотите попасть в новый поток, напишите нам — расскажем детали и поможем выбрать формат.'
+}
+
+function announcementNarrative(options: NarrativeOptions, fragments: ReturnType<typeof splitFragments>): NarrativeResult {
+  const main = stripAnnouncementHeading(options.notes) || options.notes.trim()
+  const lines: string[] = [sentence(main)]
+  const low = main.toLowerCase()
+
+  if (/дет[еи][йя]?|реб[её]н|kids|школьник/u.test(low) && /нейросет|ai|ии|искусственн/u.test(low)) {
+    lines.push('На занятиях дети учатся не просто пользоваться технологиями, а понимать, как превращать идеи в понятные AI-запросы и проекты.')
+  } else if (/нейросет|ai|ии|искусственн/u.test(low)) {
+    lines.push('Это про практику: разобраться в инструментах, попробовать их в деле и собрать первые понятные результаты.')
+  }
+
+  lines.push('Даты, формат и условия лучше уточнить перед публикацией, если они ещё не зафиксированы.')
+  lines.push(addressLine(options.profile))
+  const firstLine = lines[0] ?? sentence(main)
+  const lastLine = lines[lines.length - 1] ?? ''
+
+  const titleSource = main
+    .replace(/^мы\s+официально\s+/iu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const title = sentence(titleSource).replace(/[.!?…]$/, '').slice(0, 80)
+
+  return {
+    text: lines.join('\n\n'),
+    title: title || 'Анонс нового потока',
+    arc: options.arc ? (externalArc(engineArc(options.arc)) ?? options.arc) : 'announcement',
+    arcAuto: !options.arc,
+    blocks: [
+      { role: 'hook', text: firstLine, fragment: fragments[0]?.text ?? main },
+      ...lines.slice(1, -1).map((line) => ({ role: 'context', text: line, fragment: null })),
+      { role: 'cta', text: lastLine, fragment: null },
+    ],
+    addedByEngine: [
+      'Собран короткий анонс без плейсхолдеров: не хватило даты старта, возраста, цены или формата.',
+    ],
+    notesUsed: Math.max(fragments.length, 1),
+    notesDropped: 0,
+    verifiedWithoutAi: true,
+    generationRunId: null,
+  }
+}
+
 function rulesNarrative(options: NarrativeOptions): NarrativeResult {
   const fragments = splitFragments(options.notes)
   const arcAuto = !options.arc
@@ -91,6 +161,10 @@ function rulesNarrative(options: NarrativeOptions): NarrativeResult {
       verifiedWithoutAi: true,
       generationRunId: null,
     }
+  }
+
+  if (fragments.length <= 4 && isAnnouncementNotes(options.notes)) {
+    return announcementNarrative(options, fragments)
   }
 
   const requested = engineArc(options.arc)
@@ -183,13 +257,17 @@ export async function buildNarrative(options: NarrativeOptions): Promise<Narrati
   if (llmBlocks.length === 0) {
     return { ...fallback, aiSkippedReason: 'llm_empty_response' }
   }
+  const llmText = llmBlocks.map((block) => block.text).join('\n\n')
+  if (GAP_RE.test(llmText)) {
+    return { ...fallback, aiSkippedReason: 'llm_unfilled_gaps' }
+  }
 
   const fragments = splitFragments(options.notes)
   const addedByEngine = Array.isArray(parsed?.added_by_engine)
     ? (parsed?.added_by_engine as unknown[]).filter((x): x is string => typeof x === 'string')
     : []
   return {
-    text: llmBlocks.map((block) => block.text).join('\n\n'),
+    text: llmText,
     title: typeof parsed?.title === 'string' ? parsed.title : fallback.title,
     arc: fallback.arc ?? externalArc(requestedArcKey(options.arc)),
     arcAuto: !options.arc,
