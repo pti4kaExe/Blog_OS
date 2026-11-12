@@ -8,7 +8,7 @@
  */
 import { costFor, estimateTokens } from './pricing.ts'
 import { LlmUnavailableError, type LlmCallParams, type LlmProvider, type ProviderResult } from './types.ts'
-import { llmMockFail } from '../../lib/liveEnv.ts'
+import { llmMockFail, llmMockInventedEvents } from '../../lib/liveEnv.ts'
 
 const TASK_RE = /ЗАДАЧА:\s*([a-z_]+)/i
 const INPUT_MARKER = 'ВХОД:'
@@ -91,6 +91,10 @@ function mockNarrative(input: string) {
     role: roles[index % roles.length],
     text: line.endsWith('.') || /[!?…]$/.test(line) ? line : `${line}.`,
   }))
+  // Тестовый режим: имитируем «модель перенесла событие из старого поста».
+  if (llmMockInventedEvents()) {
+    blocks.push({ role: 'cta', text: 'Приходите 6 ноября на конференцию — регистрация открыта.' })
+  }
   return {
     title: lines[0]?.slice(0, 60) ?? 'Пост',
     blocks,

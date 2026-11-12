@@ -108,10 +108,16 @@ export function profileBlock(profile: PromptProfile | null | undefined): string 
 }
 
 /** Блок «ФАКТЫ АВТОРА» — единственный источник фактов для модели. */
-export function factsBlock(facts: string[] | null | undefined): string | null {
+export function factsBlock(facts: string[] | null | undefined, onlyBackground = false): string | null {
   const items = stringList(facts).slice(0, MAX_FACTS)
   if (items.length === 0) return null
-  return ['ФАКТЫ АВТОРА:', ...items.map((fact) => `- ${fact}`)].join('\n')
+  const lines = ['ФАКТЫ АВТОРА:', ...items.map((fact) => `- ${fact}`)]
+  if (onlyBackground) {
+    lines.push(
+      'Это фон для тона. Не объявляй мероприятия, встречи, регистрацию и даты из фактов, если их нет в заметках автора.',
+    )
+  }
+  return lines.join('\n')
 }
 
 /**
@@ -204,6 +210,7 @@ export function narrativeUser(
   arc: string | null,
   profile?: PromptProfile | null,
   facts?: string[] | null,
+  strictEvents = false,
 ): string {
   const profileText = profileBlock(profile)
   const factsText = factsBlock(facts)
@@ -213,6 +220,12 @@ export function narrativeUser(
   if (factsText) sections.push(factsText)
   const rules = voiceRules(Boolean(profileText), Boolean(factsText), false)
   if (rules) sections.push(rules)
+  if (profileText) {
+    sections.push(
+      'Примеры постов в профиле — только образец голоса. События, имена и даты бери только из заметок автора.',
+    )
+  }
+  if (strictEvents) sections.push(EVENTS_REJECTED_RULE)
 
   return `${sections.join('\n\n')}\n\nВХОД:\n${notes}`
 }
@@ -245,15 +258,18 @@ export function narrativeUserV2(
   arc: string | null,
   profile?: PromptProfile | null,
   facts?: string[] | null,
+  strictEvents = false,
 ): string {
   const profileText = profileBlock(profile)
-  const factsText = factsBlock(facts)
+  const factsText = factsBlock(facts, true)
   const sections: string[] = [
     `Ты — редактор блога и пишешь пост голосом автора по его заметкам. Арка: ${arc ?? 'подбери по заметкам'}.`,
     `ЖЁСТКИЕ ТРЕБОВАНИЯ:
 - пиши только тем голосом, который задан профилем ниже; обращение, ритм и лексика — автора;
 - не используй стоп-слова из профиля;
 - не выдумывай факты: бери только факты из блока «ФАКТЫ АВТОРА» и данные из заметок;
+- события и даты бери ТОЛЬКО из заметок автора: если в заметках нет даты, не упоминай никаких дат вообще;
+- не придумывай анонсы, приглашения, регистрацию, билеты и названия мероприятий, которых нет в заметках;
 - один пост, без вступлений о себе и без мета-комментариев к заданию;
 - длина 600–1200 знаков.`,
     `СТРУКТУРА (по одному-два предложения на блок):
@@ -276,16 +292,22 @@ export function narrativeUserV2(
     .filter(Boolean)
   if (samples.length > 0) {
     sections.push(
-      `ПРИМЕРЫ ГОЛОСА (стиль, а не факты для копирования):
+      `ПРИМЕРЫ ГОЛОСА — это ТОЛЬКО образец стиля. НЕ переноси из них события, имена, даты, цифры, названия проектов и призывы. Если событие не упомянуто в заметках — его не существует для этого поста.
 ${samples.map((sample, index) => `Пример голоса ${index + 1}:\n${sample}`).join('\n\n')}`,
     )
   }
+
+  if (strictEvents) sections.push(EVENTS_REJECTED_RULE)
 
   sections.push(`ВЕРНИ СТРОГО JSON без пояснений вокруг:
 {"title":"заголовок","blocks":[{"role":"hook|context|insight|takeaway|cta","text":"текст блока"}]}`)
 
   return `${sections.join('\n\n')}\n\nВХОД:\n${notes}`
 }
+
+/** Повторный вызов после провала guard: в ответе были чужие события/даты. */
+export const EVENTS_REJECTED_RULE =
+  'ПРОШЛЫЙ ОТВЕТ ОТКЛОНЁН: в нём появились события или даты, которых нет в заметках автора. Перепиши пост заново только по заметкам. Убери все даты, названия мероприятий, приглашения, регистрацию и билеты, которых нет в заметках.'
 
 export const RESPONSE_SYSTEM = `Ты — автор блога, который отвечает на комментарии читателей в своём стиле.
 Ответ состоит из четырёх частей: reference (отсылка к вопросу), experience (личный опыт),

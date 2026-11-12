@@ -24,6 +24,21 @@ import {
 
 const rank: Record<string, number> = { draft: 0, on_check: 1, ready: 2, published: 3 }
 
+/** Факты старше этого срока не подмешиваем: в них могли остаться прошедшие события. */
+const FACTS_MAX_AGE_DAYS = 180
+
+/**
+ * Свежий ли факт. Если даты создания нет — считаем свежим (обратная совместимость):
+ * в базе created_at есть всегда, но репозиторий может отдать строку без поля.
+ */
+function isFreshFact(row: { created_at?: unknown }): boolean {
+  const raw = row.created_at
+  if (raw === undefined || raw === null || raw === '') return true
+  const createdAt = raw instanceof Date ? raw.getTime() : new Date(String(raw)).getTime()
+  if (!Number.isFinite(createdAt)) return true
+  return Date.now() - createdAt <= FACTS_MAX_AGE_DAYS * 86_400_000
+}
+
 const listSchema = listQuerySchema.extend({
   status: draftStatusSchema.optional(),
   origin: draftOriginSchema.optional(),
@@ -155,18 +170,15 @@ export async function draftRoutes(app: FastifyInstance): Promise<void> {
 
       const budget = await assertAiBudget(profileId, { strict: strictAiOf(body) })
       const useLlm = body.use_llm === true
-      // До 5 последних фактов автора и до 3 прошлых постов: с ними модель
-      // не выдумывает опыт и может подхватить контекст продукта из архива.
-      // Без LLM запросы к памяти не нужны.
+      // Только свежие факты автора (до 180 дней): в старых записях часто остаются
+      // прошедшие события, которые модель выдавала за анонсы («приходите 6 ноября»).
+      // Прошлые посты в промт как «факты» не подмешиваем: они уже служат примерами
+      // голоса в профиле, а как факты модель переносила из них фразы и даты.
       const knowledge = useLlm ? await knowledgeRepo.listRecent(profileId, 5) : []
-      const recentPosts = useLlm ? await posts.listRecent(profileId, 3) : []
       const facts = knowledge
+        .filter((row) => isFreshFact(row))
         .map((row) => String(row.content ?? '').trim())
         .filter((fact) => fact.length > 0)
-      for (const post of recentPosts) {
-        const text = String(post.text ?? '').replace(/\s+/g, ' ').trim()
-        if (text) facts.push(`Контекст из прошлого поста: ${text.slice(0, 500)}`)
-      }
       const narrative = await buildNarrative({
         notes,
         arc: body.arc ?? null,

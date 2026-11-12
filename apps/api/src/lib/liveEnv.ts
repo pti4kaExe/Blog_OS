@@ -28,3 +28,9 @@ export const instagramAccessToken = (): string =>
 export const youtubeApiKey = (): string => liveString('YOUTUBE_API_KEY', env.YOUTUBE_API_KEY)
 
 export const llmMockFail = (): boolean => liveFlag('LLM_MOCK_FAIL', env.LLM_MOCK_FAIL)
+
+/**
+ * Тестовый режим mock-провайдера: ответ с чужим событием и датой.
+ * Нужен, чтобы проверить откат Narrative Engine на правила (invented_events).
+ */
+export const llmMockInventedEvents = (): boolean => liveFlag('LLM_MOCK_INVENTED_EVENTS', false)

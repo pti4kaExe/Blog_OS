@@ -11,6 +11,7 @@ import { ARCS, buildPost, splitFragments, suggestArc } from '@blogos/engine'
 import { env } from '../env.ts'
 import { callLlm, llmConfigured, parseJson } from './llm/index.ts'
 import { NARRATIVE_SYSTEM, narrativeUser, narrativeUserV2 } from './llm/prompts.ts'
+import { findInventedEvents } from './narrativeGuard.ts'
 import type { EngineProfile } from './style.ts'
 import { GAP_RE } from '../lib/text.ts'
 
@@ -240,50 +241,83 @@ export async function buildNarrative(options: NarrativeOptions): Promise<Narrati
   }
 
   const promptVariant = options.promptVariant ?? env.NARRATIVE_PROMPT
-  const outcome = await callLlm({
-    authorId: options.authorId,
-    taskType: 'narrative_generate',
-    system: NARRATIVE_SYSTEM,
-    // Профиль и факты уходят в промпт до «ВХОД:»: модель пишет голосом автора
-    // и не выдумывает опыт, которого нет в базе знаний.
-    user:
-      promptVariant === 'v1'
-        ? narrativeUser(options.notes, options.arc, options.profile, options.facts)
-        : narrativeUserV2(options.notes, options.arc, options.profile, options.facts),
-    json: true,
-    maxTokens: 1600,
-  })
-  if (!outcome.ok) return { ...fallback, aiSkippedReason: 'llm_unavailable' }
+  const userPrompt = (strictEvents: boolean): string =>
+    promptVariant === 'v1'
+      ? narrativeUser(options.notes, options.arc, options.profile, options.facts, strictEvents)
+      : narrativeUserV2(options.notes, options.arc, options.profile, options.facts, strictEvents)
 
-  const parsed = parseJson<{
-    title?: unknown
-    blocks?: unknown
-    added_by_engine?: unknown
-  }>(outcome.result.text)
-  const llmBlocks = parseLlmBlocks(parsed?.blocks)
-  if (llmBlocks.length === 0) {
-    return { ...fallback, aiSkippedReason: 'llm_empty_response' }
+  type Attempt =
+    | {
+        ok: true
+        text: string
+        parsed: { title?: unknown; blocks?: unknown; added_by_engine?: unknown } | null
+        blocks: NarrativeBlock[]
+        generationRunId: number | null
+      }
+    | { ok: false; reason: string }
+
+  const attempt = async (strictEvents: boolean): Promise<Attempt> => {
+    const outcome = await callLlm({
+      authorId: options.authorId,
+      taskType: 'narrative_generate',
+      system: NARRATIVE_SYSTEM,
+      // Профиль и факты уходят в промпт до «ВХОД:»: модель пишет голосом автора
+      // и не выдумывает опыт, которого нет в базе знаний.
+      user: userPrompt(strictEvents),
+      json: true,
+      maxTokens: 1600,
+    })
+    if (!outcome.ok) return { ok: false, reason: 'llm_unavailable' }
+
+    const parsed = parseJson<{
+      title?: unknown
+      blocks?: unknown
+      added_by_engine?: unknown
+    }>(outcome.result.text)
+    const llmBlocks = parseLlmBlocks(parsed?.blocks)
+    if (llmBlocks.length === 0) return { ok: false, reason: 'llm_empty_response' }
+    const text = llmBlocks.map((block) => block.text).join('\n\n')
+    if (GAP_RE.test(text)) return { ok: false, reason: 'llm_unfilled_gaps' }
+    return { ok: true, text, parsed, blocks: llmBlocks, generationRunId: outcome.generationRunId }
   }
-  const llmText = llmBlocks.map((block) => block.text).join('\n\n')
-  if (GAP_RE.test(llmText)) {
-    return { ...fallback, aiSkippedReason: 'llm_unfilled_gaps' }
+
+  let result = await attempt(false)
+
+  // Пост-валидация: модель могла перенести события и даты из примеров голоса
+  // или из старых фактов («приходите 6 ноября на конференцию»). Один повтор с
+  // усиленной инструкцией, дальше — откат на правила: они не выдумывают события.
+  if (result.ok) {
+    const guard = findInventedEvents(result.text, options.notes)
+    if (!guard.ok) {
+      console.warn(
+        `[narrative] отклонён ответ модели: чужие события/даты ` +
+          `${JSON.stringify({ dates: guard.inventedDates, months: guard.inventedMonths, events: guard.inventedEvents })}`,
+      )
+      const retry = await attempt(true)
+      if (!retry.ok) return { ...fallback, aiSkippedReason: 'invented_events' }
+      const retryGuard = findInventedEvents(retry.text, options.notes)
+      if (!retryGuard.ok) return { ...fallback, aiSkippedReason: 'invented_events' }
+      result = retry
+    }
   }
+
+  if (!result.ok) return { ...fallback, aiSkippedReason: result.reason }
 
   const fragments = splitFragments(options.notes)
-  const addedByEngine = Array.isArray(parsed?.added_by_engine)
-    ? (parsed?.added_by_engine as unknown[]).filter((x): x is string => typeof x === 'string')
+  const addedByEngine = Array.isArray(result.parsed?.added_by_engine)
+    ? (result.parsed?.added_by_engine as unknown[]).filter((x): x is string => typeof x === 'string')
     : []
   return {
-    text: llmText,
-    title: typeof parsed?.title === 'string' ? parsed.title : fallback.title,
+    text: result.text,
+    title: typeof result.parsed?.title === 'string' ? result.parsed.title : fallback.title,
     arc: fallback.arc ?? externalArc(requestedArcKey(options.arc)),
     arcAuto: !options.arc,
-    blocks: llmBlocks,
+    blocks: result.blocks,
     addedByEngine,
     notesUsed: fragments.length,
     notesDropped: 0,
     verifiedWithoutAi: false,
-    generationRunId: outcome.generationRunId,
+    generationRunId: result.generationRunId,
   }
 }
 
