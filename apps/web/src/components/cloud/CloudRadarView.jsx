@@ -534,15 +534,18 @@ export default function CloudRadarView({ channel, onUseLocal }) {
                       Последнее сканирование: {fmtDateTime(source.last_scanned_at)}
                     </div>
                     {source.last_scan_error && (
-                      <div className="scan-line" style={{ color: 'var(--bad)' }}>
+                      <div className="scan-line scan-result scan-result-error">
                         Ошибка: {source.last_scan_error}
                       </div>
                     )}
+                    {/* Итог сканирования — тихая строка в тон «Последнему сканированию»,
+                        а не плашка: это ответ на нажатие, а не событие страницы. */}
                     {scanInfo && String(scanInfo.sourceId) === String(source.id) && (
-                      <div className="mt-2">
-                        <Notice kind={scanInfo.kind === 'good' ? 'good' : scanInfo.kind === 'warn' ? 'warn' : 'error'}>
-                          {scanInfo.message}
-                        </Notice>
+                      <div
+                        className={`scan-line scan-result scan-result-${scanInfo.kind === 'good' ? 'good' : scanInfo.kind === 'warn' ? 'warn' : 'error'}`}
+                        role="status"
+                      >
+                        {scanInfo.message}
                       </div>
                     )}
                   </div>
