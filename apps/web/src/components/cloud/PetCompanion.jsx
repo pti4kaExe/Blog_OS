@@ -4,7 +4,7 @@ import {
 } from 'lucide-react'
 import { Icon } from '../ui/Icon.jsx'
 import {
-  emitPetSignal, hidePetFor, lastPetSignal, petHiddenUntil, subscribePet,
+  emitPetSignal, hidePetFor, lastPetSignal, petHiddenUntil, showPet, subscribePet,
 } from '../../lib/petSignals.js'
 
 // Кадры питомца: покой, моргание, взгляд. Сгенерированы из того же PNG,
@@ -343,7 +343,9 @@ export default function PetCompanion({
       setDragging(true)
       setOpen(false)
     }
-    setPos(clampPos(drag.originX + dx, drag.originY + dy, drag.size))
+    const next = clampPos(drag.originX + dx, drag.originY + dy, drag.size)
+    drag.lastPos = next
+    setPos(next)
   }
 
   const onPointerUp = (event) => {
@@ -358,11 +360,30 @@ export default function PetCompanion({
     setDragging(false)
     if (drag.moved) {
       suppressClick.current = true
-      savePos(posRef.current)
+      // Сохраняем именно ту позицию, которую видел пользователь в конце drag.
+      savePos(drag.lastPos ?? posRef.current)
     }
   }
 
-  if (hiddenUntil > Date.now()) return null
+  if (hiddenUntil > Date.now()) {
+    // Не исчезаем бесследно: маленькая кнопка в углу возвращает помощника.
+    return (
+      <button
+        type="button"
+        className="pet-companion-restore"
+        onClick={() => {
+          showPet()
+          setHiddenUntil(petHiddenUntil())
+          window.dispatchEvent(new Event('blogos:pet-restored'))
+        }}
+        title="Вернуть питомца"
+        aria-label="Вернуть питомца"
+      >
+        <Icon as={EyeOff} size="sm" />
+        <span>Вернуть</span>
+      </button>
+    )
+  }
 
   const bubbleVisible = open || hovered || Boolean(flash)
   const bubbleText = flash ?? phrase

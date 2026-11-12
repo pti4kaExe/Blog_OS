@@ -3230,3 +3230,31 @@ button.list-btn { width: 100%; }
   .pet-companion-menu { animation: none; }
 }
 
+
+
+/* Скрытый питомец не исчезает бесследно: маленькая кнопка возврата в углу. */
+.pet-companion-restore {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.14));
+  background: color-mix(in srgb, var(--surface-2, #20202a) 88%, transparent);
+  color: var(--label-secondary, #a5a1b3);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.pet-companion-restore:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+@media (max-width: 660px) {
+  .pet-companion-restore span { display: none; }
+  .pet-companion-restore { padding: 8px; }
+}
