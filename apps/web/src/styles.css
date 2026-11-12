@@ -3065,7 +3065,7 @@ button.list-btn { width: 100%; }
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 40; /* ниже модалок и палитры, выше фона */
+  z-index: 75; /* ниже модалок и палитры, выше основного интерфейса */
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -3237,21 +3237,26 @@ button.list-btn { width: 100%; }
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: 40;
+  z-index: 75;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.14));
-  background: color-mix(in srgb, var(--surface-2, #20202a) 88%, transparent);
-  color: var(--label-secondary, #a5a1b3);
-  font-size: 0.78rem;
+  border: 1px solid rgba(184, 154, 255, 0.38);
+  background:
+    linear-gradient(135deg, rgba(117, 175, 255, 0.18), rgba(184, 154, 255, 0.24)),
+    color-mix(in srgb, var(--surface-2, #20202a) 92%, transparent);
+  color: var(--label-primary, #f4f1fa);
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 18px 38px -22px rgba(117, 175, 255, 0.9);
   cursor: pointer;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 .pet-companion-restore:hover {
-  opacity: 0.9;
+  border-color: rgba(117, 175, 255, 0.62);
+  box-shadow: 0 22px 46px -24px rgba(184, 154, 255, 0.95);
   transform: translateY(-1px);
 }
 @media (max-width: 660px) {

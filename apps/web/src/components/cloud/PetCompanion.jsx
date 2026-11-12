@@ -16,6 +16,7 @@ const FRAMES = {
   left: `${BASE}pet/pet-look-left.png`,
   right: `${BASE}pet/pet-look-right.png`,
 }
+const FALLBACK_FRAME = `${BASE}blogos-pet-cat.png`
 
 const POS_KEY = 'blogos.pet.pos.v1'
 const DRAG_THRESHOLD = 6
@@ -476,6 +477,11 @@ export default function PetCompanion({
           height="92"
           draggable={false}
           decoding="async"
+          onError={(event) => {
+            if (event.currentTarget.dataset.fallback === 'true') return
+            event.currentTarget.dataset.fallback = 'true'
+            event.currentTarget.src = FALLBACK_FRAME
+          }}
         />
       </button>
     </div>

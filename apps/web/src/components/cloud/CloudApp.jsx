@@ -415,6 +415,7 @@ export default function CloudApp({ onUseLocal }) {
     : (CLOUD_SECTIONS.find((item) => item.key === view) || {}).label
 
   return (
+    <>
     <AppShell
       title={activeChannel && view !== 'settings' ? `${activeChannel.name} · ${sectionTitle}` : sectionTitle}
       actions={activeChannel && (
@@ -554,17 +555,6 @@ export default function CloudApp({ onUseLocal }) {
         </span>
       </footer>
 
-      {/* Питомец-помощник: плавающий блок внизу справа. Состояние берёт из
-          контекста (канал, стиль, черновик) и сигналов конвейера. */}
-      <PetCompanion
-        hasChannels={channels.length > 0}
-        channel={activeChannel}
-        view={view}
-        onCreateChannel={() => openChannelForm(null)}
-        onView={setView}
-        onStep={(step) => { setView('pipeline'); setRequestedStep(step) }}
-      />
-
       {channelModal.open && (
         <Suspense fallback={null}>
           <ChannelFormModal
@@ -601,5 +591,16 @@ export default function CloudApp({ onUseLocal }) {
         {deleteError && <InlineError error={deleteError} />}
       </ConfirmDialog>
     </AppShell>
+    {/* Питомец-помощник живёт поверх shell, чтобы анимации и сетка страницы
+        не сбивали fixed-позиционирование после авторизации. */}
+    <PetCompanion
+      hasChannels={channels.length > 0}
+      channel={activeChannel}
+      view={view}
+      onCreateChannel={() => openChannelForm(null)}
+      onView={setView}
+      onStep={(step) => { setView('pipeline'); setRequestedStep(step) }}
+    />
+    </>
   )
 }
