@@ -9,6 +9,7 @@ import { Tag } from './ui.jsx'
 import ProgressRail from './ui/ProgressRail.jsx'
 import AppShell from './ui/AppShell.jsx'
 import ThemeSwitch from './ui/ThemeSwitch.jsx'
+import PetCompanion from './cloud/PetCompanion.jsx'
 import { SideBrand, SideFoot, SideGroup, SideItem } from './ui/SideNav.jsx'
 import { PALETTE_HINT } from './ui/CommandPalette.jsx'
 import { Cloud, Command, Radar, Workflow } from 'lucide-react'
@@ -271,6 +272,7 @@ export default function LocalApp({ onUseCloud }) {
           знаний и доступ с другого устройства.
         </span>
       </footer>
+      <PetCompanion mode="local" onUseLocal={onUseCloud} />
     </AppShell>
   )
 }

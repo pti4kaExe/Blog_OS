@@ -4,7 +4,7 @@ import { apiErrorMessage, isOffline } from '../../lib/format.js'
 import { Field, InlineError, Loading, Notice, Tag, TextInput } from '../ui.jsx'
 import { Icon } from '../ui/Icon.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
-import BlogPet from './BlogPet.jsx'
+import PetCompanion from './PetCompanion.jsx'
 import {
   BarChart3, CalendarDays, CheckCircle2, ChevronRight, Clock3, CloudUpload,
   LockKeyhole, MessageSquareText, PenLine, Rocket, Send, Sparkles, Star, Zap,
@@ -189,9 +189,6 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
           впечатление, а не на действие. Она живёт до входа и не отодвигает
           форму: продукт начинается сразу под ней. */}
       <Stagger className="brand-zone">
-        <Reveal className="brand-zone-pet" offset={14}>
-          <BlogPet />
-        </Reveal>
         <Reveal className="brand-zone-text" offset={14}>
           <div className="hero-kicker">
             <Icon as={Sparkles} size="sm" />
@@ -461,6 +458,7 @@ export default function LoginScreen({ onLogin, onUseLocal }) {
         </div>
       </section>
       </div>
+      <PetCompanion mode="login" onLogin={startBotLogin} onUseLocal={onUseLocal} />
     </>
   )
 }

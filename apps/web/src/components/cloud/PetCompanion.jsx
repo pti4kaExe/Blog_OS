@@ -1,44 +1,114 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowRight, EyeOff, FileText, Settings2, ShieldCheck, Sparkles, Wand2, X,
+  ArrowRight, EyeOff, FileText, LogIn, MonitorCog, RotateCcw, Settings2, ShieldCheck, Sparkles, Wand2, X,
 } from 'lucide-react'
 import { Icon } from '../ui/Icon.jsx'
 import {
   emitPetSignal, hidePetFor, lastPetSignal, petHiddenUntil, subscribePet,
 } from '../../lib/petSignals.js'
 
-// Облегчённые версии: 256 px для десктопа, 128 px для мобилы.
-const PET_SRC = `${import.meta.env.BASE_URL}blogos-pet-cat-256.png`
-const PET_SRC_SMALL = `${import.meta.env.BASE_URL}blogos-pet-cat-128.png`
+// Кадры питомца: покой, моргание, взгляд. Сгенерированы из того же PNG,
+// персонаж не перерисовывался (см. development_log, блок 10).
+const BASE = import.meta.env.BASE_URL
+const FRAMES = {
+  idle: `${BASE}pet/pet-idle.png`,
+  blink: `${BASE}pet/pet-blink.png`,
+  left: `${BASE}pet/pet-look-left.png`,
+  right: `${BASE}pet/pet-look-right.png`,
+}
+
+const POS_KEY = 'blogos.pet.pos.v1'
+const DRAG_THRESHOLD = 6
+const EDGE = 8
+
+function loadPos() {
+  try {
+    const raw = localStorage.getItem(POS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (typeof parsed?.x !== 'number' || typeof parsed?.y !== 'number') return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function savePos(pos) {
+  try {
+    if (!pos) localStorage.removeItem(POS_KEY)
+    else localStorage.setItem(POS_KEY, JSON.stringify({ x: Math.round(pos.x), y: Math.round(pos.y) }))
+  } catch {
+    // приватный режим: позиция живёт до перезагрузки
+  }
+}
+
+function clampPos(x, y, size) {
+  const maxX = Math.max(EDGE, window.innerWidth - size - EDGE)
+  const maxY = Math.max(EDGE, window.innerHeight - size - EDGE)
+  return { x: Math.min(Math.max(EDGE, x), maxX), y: Math.min(Math.max(EDGE, y), maxY) }
+}
+
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const onChange = () => setReduced(query.matches)
+    query.addEventListener?.('change', onChange)
+    return () => query.removeEventListener?.('change', onChange)
+  }, [])
+  return reduced
+}
 
 /**
  * Питомец BlogOS — живой помощник, а не украшение.
  *
- * Что он делает:
- *  - говорит короткую фразу по текущему состоянию (нет канала, не разобран
- *    стиль, пустые заметки, готовый черновик, результат проверки);
- *  - по клику открывает меню реальных действий: «Что дальше?», переход к
- *    нужному шагу конвейера, настройки правил, «Не сейчас»;
- *  - реагирует на события конвейера через petSignals (сигналы шлют
- *    CloudPipeline и CloudCheckStep), поэтому не выдумывает состояние.
- *
- * Прячется на 24 часа по «Не сейчас», возвращается из настроек или сам по
- * истечении срока. Уважает prefers-reduced-motion (анимации только в CSS,
- * при reduce — отключены).
+ *  - говорит короткую фразу по текущему состоянию (вход, нет канала, не
+ *    разобран стиль, готовый черновик, результат проверки);
+ *  - по клику открывает меню реальных действий;
+ *  - его можно перетащить в любое место (позиция запоминается) и вернуть
+ *    на место из меню;
+ *  - моргает каждые 3–6 секунд, смотрит в сторону курсора (кадры + наклон),
+ *    плавно парит и откликается на клик;
+ *  - уважает prefers-reduced-motion: при reduce нет моргания, взгляда и
+ *    парения.
  */
 export default function PetCompanion({
-  hasChannels, channel, view, onCreateChannel, onView, onStep,
+  mode = 'app',
+  hasChannels = false,
+  channel = null,
+  view = 'pipeline',
+  onCreateChannel,
+  onView,
+  onStep,
+  onLogin,
+  onUseLocal,
 }) {
   const [hiddenUntil, setHiddenUntil] = useState(petHiddenUntil)
   const [open, setOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [flash, setFlash] = useState(null)
+  const [pos, setPos] = useState(loadPos)
+  const [dragging, setDragging] = useState(false)
+  const [blink, setBlink] = useState(false)
+  const [look, setLook] = useState('idle')
   const [pipeline, setPipeline] = useState(() => {
     const signal = lastPetSignal()
     return signal?.type === 'pipeline-state' ? signal.payload : {}
   })
+
   const rootRef = useRef(null)
+  const buttonRef = useRef(null)
   const flashTimer = useRef(null)
+  const dragState = useRef({ active: false, moved: false, startX: 0, startY: 0, originX: 0, originY: 0, size: 0, pointerId: null })
+  const posRef = useRef(pos)
+  const suppressClick = useRef(false)
+  const reducedMotion = usePrefersReducedMotion()
+
+  useEffect(() => { posRef.current = pos }, [pos])
 
   // Сигналы конвейера и проверки.
   useEffect(() => subscribePet((signal) => {
@@ -77,6 +147,100 @@ export default function PetCompanion({
 
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current) }, [])
 
+  // Моргание: каждые 3–6 секунд на ~130 мс.
+  useEffect(() => {
+    if (reducedMotion) {
+      setBlink(false)
+      return undefined
+    }
+    let next = null
+    let close = null
+    const schedule = () => {
+      next = setTimeout(() => {
+        setBlink(true)
+        close = setTimeout(() => {
+          setBlink(false)
+          schedule()
+        }, 130)
+      }, 3000 + Math.random() * 3000)
+    }
+    schedule()
+    return () => {
+      clearTimeout(next)
+      clearTimeout(close)
+    }
+  }, [reducedMotion])
+
+  // Взгляд за курсором: направление + наклон. На тач-устройствах не нужно.
+  useEffect(() => {
+    if (reducedMotion || typeof window === 'undefined' || !window.matchMedia) return undefined
+    if (!window.matchMedia('(pointer: fine)').matches) return undefined
+    let frame = 0
+    const onMove = (event) => {
+      if (dragState.current.active) return
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const rect = buttonRef.current?.getBoundingClientRect()
+        if (!rect) return
+        const dx = event.clientX - (rect.left + rect.width / 2)
+        const dy = event.clientY - (rect.top + rect.height / 2)
+        // Смотрит вперёд, когда курсор далеко или по центру.
+        if (Math.abs(dx) < 16 || Math.hypot(dx, dy) > 340) {
+          setLook('idle')
+          return
+        }
+        setLook(dx > 0 ? 'right' : 'left')
+      })
+    }
+    const onLeave = () => setLook('idle')
+    window.addEventListener('pointermove', onMove, { passive: true })
+    window.addEventListener('pointerleave', onLeave)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerleave', onLeave)
+    }
+  }, [reducedMotion])
+
+  // После монтирования подгоняем сохранённую позицию под текущий вьюпорт.
+  useEffect(() => {
+    if (!pos) return
+    const size = buttonRef.current?.offsetWidth ?? 92
+    const next = clampPos(pos.x, pos.y, size)
+    if (next.x !== pos.x || next.y !== pos.y) setPos(next)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Позиция не должна вылезать за экран после ресайза.
+  useEffect(() => {
+    if (!pos) return undefined
+    const onResize = () => {
+      const size = buttonRef.current?.offsetWidth ?? 92
+      setPos((current) => (current ? clampPos(current.x, current.y, size) : current))
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [pos])
+
+  // Сначала грузим только покой и моргание; кадры взгляда — лениво,
+  // когда курсор впервые пошёл по экрану (экономим ~140 КБ на старте).
+  useEffect(() => {
+    ;[FRAMES.idle, FRAMES.blink].forEach((src) => {
+      const image = new Image()
+      image.src = src
+    })
+    let done = false
+    const warmLook = () => {
+      if (done) return
+      done = true
+      ;[FRAMES.left, FRAMES.right].forEach((src) => {
+        const image = new Image()
+        image.src = src
+      })
+    }
+    window.addEventListener('pointermove', warmLook, { once: true, passive: true })
+    return () => window.removeEventListener('pointermove', warmLook)
+  }, [])
+
   // Клик мимо меню и Esc закрывают его.
   useEffect(() => {
     if (!open) return undefined
@@ -93,6 +257,8 @@ export default function PetCompanion({
   }, [open])
 
   const phrase = useMemo(() => {
+    if (mode === 'login') return 'Привет! Войдите через Telegram — и начнём'
+    if (mode === 'local') return 'Локальный режим: черновики живут в браузере'
     if (!hasChannels) return 'Создайте первый канал — и начнём'
     if (!pipeline.tovReady) return 'Сначала разберу ваш стиль'
     if (pipeline.published) return 'Опубликовано! Отличная работа'
@@ -104,11 +270,22 @@ export default function PetCompanion({
     if (pipeline.hasDraft) return 'Отлично, черновик готов'
     if (view !== 'pipeline') return 'Вернёмся к конвейеру поста?'
     return 'Накидайте 4–6 мыслей — соберу черновик'
-  }, [hasChannels, pipeline, view])
+  }, [mode, hasChannels, pipeline, view])
+
+  const resetPosition = useCallback(() => {
+    savePos(null)
+    setPos(null)
+    setOpen(false)
+  }, [])
 
   const actions = useMemo(() => {
     const list = []
-    if (!hasChannels) {
+    if (mode === 'login') {
+      if (onLogin) list.push({ key: 'login', label: 'Войти через Telegram', icon: LogIn, run: onLogin })
+      if (onUseLocal) list.push({ key: 'local', label: 'Работать локально', icon: MonitorCog, run: onUseLocal })
+    } else if (mode === 'local') {
+      list.push({ key: 'what', label: 'Что дальше?', icon: Sparkles, run: () => showFlash(phrase) })
+    } else if (!hasChannels) {
       list.push({ key: 'create', label: 'Создать первый канал', icon: Sparkles, run: onCreateChannel })
     } else if (!pipeline.tovReady) {
       list.push({ key: 'style', label: 'Разобрать стиль', icon: Wand2, run: () => onStep(1) })
@@ -117,8 +294,14 @@ export default function PetCompanion({
     } else {
       list.push({ key: 'check', label: 'Проверить черновик', icon: ShieldCheck, run: () => onStep(4) })
     }
-    list.push({ key: 'what', label: 'Что дальше?', icon: Sparkles, run: () => showFlash(phrase) })
-    list.push({ key: 'rules', label: 'Настроить правила', icon: Settings2, run: () => onView('settings') })
+
+    if (mode === 'app') {
+      list.push({ key: 'what', label: 'Что дальше?', icon: Sparkles, run: () => showFlash(phrase) })
+      list.push({ key: 'rules', label: 'Настроить правила', icon: Settings2, run: () => onView('settings') })
+    }
+    if (pos) {
+      list.push({ key: 'reset', label: 'Вернуть на место', icon: RotateCcw, run: resetPosition })
+    }
     list.push({
       key: 'hide',
       label: 'Не сейчас',
@@ -130,18 +313,73 @@ export default function PetCompanion({
       },
     })
     return list
-  }, [hasChannels, pipeline, phrase, onCreateChannel, onStep, onView, showFlash])
+  }, [mode, hasChannels, pipeline, phrase, pos, onCreateChannel, onStep, onView, onLogin, onUseLocal, showFlash, resetPosition])
+
+  const onPointerDown = (event) => {
+    if (event.button !== undefined && event.button > 0) return
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (!rect) return
+    dragState.current = {
+      active: true,
+      moved: false,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: rect.left,
+      originY: rect.top,
+      size: rect.width,
+      pointerId: event.pointerId,
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  const onPointerMove = (event) => {
+    const drag = dragState.current
+    if (!drag.active) return
+    const dx = event.clientX - drag.startX
+    const dy = event.clientY - drag.startY
+    if (!drag.moved) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+      drag.moved = true
+      setDragging(true)
+      setOpen(false)
+    }
+    setPos(clampPos(drag.originX + dx, drag.originY + dy, drag.size))
+  }
+
+  const onPointerUp = (event) => {
+    const drag = dragState.current
+    if (!drag.active) return
+    drag.active = false
+    try {
+      event.currentTarget.releasePointerCapture?.(drag.pointerId)
+    } catch {
+      // захват уже снят
+    }
+    setDragging(false)
+    if (drag.moved) {
+      suppressClick.current = true
+      savePos(posRef.current)
+    }
+  }
 
   if (hiddenUntil > Date.now()) return null
 
   const bubbleVisible = open || hovered || Boolean(flash)
   const bubbleText = flash ?? phrase
+  const frame = blink ? FRAMES.blink : look === 'left' ? FRAMES.left : look === 'right' ? FRAMES.right : FRAMES.idle
+  const nearTop = Boolean(pos && pos.y < window.innerHeight * 0.38)
+  const nearLeft = Boolean(pos && pos.x < 280)
 
   return (
     <div
       className="pet-companion"
       ref={rootRef}
       data-open={open}
+      data-dragging={dragging}
+      data-look={look}
+      data-vertical={nearTop ? 'down' : 'up'}
+      data-side={nearLeft ? 'left' : 'right'}
+      style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -166,7 +404,9 @@ export default function PetCompanion({
         <div className="pet-companion-menu" role="menu" aria-label="Действия помощника">
           <div className="pet-companion-menu-head">
             <strong>Помощник</strong>
-            <span className="faint">{channel ? channel.name : 'Нет канала'}</span>
+            <span className="faint">
+              {mode === 'login' ? 'Вход' : channel ? channel.name : 'Нет канала'}
+            </span>
           </div>
           {actions.map((action) => (
             <button
@@ -189,24 +429,33 @@ export default function PetCompanion({
 
       <button
         type="button"
+        ref={buttonRef}
         className="pet-companion-button"
-        onClick={() => setOpen((value) => !value)}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onClick={() => {
+          if (suppressClick.current) {
+            suppressClick.current = false
+            return
+          }
+          setOpen((value) => !value)
+        }}
         aria-label={`Питомец BlogOS: ${phrase}`}
         aria-expanded={open}
         aria-haspopup="menu"
-        title="Помощник: подскажет следующий шаг"
+        title="Помощник: подскажет следующий шаг. Можно перетащить"
       >
         <img
-          src={PET_SRC}
-          srcSet={`${PET_SRC_SMALL} 128w, ${PET_SRC} 256w`}
-          sizes="(max-width: 660px) 64px, 96px"
+          className="pet-companion-image"
+          src={frame}
           alt=""
-          width="96"
-          height="96"
-          loading="lazy"
+          width="92"
+          height="92"
+          draggable={false}
           decoding="async"
         />
-        <span className="pet-companion-ring" aria-hidden="true" />
       </button>
     </div>
   )
