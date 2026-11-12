@@ -1516,13 +1516,13 @@ button.list-btn { width: 100%; }
 /* ═════════════════════════════ питомец входа ═════════════════════════════ */
 
 .brand-zone-pet {
-  flex: 0 1 390px;
-  min-width: 320px;
+  flex: 0 1 350px;
+  min-width: 300px;
 }
 
 .blog-pet {
   position: relative;
-  min-height: 318px;
+  min-height: 300px;
   display: grid;
   place-items: center;
   isolation: isolate;
@@ -1574,7 +1574,7 @@ button.list-btn { width: 100%; }
 
 .pet-illustration {
   position: relative;
-  width: min(326px, 88vw);
+  width: min(284px, 78vw);
   margin-top: var(--sp-7);
   animation: pet-float 4.8s var(--ease-in-out) infinite;
 }
@@ -1589,23 +1589,28 @@ button.list-btn { width: 100%; }
 
 .pet-state-list {
   position: absolute;
-  right: 2px; bottom: 14px;
+  right: -4px; bottom: 42px;
   display: grid;
-  gap: var(--sp-2);
-  width: 142px;
+  gap: var(--sp-1);
+  width: 156px;
+  pointer-events: none;
 }
 .pet-state-list span {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 var(--sp-3);
   border-radius: var(--r-full);
-  background: var(--surface-overlay);
+  background: rgba(34, 36, 44, 0.9);
   color: var(--label-secondary);
   border: 1px solid var(--hairline);
   font-size: var(--t-caption-size);
   font-weight: 700;
+  box-shadow: var(--shadow-1);
+  opacity: 0;
+  transform: translateX(18px) translateY(8px) scale(0.94);
+  animation: pet-message-flow 8.8s var(--ease-out) infinite;
 }
 .pet-state-list span[data-active='true'] {
   background: var(--tint-soft);
@@ -1613,6 +1618,9 @@ button.list-btn { width: 100%; }
   border-color: var(--tint-edge);
 }
 .pet-state-list svg { flex: none; }
+.pet-state-list span:nth-child(2) { animation-delay: 2.2s; }
+.pet-state-list span:nth-child(3) { animation-delay: 4.4s; }
+.pet-state-list span:nth-child(4) { animation-delay: 6.6s; }
 
 /* Остальные состояния уже заложены в разметку: переключение data-state
    сможет менять позу питомца без нового компонента. */
@@ -1629,6 +1637,20 @@ button.list-btn { width: 100%; }
 @keyframes pet-float {
   0%, 100% { transform: translateY(0) rotate(-1deg); }
   50% { transform: translateY(-8px) rotate(1deg); }
+}
+@keyframes pet-message-flow {
+  0% {
+    opacity: 0;
+    transform: translateX(18px) translateY(8px) scale(0.94);
+  }
+  7%, 22% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+  31%, 100% {
+    opacity: 0;
+    transform: translateX(-8px) translateY(-10px) scale(0.98);
+  }
 }
 
 /* Бренд-зона: сцена и текст рядом, сцена не отодвигает рабочую часть. */
@@ -1803,16 +1825,16 @@ button.list-btn { width: 100%; }
 @media (max-width: 660px) {
   .brand-zone { gap: var(--sp-5); }
   .brand-zone-pet { min-width: 0; width: 100%; }
-  .blog-pet { min-height: 292px; }
+  .blog-pet { min-height: 286px; }
   .pet-speech {
     left: 50%;
     transform: translateX(-50%) rotate(-2deg);
   }
-  .pet-illustration { width: min(300px, 84vw); }
+  .pet-illustration { width: min(266px, 74vw); }
   .pet-state-list {
-    right: max(var(--sp-2), 5vw);
-    bottom: 2px;
-    width: 128px;
+    right: max(var(--sp-2), 6vw);
+    bottom: 34px;
+    width: 150px;
   }
   .voice-hero { width: min(220px, 70%); margin: 0 auto; }
   .brand-zone-title { font-size: var(--t-title1-size); letter-spacing: var(--t-title1-ls); }
@@ -1823,6 +1845,11 @@ button.list-btn { width: 100%; }
 
 @media (prefers-reduced-motion: reduce) {
   .pet-illustration { animation: none; }
+  .pet-state-list span {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ══════════════════════════════ ритм текста ══════════════════════════════ */

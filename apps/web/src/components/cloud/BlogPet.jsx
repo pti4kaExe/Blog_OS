@@ -1,6 +1,6 @@
 import { Icon } from '../ui/Icon.jsx'
 import {
-  Clock3, Heart, Lightbulb, PenLine, Sparkles,
+  Clock3, Heart, PenLine, Send, Sparkles,
 } from 'lucide-react'
 
 const PET_SRC = `${import.meta.env.BASE_URL}blogos-pet-cat.png`
@@ -28,10 +28,10 @@ export default function BlogPet() {
       </div>
 
       <div className="pet-state-list" aria-label="Состояния питомца">
-        <span data-active="true"><Icon as={PenLine} size="sm" /> пишет</span>
-        <span><Icon as={Lightbulb} size="sm" /> думает</span>
+        <span data-active="true"><Icon as={PenLine} size="sm" /> пишет...</span>
+        <span><Icon as={Send} size="sm" /> отправил</span>
         <span><Icon as={Heart} size="sm" /> лайки</span>
-        <span><Icon as={Clock3} size="sm" /> ждёт</span>
+        <span><Icon as={Clock3} size="sm" /> ждёт пост</span>
       </div>
     </div>
   )
