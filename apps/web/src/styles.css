@@ -1003,6 +1003,15 @@ a.btn { text-decoration: none; }
   text-transform: uppercase; color: var(--label-tertiary);
 }
 
+/* Итог поиска по базе знаний: одна тихая строка над находками. */
+.kb-summary {
+  margin: var(--sp-4) 0 var(--sp-3);
+  font-size: var(--t-footnote-size); line-height: var(--t-footnote-lh);
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.kb-summary span { color: var(--label-tertiary); }
+
 .kv { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-4); font-size: var(--t-footnote-size); }
 .kv dt { color: var(--label-tertiary); }
 .kv dd { margin: 0; color: var(--label-secondary); }
