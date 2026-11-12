@@ -4,8 +4,8 @@ import {
   clamp, fmtDateTime, fmtPercent, isOffline, plural,
 } from '../../lib/format.js'
 import {
-  ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Metric, Modal,
-  Tag, TextInput,
+  ConfirmDialog, EmptyState, ErrorState, Field, InlineError, Modal,
+  TextInput,
 } from '../ui.jsx'
 import { SkeletonList, SkeletonRegion } from '../ui/Skeleton.jsx'
 import { Reveal, Stagger } from '../ui/Motion.jsx'
@@ -239,19 +239,21 @@ export default function KnowledgeView({ channel, onUseLocal }) {
 
         {searchResult && (
           <>
-            {/* Название модели — идентификатор, не число: в сетке статов
-                оно получало крупную антикву и переламывалось на три
-                строки. Автору оно нужно разве что при разборе сбоя,
-                поэтому ушло в тихую подпись. */}
-            <div className="metrics metrics-compact my-4">
-              <Metric value={(searchResult.items || []).length} label="подходящих отрывков" />
-              <Metric value={searchResult.searched_chunks ?? '—'} label="отрывков просмотрено" />
-            </div>
-            {searchResult.query_embedding_model && (
-              <p className="faint" style={{ marginTop: -6, marginBottom: 14 }}>
-                модель поиска: <code>{searchResult.query_embedding_model}</code>
-              </p>
-            )}
+            {/* Итог поиска — одна строка, а не сетка статов. Две крупные цифры
+                с подписями капсом ломались на две строки и спорили с самими
+                находками. Модель поиска автору не нужна — она в подсказке. */}
+            {(() => {
+              const found = (searchResult.items || []).length
+              const seen = searchResult.searched_chunks
+              /* Пустой итог объясняет EmptyState ниже — вторая строка не нужна. */
+              if (found === 0) return null
+              return (
+                <p className="kb-summary" title={searchResult.query_embedding_model ? `Модель поиска: ${searchResult.query_embedding_model}` : undefined}>
+                  {found} {plural(found, 'подходящий отрывок', 'подходящих отрывка', 'подходящих отрывков')}
+                  {typeof seen === 'number' && <span> · просмотрено {seen}</span>}
+                </p>
+              )
+            })()}
 
             {(searchResult.items || []).length === 0 ? (
               <EmptyState title="Ничего не найдено">
@@ -267,11 +269,11 @@ export default function KnowledgeView({ channel, onUseLocal }) {
                           (`1 - (embedding <=> vector)`). Отрицательное значение
                           означает «смысл противоположный» — для автора это
                           просто ноль совпадения, а не «минус один процент». */}
-                      <Tag>совпадение {fmtPercent(clamp(hit.score, 0, 1), 0)}</Tag>
                       <div className="spacer" />
-                      {hit.chunk_index !== undefined && (
-                        <span className="list-item-meta">отрывок {hit.chunk_index + 1}</span>
-                      )}
+                      <span className="list-item-meta">
+                        совпадение {fmtPercent(clamp(hit.score, 0, 1), 0)}
+                        {hit.chunk_index !== undefined && ` · отрывок ${hit.chunk_index + 1}`}
+                      </span>
                     </div>
                     <div className="list-item-text">{hit.chunk_text}</div>
                   </div>

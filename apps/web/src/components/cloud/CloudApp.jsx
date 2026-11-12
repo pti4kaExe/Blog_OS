@@ -522,7 +522,6 @@ export default function CloudApp({ onUseLocal }) {
             key={activeChannel.id}
             channel={activeChannel}
             onUseLocal={onUseLocal}
-            onAnalyzeArchive={() => { setView('pipeline'); setRequestedStep(1) }}
           />
         )}
         {activeChannel && view === 'radar' && (

@@ -573,8 +573,9 @@ export default function CloudCheckStep({
           </div>
         )}
 
-        {ruleNotice && <div className="mb-3"><Notice kind="good">{ruleNotice}</Notice></div>}
-        {notice && <div className="mb-3"><Notice kind="warn">{notice}</Notice></div>}        <InlineError error={lintError} />
+        {ruleNotice && <div className="mt-3 mb-3"><Notice kind="good">{ruleNotice}</Notice></div>}
+        {notice && <div className="mt-3 mb-3"><Notice kind="warn">{notice}</Notice></div>}
+        <InlineError error={lintError} />
 
         <div className="my-4">
           <Toggle

@@ -1003,6 +1003,15 @@ a.btn { text-decoration: none; }
   text-transform: uppercase; color: var(--label-tertiary);
 }
 
+/* Итог поиска по базе знаний: одна тихая строка над находками. */
+.kb-summary {
+  margin: var(--sp-4) 0 var(--sp-3);
+  font-size: var(--t-footnote-size); line-height: var(--t-footnote-lh);
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.kb-summary span { color: var(--label-tertiary); }
+
 .kv { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-4); font-size: var(--t-footnote-size); }
 .kv dt { color: var(--label-tertiary); }
 .kv dd { margin: 0; color: var(--label-secondary); }
@@ -1277,6 +1286,22 @@ button.list-btn { width: 100%; }
 
 .scan-box { border-radius: var(--r-sm); padding: var(--sp-3); background: var(--surface-overlay); margin-top: var(--sp-3); }
 .scan-line { font-size: var(--t-caption-size); color: var(--label-tertiary); }
+.scan-result {
+  display: flex; align-items: baseline; gap: var(--sp-2);
+  margin-top: var(--sp-1);
+  color: var(--label-secondary);
+}
+/* Статус передаёт точка, текст остаётся читаемым: цветной мелкий
+   текст на тёмной подложке теряет контраст. */
+.scan-result::before {
+  content: ''; flex: none;
+  width: 6px; height: 6px; border-radius: 50%;
+  transform: translateY(-1px);
+  background: var(--label-tertiary);
+}
+.scan-result-good::before { background: var(--success); }
+.scan-result-warn::before { background: var(--warning); }
+.scan-result-error::before { background: var(--danger); }
 .source-state { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; margin-top: var(--sp-2); }
 .source-toggle { display: flex; align-items: center; gap: var(--sp-2); }
 

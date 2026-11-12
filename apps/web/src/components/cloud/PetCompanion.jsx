@@ -201,7 +201,8 @@ export default function PetCompanion({
   const showFlash = useCallback((text) => {
     setFlash(text)
     if (flashTimer.current) clearTimeout(flashTimer.current)
-    flashTimer.current = setTimeout(() => setFlash(null), 5000)
+    /* Длинную подсказку не успеть прочитать за 5 секунд — время растёт с текстом. */
+    flashTimer.current = setTimeout(() => setFlash(null), Math.max(5000, String(text).length * 65))
   }, [])
 
   /** Радость на несколько секунд: после публикации и отличной проверки. */
@@ -384,6 +385,18 @@ export default function PetCompanion({
     return 'Накидайте 4–6 мыслей — соберу черновик'
   }, [mode, hasChannels, pipeline, view])
 
+  /* Развёрнутый ответ на «Что дальше?». Короткая фраза в пузыре остаётся,
+     а то, что раньше висело плашкой на шаге «Заметки», рассказывает питомец. */
+  const nextTip = useMemo(() => {
+    if (mode === 'app' && view === 'archive') {
+      return 'В архиве уже есть материал — по нему можно построить профиль стиля, не вставляя тексты руками'
+    }
+    if (mode === 'app' && hasChannels && pipeline.tovReady && !pipeline.hasDraft && !pipeline.published) {
+      return 'Соберу черновик на шаге «Черновик»: там будут блоки арки, пометки о том, что я добавил, и текст можно править с сохранением'
+    }
+    return phrase
+  }, [mode, hasChannels, pipeline, phrase, view])
+
   const baseMood = useMemo(() => {
     if (dragging) return 'working'
     // Длинный текст или много замечаний — питомец устал вместе с автором.
@@ -429,7 +442,10 @@ export default function PetCompanion({
     }
 
     if (mode === 'app') {
-      list.push({ key: 'what', label: 'Что дальше?', icon: Sparkles, run: () => showFlash(phrase) })
+      list.push({ key: 'what', label: 'Что дальше?', icon: Sparkles, run: () => showFlash(nextTip) })
+      if (view === 'archive' && pipeline.tovReady) {
+        list.push({ key: 'archive-style', label: 'Разобрать стиль по архиву', icon: Wand2, run: () => onStep(1) })
+      }
       if (pipeline.topIssue?.quote) {
         list.push({ key: 'issue', label: 'Открыть замечание', icon: ShieldCheck, run: () => onStep(4) })
       }
@@ -451,7 +467,7 @@ export default function PetCompanion({
       run: hideCompanion,
     })
     return list
-  }, [mode, hasChannels, pipeline, phrase, pos, cookies, onCreateChannel, onStep, onView, onLogin, onUseLocal, showFlash, resetPosition, hideCompanion])
+  }, [mode, view, hasChannels, pipeline, phrase, nextTip, pos, cookies, onCreateChannel, onStep, onView, onLogin, onUseLocal, showFlash, resetPosition, hideCompanion])
 
   const onPointerDown = (event) => {
     if (event.button !== undefined && event.button > 0) return
