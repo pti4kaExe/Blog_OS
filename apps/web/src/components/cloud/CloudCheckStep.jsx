@@ -524,9 +524,9 @@ export default function CloudCheckStep({
         <hr className="hr" />
 
         <h3>Публикация</h3>
-        <div className="mb-3">
+        <div className="publication-meta mb-3">
           <StatusTag list={DRAFT_STATUSES} value={draft.status} />
-          {draft.arc && <span className="faint"> · арка: {arcLabel(draft.arc)}</span>}
+          {draft.arc && <span className="faint">арка: {arcLabel(draft.arc)}</span>}
         </div>
 
         {published && !publishResult ? (
