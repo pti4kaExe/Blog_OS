@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowRight, Coffee, EyeOff, FileText, Heart, Lightbulb, LogIn, MonitorCog, Pencil, RotateCcw, Settings2, ShieldCheck, Sparkles, Wand2, X,
+  ArrowRight, Coffee, Cookie, EyeOff, FileText, Heart, Lightbulb, LogIn, MonitorCog, Pencil, RotateCcw, Settings2, ShieldCheck, Sparkles, Wand2, X,
 } from 'lucide-react'
 import { Icon } from '../ui/Icon.jsx'
 import {
   emitPetSignal, hidePetFor, lastPetSignal, petHiddenUntil, showPet, subscribePet,
 } from '../../lib/petSignals.js'
-import { addPetCookie, petCookies, subscribePetPrefs } from '../../lib/petPrefs.js'
+import { addPetCookie, petCookies, petWanderEnabled, subscribePetPrefs } from '../../lib/petPrefs.js'
 import { playPetChirp, playPetPublish } from '../../lib/petSound.js'
 
 // Кадры питомца: покой, моргание, взгляд. Сгенерированы из того же PNG,
@@ -133,6 +133,11 @@ export default function PetCompanion({
   const [blink, setBlink] = useState(false)
   const [look, setLook] = useState('idle')
   const [cookies, setCookies] = useState(petCookies)
+  // Настроение с таймером (радость после победы) — поверх базового.
+  const [moodBoost, setMoodBoost] = useState(null)
+  const [wandering, setWandering] = useState(false)
+  const [wanderOn, setWanderOn] = useState(petWanderEnabled)
+  const [cookieFlash, setCookieFlash] = useState(false)
   const [pipeline, setPipeline] = useState(() => {
     const signal = lastPetSignal()
     return signal?.type === 'pipeline-state' ? signal.payload : {}
@@ -141,6 +146,9 @@ export default function PetCompanion({
   const rootRef = useRef(null)
   const buttonRef = useRef(null)
   const flashTimer = useRef(null)
+  const boostTimer = useRef(null)
+  const cookieTimer = useRef(null)
+  const activity = useRef({ first: 0, last: 0 })
   const dragState = useRef({ active: false, moved: false, startX: 0, startY: 0, originX: 0, originY: 0, size: 0, pointerId: null })
   const posRef = useRef(pos)
   const suppressClick = useRef(false)
@@ -157,6 +165,7 @@ export default function PetCompanion({
     if (signal.type === 'lint-ready') {
       setPipeline((prev) => ({ ...prev, ...signal.payload, published: false }))
       showFlash(issuePhrase(signal.payload.topIssue) || 'Проверка готова — замечаний нет, можно финально пройтись глазами')
+      if ((signal.payload.score ?? 0) >= 80) celebrate(4200)
       return
     }
     if (signal.type === 'published') {
@@ -164,7 +173,15 @@ export default function PetCompanion({
       const nextCookies = addPetCookie()
       setCookies(nextCookies)
       playPetPublish()
+      celebrate(5000)
+      setCookieFlash(true)
+      if (cookieTimer.current) clearTimeout(cookieTimer.current)
+      cookieTimer.current = setTimeout(() => setCookieFlash(false), 1500)
       showFlash(`Опубликовано! Ловлю первые лайки. Печеньки: ${nextCookies}`)
+      return
+    }
+    if (signal.type === 'draft-text') {
+      setPipeline((prev) => ({ ...prev, textLength: signal.payload?.length ?? 0 }))
       return
     }
     if (signal.type === 'draft-ready') {
@@ -180,7 +197,10 @@ export default function PetCompanion({
     return () => window.removeEventListener('blogos:pet-restored', onRestore)
   }, [])
 
-  useEffect(() => subscribePetPrefs(() => setCookies(petCookies())), [])
+  useEffect(() => subscribePetPrefs(() => {
+    setCookies(petCookies())
+    setWanderOn(petWanderEnabled())
+  }), [])
 
   const showFlash = useCallback((text) => {
     setFlash(text)
@@ -188,7 +208,18 @@ export default function PetCompanion({
     flashTimer.current = setTimeout(() => setFlash(null), 5000)
   }, [])
 
-  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current) }, [])
+  /** Радость на несколько секунд: после публикации и отличной проверки. */
+  const celebrate = useCallback((ms = 4500) => {
+    setMoodBoost('happy')
+    if (boostTimer.current) clearTimeout(boostTimer.current)
+    boostTimer.current = setTimeout(() => setMoodBoost(null), ms)
+  }, [])
+
+  useEffect(() => () => {
+    if (flashTimer.current) clearTimeout(flashTimer.current)
+    if (boostTimer.current) clearTimeout(boostTimer.current)
+    if (cookieTimer.current) clearTimeout(cookieTimer.current)
+  }, [])
 
   // Моргание: каждые 3–6 секунд на ~130 мс.
   useEffect(() => {
@@ -244,6 +275,65 @@ export default function PetCompanion({
       window.removeEventListener('pointerleave', onLeave)
     }
   }, [reducedMotion])
+
+  // Усталость от долгой сессии: больше 20 минут активности без паузы.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const onActivity = () => {
+      const now = Date.now()
+      if (!activity.current.first) activity.current.first = now
+      activity.current.last = now
+    }
+    window.addEventListener('pointerdown', onActivity, { passive: true })
+    window.addEventListener('keydown', onActivity)
+    const timer = setInterval(() => {
+      const { first, last } = activity.current
+      if (!first || !last) return
+      const now = Date.now()
+      // Перерыв — сбрасываем сессию и усталость.
+      if (now - last > 5 * 60 * 1000) {
+        activity.current = { first: 0, last: 0 }
+        setMoodBoost((current) => (current === 'tired' ? null : current))
+        return
+      }
+      if (now - first > 20 * 60 * 1000 && now - last < 2 * 60 * 1000) {
+        setMoodBoost((current) => (current === 'happy' ? current : 'tired'))
+      }
+    }, 30_000)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('pointerdown', onActivity)
+      window.removeEventListener('keydown', onActivity)
+    }
+  }, [])
+
+  // Прогулка: раз в 20–40 секунд питомец переходит на 30–80 px в случайную
+  // сторону — плавно (CSS-переход), не перекрывая работу пользователя.
+  useEffect(() => {
+    if (!wanderOn || reducedMotion || dragging || open || hovered) return undefined
+    let timer = null
+    const walk = () => {
+      timer = setTimeout(() => {
+        const rect = buttonRef.current?.getBoundingClientRect()
+        const size = rect?.width ?? 92
+        const base = posRef.current ?? { x: rect?.left ?? 0, y: rect?.top ?? 0 }
+        const angle = Math.random() * Math.PI * 2
+        const distance = 30 + Math.random() * 50
+        const next = clampPos(
+          base.x + Math.cos(angle) * distance,
+          base.y + Math.sin(angle) * distance * 0.5,
+          size,
+        )
+        setWandering(true)
+        setPos(next)
+        savePos(next)
+        setTimeout(() => setWandering(false), 950)
+        walk()
+      }, 20_000 + Math.random() * 20_000)
+    }
+    walk()
+    return () => clearTimeout(timer)
+  }, [wanderOn, reducedMotion, dragging, open, hovered])
 
   // После монтирования подгоняем сохранённую позицию под текущий вьюпорт.
   useEffect(() => {
@@ -318,14 +408,17 @@ export default function PetCompanion({
     return 'Накидайте 4–6 мыслей — соберу черновик'
   }, [mode, hasChannels, pipeline, view])
 
-  const mood = useMemo(() => {
+  const baseMood = useMemo(() => {
     if (dragging) return 'working'
-    if (pipeline.published) return 'happy'
-    if ((pipeline.textLength || 0) > 1800 || (pipeline.issueCount || 0) >= 6) return 'tired'
+    // Длинный текст или много замечаний — питомец устал вместе с автором.
+    if ((pipeline.textLength || 0) > 4000 || (pipeline.issueCount || 0) >= 6) return 'tired'
     if (!hasChannels || !pipeline.tovReady || view !== 'pipeline') return 'thinking'
     if (pipeline.hasDraft || typeof pipeline.score === 'number') return 'working'
     return 'hello'
   }, [dragging, hasChannels, pipeline, view])
+
+  // Таймер радости важнее базового настроения, но проходит сам.
+  const mood = moodBoost ?? baseMood
 
   const BubbleIcon = moodIcon(mood)
 
@@ -354,6 +447,15 @@ export default function PetCompanion({
 
     if (mode === 'app') {
       list.push({ key: 'what', label: 'Что дальше?', icon: Sparkles, run: () => showFlash(phrase) })
+      if (pipeline.topIssue?.quote) {
+        list.push({ key: 'issue', label: 'Открыть замечание', icon: ShieldCheck, run: () => onStep(4) })
+      }
+      list.push({
+        key: 'cookies',
+        label: `Печенек: ${cookies}`,
+        icon: Cookie,
+        run: () => showFlash(cookies > 0 ? `Съедено печенек: ${cookies}. Спасибо!` : 'Печенек пока нет — опубликуйте пост, и я угощусь'),
+      })
       list.push({ key: 'rules', label: 'Настроить правила', icon: Settings2, run: () => onView('settings') })
     }
     if (pos) {
@@ -370,7 +472,7 @@ export default function PetCompanion({
       },
     })
     return list
-  }, [mode, hasChannels, pipeline, phrase, pos, onCreateChannel, onStep, onView, onLogin, onUseLocal, showFlash, resetPosition])
+  }, [mode, hasChannels, pipeline, phrase, pos, cookies, onCreateChannel, onStep, onView, onLogin, onUseLocal, showFlash, resetPosition])
 
   const onPointerDown = (event) => {
     if (event.button !== undefined && event.button > 0) return
@@ -460,6 +562,7 @@ export default function PetCompanion({
       data-dragging={dragging}
       data-look={look}
       data-mood={mood}
+      data-wandering={wandering}
       data-vertical={nearTop ? 'down' : 'up'}
       data-side={nearLeft ? 'left' : 'right'}
       style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}
@@ -508,6 +611,12 @@ export default function PetCompanion({
             </button>
           ))}
         </div>
+      )}
+
+      {cookieFlash && (
+        <span className="pet-companion-cookie" aria-hidden="true">
+          <Icon as={Cookie} size="sm" />
+        </span>
       )}
 
       <button
