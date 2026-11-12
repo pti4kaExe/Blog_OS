@@ -64,9 +64,17 @@ export default function AppShell({ sidebar, title, actions, children }) {
           {title && <div className="shell-bar-title">{title}</div>}
           <div className="spacer" />
           {actions}
-          <div className="shell-pet" title="BlogOS помогает собрать пост без суеты">
-            <img src={assetUrl('blogos-pet-cat.png')} alt="" aria-hidden="true" width="44" height="44" />
-            <span>Помощник рядом</span>
+          {/* Компактный питомец: только образ, без подписи. Подсказка
+              появляется при наведении (CSS на data-tip) и не занимает
+              места в шапке. Текст для скринридеров — отдельно. */}
+          <div
+            className="shell-pet"
+            data-tip="Помощник рядом: подскажет следующий шаг и похвалит за готовый пост"
+            role="img"
+            aria-label="Питомец BlogOS — помощник рядом"
+          >
+            <img src={assetUrl('blogos-pet-cat.png')} alt="" aria-hidden="true" width="36" height="36" />
+            <span className="sr-only">Питомец BlogOS — помощник рядом</span>
           </div>
         </div>
 

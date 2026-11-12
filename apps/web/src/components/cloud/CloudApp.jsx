@@ -465,6 +465,9 @@ export default function CloudApp({ onUseLocal }) {
         <section className="card first-channel-card">
           <div className="first-channel-pet" aria-hidden="true">
             <img src={`${import.meta.env.BASE_URL}blogos-pet-cat.png`} alt="" loading="eager" decoding="async" />
+            {/* Ноутбук — CSS-композиция вокруг существующего образа питомца:
+                отдельной иллюстрации в проекте нет, стоковые картинки не берём. */}
+            <span className="first-channel-laptop" />
           </div>
           <div className="first-channel-copy">
             <span className="first-channel-kicker">первый шаг</span>
