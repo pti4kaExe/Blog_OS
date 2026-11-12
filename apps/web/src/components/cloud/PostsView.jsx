@@ -38,7 +38,7 @@ function emptyForm(platform) {
  *
  * Дедупликация импорта — на сервере, по паре `(author_id, external_id)`.
  */
-export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
+export default function PostsView({ channel, onUseLocal }) {
   const types = useMemo(() => contentTypesFor(channel.platform), [channel.platform])
 
   const [items, setItems] = useState([])
@@ -379,15 +379,7 @@ export default function PostsView({ channel, onUseLocal, onAnalyzeArchive }) {
               </div>
             )}
 
-            {onAnalyzeArchive && (
-              <Notice>
-                В архиве есть материал — профиль стиля можно построить по нему,
-                не вставляя тексты руками.{' '}
-                <button type="button" className="btn btn-sm" onClick={onAnalyzeArchive}>
-                  Перейти к разбору стиля
-                </button>
-              </Notice>
-            )}
+            {/* Подсказку «разобрать стиль по архиву» теперь даёт питомец. */}
           </>
         )}
       </section>

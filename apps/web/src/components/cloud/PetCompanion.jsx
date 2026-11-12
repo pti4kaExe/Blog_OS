@@ -388,11 +388,14 @@ export default function PetCompanion({
   /* Развёрнутый ответ на «Что дальше?». Короткая фраза в пузыре остаётся,
      а то, что раньше висело плашкой на шаге «Заметки», рассказывает питомец. */
   const nextTip = useMemo(() => {
+    if (mode === 'app' && view === 'archive') {
+      return 'В архиве уже есть материал — по нему можно построить профиль стиля, не вставляя тексты руками'
+    }
     if (mode === 'app' && hasChannels && pipeline.tovReady && !pipeline.hasDraft && !pipeline.published) {
       return 'Соберу черновик на шаге «Черновик»: там будут блоки арки, пометки о том, что я добавил, и текст можно править с сохранением'
     }
     return phrase
-  }, [mode, hasChannels, pipeline, phrase])
+  }, [mode, hasChannels, pipeline, phrase, view])
 
   const baseMood = useMemo(() => {
     if (dragging) return 'working'
@@ -440,6 +443,9 @@ export default function PetCompanion({
 
     if (mode === 'app') {
       list.push({ key: 'what', label: 'Что дальше?', icon: Sparkles, run: () => showFlash(nextTip) })
+      if (view === 'archive' && pipeline.tovReady) {
+        list.push({ key: 'archive-style', label: 'Разобрать стиль по архиву', icon: Wand2, run: () => onStep(1) })
+      }
       if (pipeline.topIssue?.quote) {
         list.push({ key: 'issue', label: 'Открыть замечание', icon: ShieldCheck, run: () => onStep(4) })
       }
@@ -461,7 +467,7 @@ export default function PetCompanion({
       run: hideCompanion,
     })
     return list
-  }, [mode, hasChannels, pipeline, phrase, nextTip, pos, cookies, onCreateChannel, onStep, onView, onLogin, onUseLocal, showFlash, resetPosition, hideCompanion])
+  }, [mode, view, hasChannels, pipeline, phrase, nextTip, pos, cookies, onCreateChannel, onStep, onView, onLogin, onUseLocal, showFlash, resetPosition, hideCompanion])
 
   const onPointerDown = (event) => {
     if (event.button !== undefined && event.button > 0) return
